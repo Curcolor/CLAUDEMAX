@@ -23,12 +23,12 @@ ac_component_figma() {
         fi
     fi
 
-    ac_info "Registering Figma MCP at https://mcp.figma.com/mcp"
-    if ac_run claude mcp add --transport http figma https://mcp.figma.com/mcp; then
-        ac_info "Figma MCP registered."
+    ac_info "Registering Figma MCP at https://mcp.figma.com/mcp (user scope)"
+    if ac_run claude mcp add -s user --transport http figma https://mcp.figma.com/mcp; then
+        ac_info "Figma MCP registered (available in every project)."
     else
         ac_warn "claude mcp add failed for figma — try manually:"
-        ac_warn "  claude mcp add --transport http figma https://mcp.figma.com/mcp"
+        ac_warn "  claude mcp add -s user --transport http figma https://mcp.figma.com/mcp"
         return 0
     fi
 

@@ -61,11 +61,14 @@ ABSOLUTE-CLAUDE/
 ## Component install order (and why)
 
 1. **rtk** — independent binary; install first so subsequent steps can verify PATH.
-2. **caveman** — wires hooks, statusline, `caveman-shrink` MCP. Idempotent.
+   - On macOS/Linux: runs the upstream `curl | sh` installer.
+   - On Windows (MinGW/MSYS/Cygwin via Git Bash): downloads `rtk-x86_64-pc-windows-msvc.zip` from the latest GitHub release and extracts `rtk.exe` to `~/.local/bin/`. Tries `unzip`, then `powershell.exe Expand-Archive`, then `python -m zipfile` until one works.
+   - The PreToolUse/Bash hook (`rtk hook claude`) is written directly into `~/.claude/settings.json` via our JSONC merger — we do not depend on `rtk init -g`'s interactive y/N prompt, which defaults to `N` in non-interactive shells.
+2. **caveman** — wires hooks, statusline, `caveman-shrink` MCP. Idempotent. The `caveman-shrink` MCP registers at project scope (Caveman's own installer manages this).
 3. **dcp** — needs `$CLAUDE_CONFIG_DIR/settings.json` to exist; Caveman's earlier merge ensures it does.
 4. **repo-map** — pure file copy; no order dependency.
-5. **figma** — needs `claude` CLI; logs and continues if missing.
-6. **ui-ux** — also needs `claude` for the magic MCP; mutates cwd via `npm install` (gated).
+5. **figma** — needs `claude` CLI; registers at **user scope** (`claude mcp add -s user`) so it works in every project.
+6. **ui-ux** — also needs `claude` for the magic MCP (also registered at **user scope**); mutates cwd via `npm install` (gated).
 
 ## Flag interactions
 

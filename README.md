@@ -51,8 +51,10 @@ Re-runnable. Idempotent. Pass `--dry-run` to see exactly what would happen.
 
 ## After install
 
+Only two things left, and one of them is just restarting your editor:
+
 1. **Restart Claude Code** — hooks and skills load at session start.
-2. **Finish Figma OAuth**: open Claude Code, run `/mcp`, select `figma`, complete the browser flow. ABSOLUTE-CLAUDE stores no Figma tokens.
+2. **Finish Figma OAuth**: open Claude Code, run `/mcp`, select `figma`, complete the browser flow. ABSOLUTE-CLAUDE stores no Figma tokens. (This is the only step we can't automate — OAuth requires a browser.)
 3. Try the commands:
    - `/caveman` — terse mode on.
    - `/repomap` — builds `.claude/repo-map.md` for the current project.
@@ -91,11 +93,12 @@ See `bin/components/*.sh` for every command line.
 
 ## Scope (what this is and isn't)
 
-- ✅ Single bash installer, macOS / Linux / WSL / Git Bash.
+- ✅ Single bash installer, macOS / Linux / WSL / **Git Bash on Windows**.
+- ✅ Windows-native: RTK ships an `rtk.exe` binary which the installer downloads automatically when it detects MINGW/MSYS/Cygwin. MCPs (`figma`, `magic`) register at user scope so they work in every project.
 - ✅ Idempotent, dry-runnable, surgical uninstall.
-- ❌ No native Windows PowerShell installer (use WSL or Git Bash).
+- ❌ No native Windows PowerShell installer (use Git Bash — already shipped with Git for Windows).
 - ❌ No fork of real DCP for Claude Code. `dcp-lite` is a skill, not a port.
-- ❌ No Figma token storage. OAuth stays browser-based.
+- ❌ No Figma token storage. OAuth stays browser-based — this is the only manual step.
 
 ---
 

@@ -1,10 +1,27 @@
 #!/usr/bin/env bash
 # Tool detection. Source-only.
-# Exports: AC_HAS_CLAUDE, AC_HAS_OPENCODE, AC_HAS_NODE, AC_HAS_NPM, AC_HAS_GIT, AC_HAS_CURL, AC_NODE_MAJOR.
+# Exports: AC_HAS_CLAUDE, AC_HAS_OPENCODE, AC_HAS_NODE, AC_HAS_NPM, AC_HAS_GIT, AC_HAS_CURL,
+#          AC_NODE_MAJOR, AC_OS, AC_ARCH.
 
 ac_have() { command -v "$1" >/dev/null 2>&1; }
 
+ac_detect_os() {
+    case "$(uname -s 2>/dev/null)" in
+        MINGW*|MSYS*|CYGWIN*) AC_OS=windows ;;
+        Darwin)               AC_OS=macos ;;
+        Linux)                AC_OS=linux ;;
+        *)                    AC_OS=unknown ;;
+    esac
+    case "$(uname -m 2>/dev/null)" in
+        x86_64|amd64)         AC_ARCH=x86_64 ;;
+        arm64|aarch64)        AC_ARCH=aarch64 ;;
+        *)                    AC_ARCH=unknown ;;
+    esac
+    export AC_OS AC_ARCH
+}
+
 ac_detect_all() {
+    ac_detect_os
     AC_HAS_CURL=0; ac_have curl     && AC_HAS_CURL=1
     AC_HAS_GIT=0;  ac_have git      && AC_HAS_GIT=1
     AC_HAS_NODE=0; ac_have node     && AC_HAS_NODE=1
@@ -45,5 +62,5 @@ ac_require_tools() {
 }
 
 ac_summary() {
-    ac_dim "  curl=$AC_HAS_CURL git=$AC_HAS_GIT node=$AC_HAS_NODE(v$AC_NODE_MAJOR) npm=$AC_HAS_NPM claude=$AC_HAS_CLAUDE opencode=$AC_HAS_OPENCODE"
+    ac_dim "  os=$AC_OS/$AC_ARCH curl=$AC_HAS_CURL git=$AC_HAS_GIT node=$AC_HAS_NODE(v$AC_NODE_MAJOR) npm=$AC_HAS_NPM claude=$AC_HAS_CLAUDE opencode=$AC_HAS_OPENCODE"
 }

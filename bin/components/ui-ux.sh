@@ -60,12 +60,12 @@ ac_uiux_install_magic_mcp() {
         fi
     fi
 
-    ac_info "Registering 21st.dev magic MCP (npx @21st-dev/magic@latest)"
-    if ac_run claude mcp add magic -- npx -y @21st-dev/magic@latest; then
-        ac_info "magic MCP registered."
+    ac_info "Registering 21st.dev magic MCP (npx @21st-dev/magic@latest, user scope)"
+    if ac_run claude mcp add -s user magic -- npx -y @21st-dev/magic@latest; then
+        ac_info "magic MCP registered (available in every project)."
     else
         ac_warn "claude mcp add failed for magic — try manually:"
-        ac_warn "  claude mcp add magic -- npx -y @21st-dev/magic@latest"
+        ac_warn "  claude mcp add -s user magic -- npx -y @21st-dev/magic@latest"
     fi
 }
 

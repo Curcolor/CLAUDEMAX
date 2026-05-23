@@ -2,23 +2,25 @@
 # JSONC-tolerant merge for Claude Code's settings.json. Source-only.
 # Uses node -e with a tiny inline script — no external deps.
 #
-# ac_merge_hook <settings.json> <event> <hook-command>
+# ac_merge_hook <settings.json> <event> <hook-command> [matcher]
 #   Adds {event:[{hooks:[{type:"command",command:"<cmd>"}]}]} if not already present.
+#   If [matcher] is provided, the group gets a "matcher" field (e.g. "Bash" for PreToolUse).
 #   Writes a .bak before mutating.
 #
 # ac_remove_hook <settings.json> <substring>
 #   Removes any hook whose command string contains <substring>.
 
 ac_merge_hook() {
-    local file="$1" event="$2" cmd="$3"
+    local file="$1" event="$2" cmd="$3" matcher="${4:-}"
     [ -f "$file" ] || printf "{}\n" > "$file"
     cp -f "$file" "$file.bak"
 
-    SETTINGS_FILE="$file" HOOK_EVENT="$event" HOOK_CMD="$cmd" node -e '
+    SETTINGS_FILE="$file" HOOK_EVENT="$event" HOOK_CMD="$cmd" HOOK_MATCHER="$matcher" node -e '
         const fs = require("fs");
         const file = process.env.SETTINGS_FILE;
         const event = process.env.HOOK_EVENT;
         const cmd = process.env.HOOK_CMD;
+        const matcher = process.env.HOOK_MATCHER || "";
         let raw = fs.readFileSync(file, "utf8");
         // Strip // and /* */ comments + trailing commas before parsing (JSONC-tolerant).
         const stripped = raw
@@ -32,11 +34,15 @@ ac_merge_hook() {
         }
         cfg.hooks = cfg.hooks || {};
         cfg.hooks[event] = cfg.hooks[event] || [];
-        const exists = cfg.hooks[event].some(group =>
-            Array.isArray(group.hooks) && group.hooks.some(h => h && h.command === cmd)
-        );
+        const exists = cfg.hooks[event].some(group => {
+            const groupMatcher = group && typeof group.matcher === "string" ? group.matcher : "";
+            if (groupMatcher !== matcher) return false;
+            return Array.isArray(group.hooks) && group.hooks.some(h => h && h.command === cmd);
+        });
         if (!exists) {
-            cfg.hooks[event].push({ hooks: [{ type: "command", command: cmd }] });
+            const group = { hooks: [{ type: "command", command: cmd }] };
+            if (matcher) group.matcher = matcher;
+            cfg.hooks[event].push(group);
         }
         fs.writeFileSync(file, JSON.stringify(cfg, null, 2) + "\n");
     '

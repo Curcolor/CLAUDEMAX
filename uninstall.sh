@@ -93,14 +93,30 @@ if [ "$AC_HAS_CLAUDE" = "1" ]; then
     ac_run claude mcp remove figma 2>/dev/null || true
 fi
 
-# --- RTK binary
-ac_step "RTK binary"
-if [ -x "$HOME/.local/bin/rtk" ]; then
-    ac_run rm -f "$HOME/.local/bin/rtk"
-    ac_info "Removed $HOME/.local/bin/rtk"
-    ac_warn "If 'rtk init --global' wrote hooks into your Claude settings.json, remove them manually (search for 'rtk')."
-else
-    ac_info "rtk binary not at $HOME/.local/bin/rtk; nothing to remove."
+# --- RTK binary + hook
+ac_step "RTK binary + PreToolUse hook"
+removed_any=0
+for bin in "$HOME/.local/bin/rtk" "$HOME/.local/bin/rtk.exe"; do
+    if [ -f "$bin" ]; then
+        ac_run rm -f "$bin"
+        ac_info "Removed $bin"
+        removed_any=1
+    fi
+done
+[ "$removed_any" = "0" ] && ac_info "rtk binary not at \$HOME/.local/bin; nothing to remove."
+
+if [ -f "$CLAUDE_CONFIG_DIR/settings.json" ]; then
+    if [ "$DRY_RUN" = "1" ]; then
+        ac_dim "\$ remove hook entries containing 'rtk hook claude' from $CLAUDE_CONFIG_DIR/settings.json"
+    else
+        ac_remove_hook "$CLAUDE_CONFIG_DIR/settings.json" "rtk hook claude"
+        ac_info "Cleaned rtk PreToolUse hook from settings.json (backup: $CLAUDE_CONFIG_DIR/settings.json.bak)"
+    fi
+fi
+
+# RTK.md + the @RTK.md reference rtk added to CLAUDE.md are upstream-managed; leave them.
+if [ -f "$CLAUDE_CONFIG_DIR/RTK.md" ]; then
+    ac_dim "  (left in place: $CLAUDE_CONFIG_DIR/RTK.md — remove by hand if no longer wanted)"
 fi
 
 ac_step "Done."
