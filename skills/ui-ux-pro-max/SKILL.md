@@ -658,4 +658,112 @@ Scope notice: This checklist is for App UI (iOS/Android/React Native/Flutter).
 - [ ] Reduced motion and dynamic text size are supported without layout breakage
 - [ ] Accessibility traits/roles/states (selected, disabled, expanded) are announced correctly
 
+## Consolidated: frontend design principles
+
+Distilled from Anthropic's `frontend-design` skill (anthropics/skills). Focused on the *process* of setting a distinctive aesthetic direction — not the colors/fonts/UX mechanics the sections above already cover.
+
+### Ground the direction in the subject
+- If a brief doesn't pin down what the product/subject actually is, pin it yourself first: name one concrete subject, its audience, and the page's single job.
+- Distinctive choices come from the subject's own world (materials, instruments, vernacular) — build with the brief's real content throughout, not placeholder copy.
+- If there's prior context on the human's preferences or past designs, use it as a hint for direction.
+
+### Treat the hero as a thesis
+- Open with the most characteristic thing in the subject's world: a headline, image, animation, live demo, or interactive moment.
+- The default "big stat + small label + gradient accent" is the template answer — only use it if it's truly the best fit for this brief.
+
+### Typography and structure carry meaning
+- Pair a distinctive display face with a refined body face chosen for *this* brief, not the pair reached for on any project. Make the type treatment memorable, not a neutral delivery vehicle.
+- Numbering, eyebrows, and dividers must encode something true about the content (e.g., only number things that are a real sequence). Question every structural device before adding it — most are decoration, not information.
+
+### Motion and complexity
+- One orchestrated moment (page-load sequence, scroll reveal, hover micro-interaction) usually lands harder than scattered effects — sometimes the right call is no animation at all.
+- Match execution complexity to the chosen direction: maximalist needs elaborate detail; minimal needs precision in spacing and type. Elegance is executing the chosen vision well, at either extreme.
+
+### Two-pass process: plan, then critique
+1. **Brainstorm a compact token system:** 4-6 named hex colors; typefaces by role (display/body/utility); one-sentence layout concepts with ASCII wireframes; the single signature element the design will be remembered by.
+2. **Critique the plan against the brief** before writing any code: if a part reads like the generic default for any similar page, revise it and state what changed and why. Only then start implementation, deriving every color/type decision from the revised plan.
+
+### Known AI-generic defaults to avoid
+Unless the brief explicitly calls for one of these, treat them as defaults rather than choices:
+- Warm cream background (~`#F4F1EA`) + high-contrast serif display + terracotta accent.
+- Near-black background + a single bright neon/vermilion accent.
+- Broadsheet-style layout: hairline rules, zero border-radius, dense newspaper columns.
+
+### Restraint and copy as design material
+- Spend boldness in one place: let the signature element be the one memorable thing, keep everything around it quiet, and cut decoration that doesn't serve the brief.
+- Still hit the quality floor without announcing it: responsive to mobile, visible keyboard focus, reduced motion respected.
+- Write from the end user's side of the screen — name things by what people control, not by how the system is built ("notifications", not "webhook config").
+- Use active voice; keep a control's name consistent through the whole flow (button "Publish" -> toast "Published").
+- Errors state cause + fix in the interface's own voice, never vague ("Invalid input" alone is not enough) and never apologetic.
+- Watch CSS specificity collisions between type-based (`.section`) and element-based (`.cta`) selectors — they can silently cancel each other's padding/margin, especially between sections.
+
+## Consolidated: brand guidelines
+
+Distilled from the local `brand` sibling skill (`.claude/skills/brand` in the ui-ux-pro-max monorepo — `logo-usage-rules.md`, `consistency-checklist.md`, `visual-identity.md`) and Anthropic's `brand-guidelines` skill (anthropics/skills). This covers **respecting an existing client brand kit**, a different concern from the style/palette/typography *selection* the rest of this file already covers for new design systems.
+
+### Brand tokens are fixed input, not raw material
+- Extract exact values from the supplied kit — primary colors (1-2), secondary/accent colors (2-3), neutrals (3-4) — and reuse them verbatim. Don't reinterpret, lighten, or "improve" an approved palette without sign-off.
+- Map semantic roles to typefaces explicitly: heading typeface -> body typeface, each with a system-font fallback (e.g., custom heading font unavailable -> Arial; custom body font unavailable -> Georgia) so rendering degrades gracefully.
+- Rotate accent colors on non-text/decorative elements (chart series, dividers, icon accents) in a fixed order; don't introduce new accent hues ad hoc because they "look nice" with the layout.
+
+### Logo rules
+- Never stretch, compress, rotate, recolor outside the approved palette, add gradients/shadows/strokes, or place the logo on a busy/low-contrast background.
+- Maintain clear space around the logo equal to the height of its logomark.
+- Respect published minimum sizes per surface: favicon ~32px, UI icon ~24-32px, header 120-200px width, print ~35mm.
+- Keep both a full-color and a reversed (light-on-dark) variant and select by background contrast, not preference — dark backgrounds get the reversed mark, not a recolored one.
+- For co-branding: give both logos equal visual weight (same height), adequate separation, and clear space applied to both.
+
+### Consistency audit before shipping
+Run through this before delivering brand-affected work:
+- [ ] Correct logo version and clear space used
+- [ ] Palette restricted to approved tokens only
+- [ ] Brand fonts and type hierarchy applied correctly
+- [ ] Contrast still meets 4.5:1 despite brand-color constraints
+- [ ] Voice/tone matches the brand's documented personality across every touched surface
+- [ ] No unauthorized modifications (stretch/rotate/recolor) snuck into any asset
+
+### When brand and request conflict
+- Flag the conflict instead of silently resolving it — e.g., if a trendy palette outside the approved set is requested, surface that it falls outside the brand kit rather than quietly overriding brand tokens.
+- If no brand kit exists yet, don't invent one silently — recommend building a minimal one (1-2 primary colors, 2-3 accents, 3-4 neutrals, a heading/body font pair with fallbacks) before applying "brand consistency" to anything.
+- Audit cadence for shipped brand surfaces: check the website monthly, social profiles and templates quarterly, and run a full brand audit annually — catching drift early is cheaper than a full re-alignment later.
+
+## Consolidated: taste
+
+Distilled from the community "anti-slop" Taste skill pattern for frontend generation (e.g. github.com/Leonxlnx/taste-skill — an informal, actively-forked pattern rather than an official Anthropic skill). Use this as a final calibration/lint pass, run *after* the design-system and UX checklists above, right before delivery.
+
+### Read the brief before generating anything
+Signals to check first: page kind (landing/portfolio/redesign/editorial); vibe words the user used ("minimalist", "Awwwards", "premium consumer"); reference URLs/brands/screenshots named; audience (the audience picks the aesthetic, not personal taste); existing brand assets to preserve; and quiet constraints (accessibility-first, regulated industry, kids' products) that override aesthetic preference entirely.
+
+### State a one-line "design read" before coding
+Format: *"Reading this as: `<page kind>` for `<audience>`, with a `<vibe>` language, leaning toward `<system/aesthetic family>`."* Ask exactly one clarifying question only if the read genuinely diverges from the brief; otherwise declare the read and proceed without asking.
+
+### Calibrate three dials instead of defaulting to the same mid-range every time
+- **Variance:** perfect symmetry -> artsy chaos.
+- **Motion intensity:** static -> cinematic/physics-based.
+- **Visual density:** art-gallery airy -> cockpit packed.
+Derive values from the brief's vibe words, not habit — a trust-first/regulated brief should land low on all three; an agency/experimental brief should land high on variance and motion.
+
+### AI-tell checklist — avoid unless the brief explicitly asks for it
+- Em-dash (`—`) used anywhere: headlines, body copy, captions, buttons, quote attribution. Use a period, comma, or hyphen instead — this is the single most-violated tell.
+- Three equal-width feature cards in a row as the default layout.
+- Generic placeholder names/avatars ("John Doe", stock user icons) and suspiciously round fake data (`99.99%`).
+- Fake product screenshots built out of styled `<div>` rectangles.
+- Decorative colored status dots with no real state behind them.
+- Section-number eyebrows ("00 / Index", "Step 1 / 2 / 3") and "Scroll to explore" affordances.
+- Oversaturated neon glows or pure `#000000` black.
+- Filler marketing verbs ("elevate", "unleash", "seamless", "revolutionize").
+
+### For redesigns specifically
+Audit the existing surface before touching it; preserve what's load-bearing by default (URLs/slugs, nav labels, existing brand assets); call out anything removed instead of silently dropping it.
+
+*(A fourth source, "Webarticast," was searched but no such public Claude skill could be located — skipped. See commit body.)*
+
+## Motion: transitions with Framer Motion + GSAP
+
+- Transitions are the applied form of motion design: entrance/exit, layout, scroll-driven.
+- Framer Motion for React component/layout transitions (`motion.div`, `AnimatePresence`, `layout` prop).
+- GSAP for timeline-based, scroll-triggered (ScrollTrigger), and non-React contexts.
+- Respect `prefers-reduced-motion`; keep durations 150-400ms for UI, springs for natural feel.
+- npm deps `framer-motion` + `gsap` are installed by the ui-ux installer component.
+
 Config: skill.yaml · Schema: schema.json
