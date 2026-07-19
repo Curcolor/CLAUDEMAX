@@ -2,7 +2,7 @@
 # ABSOLUTE-CLAUDE — one-shot installer for the token-saving + UI/UX stack.
 #
 # Components: RTK, Caveman, DCP (real for opencode + dcp-lite skill for Claude Code),
-# repo-map skill, Figma MCP, UI/UX bundle (ui-ux-pro-max skill + 21st.dev magic MCP
+# Figma MCP, UI/UX bundle (ui-ux-pro-max skill + 21st.dev magic MCP
 # + framer-motion/gsap npm).
 #
 # Usage:
@@ -54,7 +54,7 @@ ONLY=()
 SKIP=()
 AC_CONFIG_DIR_OVERRIDE=""
 
-ALL_COMPONENTS=(rtk caveman dcp repo-map figma ui-ux dev-skills)
+ALL_COMPONENTS=(rtk caveman dcp figma ui-ux dev-skills)
 
 usage() {
     cat <<EOF
@@ -162,10 +162,6 @@ component_run() {
             . "$AC_REPO_DIR/bin/components/dcp.sh"
             ac_component_dcp
             ;;
-        repo-map)
-            . "$AC_REPO_DIR/bin/components/repo-map.sh"
-            ac_component_repo_map
-            ;;
         figma)
             . "$AC_REPO_DIR/bin/components/figma-mcp.sh"
             ac_component_figma
@@ -217,7 +213,6 @@ ${AC_GREEN}Done.${AC_NC} Next steps:
   2. Finish Figma OAuth: open Claude Code → /mcp → select figma → browser.
   3. Try the commands:
        /caveman           — terse mode (Caveman)
-       /repomap           — build .claude/repo-map.md for this project
        /dcp-compress      — focused context compression (dcp-lite)
        /dcp-context       — current-session pruning stats
        /ui-ux-pro-max     — (skill name may differ; see your skill picker)
