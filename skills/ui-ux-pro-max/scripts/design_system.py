@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Design System Generator - Aggregates search results and applies reasoning
-to generate comprehensive design system recommendations.
+Design System Generator - agrega resultados de búsqueda y aplica razonamiento
+para generar recomendaciones integrales de design system.
 
-Usage:
+Uso:
     from design_system import generate_design_system
     result = generate_design_system("SaaS dashboard", "My Project")
-    
-    # With persistence (Master + Overrides pattern)
+
+    # Con persistencia (patrón Master + Overrides)
     result = generate_design_system("SaaS dashboard", "My Project", persist=True)
     result = generate_design_system("SaaS dashboard", "My Project", persist=True, page="dashboard")
 """

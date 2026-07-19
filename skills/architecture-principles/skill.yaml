@@ -4,11 +4,16 @@ kind: knowledge
 triggers:
   - "SOLID"
   - "design pattern"
+  - "patrón de diseño"
   - "factory / strategy / observer / decorator"
   - "architecture"
+  - "arquitectura"
   - "structure the project"
+  - "estructurar el proyecto"
   - "hexagonal / clean architecture / microservices / monolith"
+  - "hexagonal / clean architecture / microservicios / monolito"
   - "refactor for cleaner design"
+  - "refactorizar para un diseño más limpio"
 commands: []
 scripts: []
 dependencies:

@@ -7,12 +7,12 @@
       "properties": {
         "context": {
           "type": "string",
-          "description": "Optional free-form description of the code, component, or system under discussion"
+          "description": "Descripción libre y opcional del código, componente o sistema en discusión"
         },
         "level": {
           "type": "string",
           "enum": ["principles", "patterns", "system"],
-          "description": "Which altitude to apply: SOLID (principles), GoF (patterns), or system architecture (system). Omit to let the skill pick."
+          "description": "Qué altitud aplicar: SOLID (principles), GoF (patterns), o arquitectura de sistema (system). Omitir para que la skill elija."
         }
       },
       "additionalProperties": false
@@ -22,12 +22,12 @@
       "properties": {
         "recommendation": {
           "type": "string",
-          "description": "Named principle/pattern/architecture with rationale and trade-offs"
+          "description": "Principio/patrón/arquitectura elegido, con justificación y trade-offs"
         },
         "anti_patterns": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Pitfalls to avoid for the chosen approach"
+          "description": "Trampas a evitar para el enfoque elegido"
         }
       },
       "required": ["recommendation"]

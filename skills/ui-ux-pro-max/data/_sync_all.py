@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Sync colors.csv and ui-reasoning.csv with the updated products.csv (161 entries).
-- Remove deleted product types
-- Rename mismatched entries
-- Add new entries for missing product types
-- Keep colors.csv aligned 1:1 with products.csv
-- Renumber everything
+Sincroniza colors.csv y ui-reasoning.csv con el products.csv actualizado (161 entradas).
+- Elimina los tipos de producto borrados
+- Renombra las entradas que no coinciden
+- Agrega entradas nuevas para los tipos de producto faltantes
+- Mantiene colors.csv alineado 1:1 con products.csv
+- Renumera todo
 """
 import csv, os, json
 

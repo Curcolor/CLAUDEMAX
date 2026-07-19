@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-UI/UX Pro Max Core - BM25 search engine for UI/UX style guides
+UI/UX Pro Max Core - motor de búsqueda BM25 para guías de estilo UI/UX
 """
 
 import csv
@@ -10,7 +10,7 @@ from pathlib import Path
 from math import log
 from collections import defaultdict
 
-# ============ CONFIGURATION ============
+# ============ CONFIGURACIÓN ============
 DATA_DIR = Path(__file__).parent.parent / "data"
 MAX_RESULTS = 3
 
@@ -91,7 +91,7 @@ STACK_CONFIG = {
     "laravel":          {"file": "stacks/laravel.csv"},
 }
 
-# Common columns for all stacks
+# Columnas comunes para todos los stacks
 _STACK_COLS = {
     "search_cols": ["Category", "Guideline", "Description", "Do", "Don't"],
     "output_cols": ["Category", "Guideline", "Description", "Do", "Don't", "Code Good", "Code Bad", "Severity", "Docs URL"]
@@ -100,9 +100,9 @@ _STACK_COLS = {
 AVAILABLE_STACKS = list(STACK_CONFIG.keys())
 
 
-# ============ BM25 IMPLEMENTATION ============
+# ============ IMPLEMENTACIÓN DE BM25 ============
 class BM25:
-    """BM25 ranking algorithm for text search"""
+    """Algoritmo de ranking BM25 para búsqueda de texto"""
 
     def __init__(self, k1=1.5, b=0.75):
         self.k1 = k1
@@ -115,12 +115,12 @@ class BM25:
         self.N = 0
 
     def tokenize(self, text):
-        """Lowercase, split, remove punctuation, filter short words"""
+        """Minúsculas, split, quitar puntuación, filtrar palabras cortas"""
         text = re.sub(r'[^\w\s]', ' ', str(text).lower())
         return [w for w in text.split() if len(w) > 2]
 
     def fit(self, documents):
-        """Build BM25 index from documents"""
+        """Construye el índice BM25 a partir de los documentos"""
         self.corpus = [self.tokenize(doc) for doc in documents]
         self.N = len(self.corpus)
         if self.N == 0:
@@ -139,7 +139,7 @@ class BM25:
             self.idf[word] = log((self.N - freq + 0.5) / (freq + 0.5) + 1)
 
     def score(self, query):
-        """Score all documents against query"""
+        """Puntúa todos los documentos contra la query"""
         query_tokens = self.tokenize(query)
         scores = []
 
@@ -163,29 +163,29 @@ class BM25:
         return sorted(scores, key=lambda x: x[1], reverse=True)
 
 
-# ============ SEARCH FUNCTIONS ============
+# ============ FUNCIONES DE BÚSQUEDA ============
 def _load_csv(filepath):
-    """Load CSV and return list of dicts"""
+    """Carga el CSV y devuelve una lista de dicts"""
     with open(filepath, 'r', encoding='utf-8') as f:
         return list(csv.DictReader(f))
 
 
 def _search_csv(filepath, search_cols, output_cols, query, max_results):
-    """Core search function using BM25"""
+    """Función de búsqueda central usando BM25"""
     if not filepath.exists():
         return []
 
     data = _load_csv(filepath)
 
-    # Build documents from search columns
+    # Construye los documentos a partir de las columnas de búsqueda
     documents = [" ".join(str(row.get(col, "")) for col in search_cols) for row in data]
 
-    # BM25 search
+    # Búsqueda BM25
     bm25 = BM25()
     bm25.fit(documents)
     ranked = bm25.score(query)
 
-    # Get top results with score > 0
+    # Obtiene los mejores resultados con score > 0
     results = []
     for idx, score in ranked[:max_results]:
         if score > 0:
@@ -196,7 +196,7 @@ def _search_csv(filepath, search_cols, output_cols, query, max_results):
 
 
 def detect_domain(query):
-    """Auto-detect the most relevant domain from query"""
+    """Auto-detecta el dominio más relevante a partir de la query"""
     query_lower = query.lower()
 
     domain_keywords = {
@@ -219,7 +219,7 @@ def detect_domain(query):
 
 
 def search(query, domain=None, max_results=MAX_RESULTS):
-    """Main search function with auto-domain detection"""
+    """Función de búsqueda principal con auto-detección de dominio"""
     if domain is None:
         domain = detect_domain(query)
 
@@ -241,7 +241,7 @@ def search(query, domain=None, max_results=MAX_RESULTS):
 
 
 def search_stack(query, stack, max_results=MAX_RESULTS):
-    """Search stack-specific guidelines"""
+    """Busca guías específicas de un stack"""
     if stack not in STACK_CONFIG:
         return {"error": f"Unknown stack: {stack}. Available: {', '.join(AVAILABLE_STACKS)}"}
 

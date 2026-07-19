@@ -7,11 +7,11 @@
       "properties": {
         "diff": {
           "type": "string",
-          "description": "Staged diff or change summary (the skill runs git diff --staged --stat itself when omitted)"
+          "description": "Diff en staging o resumen del cambio (si se omite, la skill ejecuta git diff --staged --stat por su cuenta)"
         },
         "breaking": {
           "type": "boolean",
-          "description": "Force the ! breaking-change marker and BREAKING CHANGE footer"
+          "description": "Fuerza el marcador ! de breaking-change y el footer BREAKING CHANGE"
         }
       },
       "additionalProperties": false
@@ -21,7 +21,7 @@
       "properties": {
         "message": {
           "type": "string",
-          "description": "Full commit message: <type>(<scope>): <subject> (subject <=50 chars, imperative, no trailing period), optional body wrapped at 72, footers per Conventional Commits 1.0.0. Never includes Co-authored-by: Claude or AI attribution."
+          "description": "Mensaje de commit completo: <type>(<scope>): <subject> (subject <=50 caracteres, imperativo, sin punto final), body opcional ajustado a 72, footers según Conventional Commits 1.0.0. Nunca incluye Co-authored-by: Claude ni atribución de IA."
         }
       },
       "required": ["message"]

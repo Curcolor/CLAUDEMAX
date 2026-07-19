@@ -3,12 +3,18 @@ version: 2.0.0
 kind: tool
 triggers:
   - "UI / UX / design / mockup"
+  - "UI / UX / diseño / maqueta"
   - "landing page / dashboard / e-commerce / SaaS"
+  - "página de aterrizaje / panel / tienda online"
   - "button / modal / navbar / card / form / chart"
+  - "botón / modal / navbar / tarjeta / formulario / gráfico"
   - "glassmorphism / brutalism / dark mode / responsive"
   - "color palette / typography / accessibility / animation"
+  - "paleta de colores / tipografía / accesibilidad / animación"
   - "transition / motion / framer-motion / gsap"
+  - "transición / movimiento / framer-motion / gsap"
   - "brand guidelines / brand identity"
+  - "guía de marca / identidad de marca"
 commands: []
 scripts:
   - scripts/core.py

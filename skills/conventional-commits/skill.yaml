@@ -4,9 +4,12 @@ kind: knowledge
 triggers:
   - "commit"
   - "commit message"
+  - "mensaje de commit"
   - "changelog"
   - "PR title"
+  - "título del PR"
   - "what should this commit be"
+  - "cómo debería ser este commit"
 commands: []
 scripts: []
 dependencies:

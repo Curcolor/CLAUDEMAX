@@ -8,19 +8,19 @@
         "task": {
           "type": "string",
           "enum": ["plan", "build", "review", "fix", "improve"],
-          "description": "What to do with the UI"
+          "description": "Qué hacer con la UI"
         },
         "target": {
           "type": "string",
-          "description": "Component, page, or app under work (e.g. 'pricing page', 'navbar')"
+          "description": "Componente, página, o app en la que se está trabajando (p. ej. 'pricing page', 'navbar')"
         },
         "stack": {
           "type": "string",
-          "description": "Tech stack, e.g. react, next, vue, svelte, swiftui, react-native, flutter, tailwind, shadcn, html-css"
+          "description": "Stack tecnológico, p. ej. react, next, vue, svelte, swiftui, react-native, flutter, tailwind, shadcn, html-css"
         },
         "style": {
           "type": "string",
-          "description": "Visual style, e.g. glassmorphism, brutalism, minimalism, dark-mode"
+          "description": "Estilo visual, p. ej. glassmorphism, brutalism, minimalism, dark-mode"
         }
       },
       "additionalProperties": false
@@ -30,7 +30,7 @@
       "properties": {
         "design_or_code": {
           "type": "string",
-          "description": "Design guidance or implementation code for the requested stack, honoring style, accessibility, and brand rules"
+          "description": "Guía de diseño o código de implementación para el stack solicitado, respetando las reglas de estilo, accesibilidad y marca"
         }
       },
       "required": ["design_or_code"]

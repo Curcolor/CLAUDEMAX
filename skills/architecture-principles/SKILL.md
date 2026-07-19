@@ -1,311 +1,311 @@
 ---
 name: architecture-principles
-description: "Unified engineering-architecture skill: SOLID principles (SRP, OCP, LSP, ISP, DIP), GoF design patterns (creational/structural/behavioral), and system-level architectures (layered, hexagonal, clean, onion, MVC/MVVM, microservices, monolith, event-driven, CQRS, serverless). Trigger on \"SOLID\", \"design pattern\", \"factory\", \"strategy\", \"observer\", \"architecture\", \"structure the project\", \"hexagonal\", \"microservices\", \"refactor for cleaner design\", or when designing/reviewing/refactoring components and systems."
+description: "Skill unificada de arquitectura de software: principios SOLID (SRP, OCP, LSP, ISP, DIP), patrones de diseño GoF (creacionales/estructurales/de comportamiento) y arquitecturas de sistema (por capas, hexagonal, clean, onion, MVC/MVVM, microservicios, monolito, event-driven, CQRS, serverless). Trigger con \"SOLID\", \"design pattern\", \"patrón de diseño\", \"factory\", \"strategy\", \"observer\", \"architecture\", \"arquitectura\", \"structure the project\", \"estructurar el proyecto\", \"hexagonal\", \"microservices\", \"microservicios\", \"refactor for cleaner design\", \"refactorizar para un diseño más limpio\", o al diseñar/revisar/refactorizar componentes y sistemas."
 ---
 
-# Architecture Principles
+# Architecture Principles (Principios de Arquitectura)
 
-Merged from the former `solid`, `design-patterns`, and `architecture-patterns` skills. Three altitude levels of one discipline: principles (SOLID) → component patterns (GoF) → system architectures.
+Fusión de las antiguas skills `solid`, `design-patterns` y `architecture-patterns`. Tres niveles de altitud de una misma disciplina: principios (SOLID) → patrones de componente (GoF) → arquitecturas de sistema.
 
-## Part 1 — SOLID principles
+## Parte 1 — Principios SOLID
 
-Five object-oriented design principles. Use them as a *lens*, not a checklist — every principle has a cost (more files, more indirection) and the trade-off only pays off when the relevant change axis actually exists in this codebase.
+Cinco principios de diseño orientado a objetos. Úsalos como una *lente*, no como un checklist — cada principio tiene un costo (más archivos, más indirección) y el trade-off solo vale la pena cuando el eje de cambio relevante realmente existe en este codebase.
 
-### When to invoke this skill
+### Cuándo invocar esta skill
 
-- User mentions SOLID, SRP, OCP, LSP, ISP, DIP by name.
-- User asks for a code review focused on design, not just bugs.
-- User asks to refactor a class that "does too much" or "is hard to test".
-- You're about to design a new class hierarchy or module boundary.
+- El usuario menciona SOLID, SRP, OCP, LSP, ISP o DIP por nombre.
+- El usuario pide una revisión de código enfocada en el diseño, no solo en bugs.
+- El usuario pide refactorizar una clase que "hace demasiado" o "es difícil de testear".
+- Estás a punto de diseñar una nueva jerarquía de clases o un límite de módulo.
 
-### The five principles, with a sniff test for each
+### Los cinco principios, con una prueba de olfato para cada uno
 
-#### S — Single Responsibility Principle
+#### S — Single Responsibility Principle (Principio de Responsabilidad Única)
 
-> A class should have one reason to change.
+> Una clase debe tener una sola razón para cambiar.
 
-**Sniff test:** Can you describe what the class does without saying "and"? Are there two stakeholders who would ask for changes to different methods?
+**Prueba de olfato:** ¿Puedes describir lo que hace la clase sin decir "y"? ¿Hay dos stakeholders distintos que pedirían cambios a métodos diferentes?
 
-**Red flags:** a class with both `Order.calculateTotal()` *and* `Order.sendConfirmationEmail()`. Calculation logic changes for finance reasons; email logic changes for marketing reasons. Two reasons → split.
+**Señales de alerta:** una clase con `Order.calculateTotal()` *y* `Order.sendConfirmationEmail()`. La lógica de cálculo cambia por razones financieras; la lógica de email cambia por razones de marketing. Dos razones → hay que separar.
 
-**Cost of over-applying:** 47 micro-classes for one workflow. SRP is about *reasons to change*, not *number of methods*.
+**Costo de sobreaplicarlo:** 47 microclases para un solo flujo de trabajo. SRP trata sobre *razones para cambiar*, no sobre *número de métodos*.
 
-#### O — Open/Closed Principle
+#### O — Open/Closed Principle (Principio Abierto/Cerrado)
 
-> Open for extension, closed for modification.
+> Abierto para extensión, cerrado para modificación.
 
-**Sniff test:** When you add a new variant (new payment provider, new export format), do you edit an existing `switch`/`if` chain, or add a new file that the existing code discovers via a registry/strategy?
+**Prueba de olfato:** cuando agregas una nueva variante (nuevo proveedor de pago, nuevo formato de exportación), ¿editas una cadena `switch`/`if` existente, o agregas un archivo nuevo que el código existente descubre vía un registro/strategy?
 
-**Apply when:** new variants arrive frequently and existing variants must keep working untouched.
-**Skip when:** you've added one variant in two years. YAGNI beats OCP for stable axes.
+**Aplícalo cuando:** llegan nuevas variantes con frecuencia y las variantes existentes deben seguir funcionando sin tocarlas.
+**Sáltatelo cuando:** has agregado una sola variante en dos años. YAGNI le gana a OCP en ejes estables.
 
-#### L — Liskov Substitution Principle
+#### L — Liskov Substitution Principle (Principio de Sustitución de Liskov)
 
-> Subtypes must be usable wherever the base type is expected, without surprising the caller.
+> Los subtipos deben poder usarse en cualquier lugar donde se espera el tipo base, sin sorprender al que llama.
 
-**Sniff test:** Does the subclass throw `NotSupportedException` on any inherited method? Does it tighten preconditions (e.g. base accepts `int`, subclass demands positive int)? Does it weaken postconditions? Those are LSP violations.
+**Prueba de olfato:** ¿la subclase lanza `NotSupportedException` en algún método heredado? ¿Endurece las precondiciones (por ejemplo, la base acepta `int`, la subclase exige un entero positivo)? ¿Debilita las postcondiciones? Esas son violaciones de LSP.
 
-**Classic violation:** `Square extends Rectangle`. Setting `width` independently of `height` breaks the subclass's invariant.
+**Violación clásica:** `Square extends Rectangle`. Establecer `width` de forma independiente de `height` rompe el invariante de la subclase.
 
-**Fix pattern:** prefer composition (`Rectangle` *contains* a `Sides` value object) over `extends` when the "is-a" relationship doesn't survive every method.
+**Patrón de solución:** preferir composición (`Rectangle` *contiene* un value object `Sides`) sobre `extends` cuando la relación "es-un" no sobrevive a todos los métodos.
 
-#### I — Interface Segregation Principle
+#### I — Interface Segregation Principle (Principio de Segregación de Interfaces)
 
-> Clients shouldn't depend on methods they don't use.
+> Los clientes no deberían depender de métodos que no usan.
 
-**Sniff test:** Does a consumer take a fat interface but call only 2 of its 14 methods? Split the interface so the consumer depends only on what it uses — that minimizes recompiles and makes test doubles tiny.
+**Prueba de olfato:** ¿un consumidor recibe una interfaz gorda pero solo llama a 2 de sus 14 métodos? Divide la interfaz para que el consumidor dependa solo de lo que usa — eso minimiza las recompilaciones y hace que los test doubles sean pequeños.
 
-**Trade-off:** more interfaces. Worth it when the fat interface forces unrelated consumers to share a fate.
+**Trade-off:** más interfaces. Vale la pena cuando la interfaz gorda obliga a consumidores no relacionados a compartir un mismo destino.
 
-#### D — Dependency Inversion Principle
+#### D — Dependency Inversion Principle (Principio de Inversión de Dependencias)
 
-> Depend on abstractions, not concretions. High-level policy shouldn't import low-level mechanism.
+> Depende de abstracciones, no de concreciones. La política de alto nivel no debería importar el mecanismo de bajo nivel.
 
-**Sniff test:** Does your domain layer `import psycopg2`? Your business logic shouldn't know what database it's talking to. Inject a `UserRepository` interface; concrete `PostgresUserRepository` lives at the edge of the system.
+**Prueba de olfato:** ¿tu capa de dominio hace `import psycopg2`? Tu lógica de negocio no debería saber con qué base de datos habla. Inyecta una interfaz `UserRepository`; el `PostgresUserRepository` concreto vive en el borde del sistema.
 
-**Apply when:** you need to swap implementations (test doubles, alternate backends) or you're drawing a hexagonal/clean-architecture boundary.
-**Skip when:** it's a script. DIP for a 100-line CLI is theater.
+**Aplícalo cuando:** necesitas intercambiar implementaciones (test doubles, backends alternativos) o estás trazando un límite hexagonal/clean-architecture.
+**Sáltatelo cuando:** es un script. DIP para un CLI de 100 líneas es puro teatro.
 
-### How to apply these in a review
+### Cómo aplicar esto en una revisión
 
-1. Read the change. Identify each class/module that was touched.
-2. For each, ask: *which principle is most relevant here?* — usually exactly one.
-3. State the violation concretely: name the principle, name the symptom, name the cost.
-4. Propose the minimum refactor that resolves it. Don't bundle all five principles into one suggestion.
-5. If applying a principle would create more indirection than it saves, say so out loud and skip it.
+1. Lee el cambio. Identifica cada clase/módulo que fue tocado.
+2. Para cada uno, pregunta: *¿qué principio es más relevante aquí?* — normalmente exactamente uno.
+3. Enuncia la violación de forma concreta: nombra el principio, nombra el síntoma, nombra el costo.
+4. Propón el refactor mínimo que la resuelve. No mezcles los cinco principios en una sola sugerencia.
+5. Si aplicar un principio crearía más indirección de la que ahorra, dilo en voz alta y sáltatelo.
 
-### Anti-patterns to call out
+### Anti-patrones a señalar
 
-- **"SRP" used to justify splitting every method into its own class.** SRP is about *axes of change*, not method count.
-- **"DIP" used to wrap every concrete class in an interface "just in case".** Don't add abstractions until a second implementation exists or is imminent.
-- **"OCP" used to demand a plugin architecture for a one-off feature.** Premature OCP costs real complexity for hypothetical future flexibility.
+- **"SRP" usado para justificar dividir cada método en su propia clase.** SRP trata sobre *ejes de cambio*, no sobre cantidad de métodos.
+- **"DIP" usado para envolver cada clase concreta en una interfaz "por si acaso".** No agregues abstracciones hasta que exista o sea inminente una segunda implementación.
+- **"OCP" usado para exigir una arquitectura de plugins para una feature puntual.** El OCP prematuro cuesta complejidad real por flexibilidad futura hipotética.
 
-### Output format
+### Formato de salida
 
-When you find a SOLID issue, write it like:
+Cuando encuentres un problema de SOLID, escríbelo así:
 
-> **[Principle]** — *symptom in one line*
-> Cost: *what breaks today or will break soon*
-> Fix: *smallest change that resolves it*
+> **[Principio]** — *síntoma en una línea*
+> Costo: *qué se rompe hoy o se romperá pronto*
+> Fix: *el cambio más pequeño que lo resuelve*
 
-Example:
+Ejemplo:
 
-> **SRP** — `UserService` handles password hashing, email sending, and audit logging.
-> Cost: changing the audit log format forces a rebuild of every consumer of `UserService`.
-> Fix: extract `AuditLogger`; inject it.
+> **SRP** — `UserService` maneja hashing de contraseñas, envío de emails y logging de auditoría.
+> Costo: cambiar el formato del log de auditoría obliga a reconstruir cada consumidor de `UserService`.
+> Fix: extraer `AuditLogger`; inyectarlo.
 
-### See also
+### Ver también
 
-- Design patterns (Part 2, above) — many design patterns are concrete applications of SOLID.
-- System architectures (Part 3, above) — hexagonal, clean, and onion architectures formalize DIP at the boundary level.
+- Design patterns (Parte 2, arriba) — muchos patrones de diseño son aplicaciones concretas de SOLID.
+- System architectures (Parte 3, abajo) — hexagonal, clean y onion formalizan DIP a nivel de límite/boundary.
 
-## Part 2 — Design patterns
+## Parte 2 — Design patterns (patrones de diseño)
 
-A vocabulary for solutions to recurring design problems. Use the name only when the pattern actually applies — slapping "Factory" on a function that calls `new` is jargon, not engineering.
+Un vocabulario para soluciones a problemas de diseño recurrentes. Usa el nombre solo cuando el patrón realmente aplica — ponerle "Factory" a una función que llama a `new` es jerga, no ingeniería.
 
-### When to invoke this skill
+### Cuándo invocar esta skill
 
-- User asks "which pattern fits this?" or names a pattern.
-- You're proposing a refactor and want a concise label both sides understand.
-- You're reviewing code that *could* be cleaned up by a known pattern.
+- El usuario pregunta "¿qué patrón encaja aquí?" o nombra un patrón.
+- Estás proponiendo un refactor y quieres una etiqueta concisa que ambas partes entiendan.
+- Estás revisando código que *podría* limpiarse con un patrón conocido.
 
-### The 23 GoF patterns, grouped, with one-line triggers
+### Los 23 patrones GoF, agrupados, con un disparador de una línea
 
-#### Creational — how objects come into existence
+#### Creacionales — cómo llegan a existir los objetos
 
-| Pattern | Use when |
+| Patrón | Úsalo cuando |
 |---|---|
-| **Factory Method** | A class needs to create objects of a related family but the exact concrete class depends on subclass / runtime input. |
-| **Abstract Factory** | You need to create *families* of related products (e.g. UI widgets for macOS vs Windows) and want to enforce consistency. |
-| **Builder** | An object has many optional construction parameters; constructors are getting telescoping. Fluent API helps readability. |
-| **Prototype** | Cloning an existing configured object is cheaper or clearer than constructing a new one from scratch. |
-| **Singleton** | Genuinely one instance is needed system-wide (logger, config). **Caveat:** singletons are usually globals in disguise — prefer DI of a single instance via the container. |
+| **Factory Method** | Una clase necesita crear objetos de una familia relacionada, pero la clase concreta exacta depende de la subclase / de la entrada en tiempo de ejecución. |
+| **Abstract Factory** | Necesitas crear *familias* de productos relacionados (p. ej. widgets de UI para macOS vs. Windows) y quieres garantizar consistencia. |
+| **Builder** | Un objeto tiene muchos parámetros de construcción opcionales; los constructores se están volviendo telescópicos. Una API fluida ayuda a la legibilidad. |
+| **Prototype** | Clonar un objeto ya configurado es más barato o más claro que construir uno nuevo desde cero. |
+| **Singleton** | Se necesita genuinamente una sola instancia a nivel de sistema (logger, config). **Advertencia:** los singletons suelen ser globals disfrazados — prefiere inyectar una única instancia vía el contenedor de DI. |
 
-#### Structural — how objects compose
+#### Estructurales — cómo se componen los objetos
 
-| Pattern | Use when |
+| Patrón | Úsalo cuando |
 |---|---|
-| **Adapter** | Two interfaces don't match; you can't change either. Wrap one in the other's shape. |
-| **Bridge** | Two orthogonal axes of variation are getting multiplied into a class explosion. Split them into separate hierarchies linked by composition. |
-| **Composite** | You want client code to treat individual leaves and whole trees uniformly (filesystem, UI nodes, AST nodes). |
-| **Decorator** | You want to add behavior to specific instances at runtime without subclassing every combination (`BufferedInputStream(FileInputStream(...))`). |
-| **Facade** | A subsystem has many small classes; clients need a simple entry point hiding the inner detail. |
-| **Flyweight** | Many fine-grained objects share most of their state; extract the shared part to save memory. |
-| **Proxy** | You need an object that *acts like* the real one but adds access control, lazy loading, remoting, or caching. |
+| **Adapter** | Dos interfaces no coinciden; no puedes cambiar ninguna de las dos. Envuelve una con la forma de la otra. |
+| **Bridge** | Dos ejes ortogonales de variación se están multiplicando en una explosión de clases. Sepáralos en jerarquías separadas unidas por composición. |
+| **Composite** | Quieres que el código cliente trate hojas individuales y árboles completos de manera uniforme (filesystem, nodos de UI, nodos de AST). |
+| **Decorator** | Quieres agregar comportamiento a instancias específicas en tiempo de ejecución sin subclasificar cada combinación (`BufferedInputStream(FileInputStream(...))`). |
+| **Facade** | Un subsistema tiene muchas clases pequeñas; los clientes necesitan un punto de entrada simple que oculte el detalle interno. |
+| **Flyweight** | Muchos objetos de grano fino comparten la mayor parte de su estado; extrae la parte compartida para ahorrar memoria. |
+| **Proxy** | Necesitas un objeto que *actúe como* el real pero agregue control de acceso, carga perezosa, remoting o caché. |
 
-#### Behavioral — how objects collaborate
+#### De comportamiento — cómo colaboran los objetos
 
-| Pattern | Use when |
+| Patrón | Úsalo cuando |
 |---|---|
-| **Chain of Responsibility** | A request should be tried by a sequence of handlers, each deciding to handle or pass on (middleware pipelines). |
-| **Command** | You need to parameterize, queue, log, or undo operations — wrap each action as an object. |
-| **Iterator** | Provide sequential access without exposing the underlying collection. (Most languages bake this in.) |
-| **Mediator** | Many objects are talking to each other in a tangle; introduce a hub that owns the protocol. |
-| **Memento** | You need undo/restore without exposing the object's internals (snapshot value object). |
-| **Observer** | One subject; many dependents need to react when it changes. Caveat: cycles and update storms — consider event buses or reactive streams instead. |
-| **State** | An object's behavior depends on its mode, and the mode-switch logic is a giant `switch`. Each state becomes a class. |
-| **Strategy** | A family of algorithms is interchangeable; the caller picks one at runtime (sort order, payment method, retry policy). |
-| **Template Method** | Outline an algorithm in a base class; subclasses fill in specific steps. Risk: rigid inheritance — prefer Strategy if subclasses don't share much. |
-| **Visitor** | Operations need to be added across a stable type hierarchy without modifying the types. Double dispatch. |
-| **Interpreter** | You're building a small DSL or expression evaluator; each grammar rule becomes a class. |
+| **Chain of Responsibility** | Una solicitud debería ser intentada por una secuencia de handlers, cada uno decidiendo manejarla o pasarla (pipelines de middleware). |
+| **Command** | Necesitas parametrizar, encolar, registrar o deshacer operaciones — envuelve cada acción como un objeto. |
+| **Iterator** | Provee acceso secuencial sin exponer la colección subyacente. (La mayoría de los lenguajes ya lo traen incorporado.) |
+| **Mediator** | Muchos objetos se están comunicando entre sí de forma enredada; introduce un hub que sea dueño del protocolo. |
+| **Memento** | Necesitas undo/restore sin exponer los internals del objeto (value object de snapshot). |
+| **Observer** | Un sujeto; muchos dependientes necesitan reaccionar cuando cambia. Advertencia: ciclos y tormentas de actualización — considera event buses o streams reactivos en su lugar. |
+| **State** | El comportamiento de un objeto depende de su modo, y la lógica de cambio de modo es un `switch` gigante. Cada estado se vuelve una clase. |
+| **Strategy** | Una familia de algoritmos es intercambiable; quien llama elige uno en tiempo de ejecución (orden de sort, método de pago, política de retry). |
+| **Template Method** | Esboza un algoritmo en una clase base; las subclases completan pasos específicos. Riesgo: herencia rígida — prefiere Strategy si las subclases no comparten mucho. |
+| **Visitor** | Se necesitan agregar operaciones a través de una jerarquía de tipos estable sin modificar los tipos. Doble despacho. |
+| **Interpreter** | Estás construyendo un DSL pequeño o un evaluador de expresiones; cada regla de gramática se vuelve una clase. |
 
-### Modern / non-GoF patterns worth knowing
+### Patrones modernos / no-GoF que vale la pena conocer
 
-- **Repository** — abstracts persistence behind a collection-like interface. Pairs with DIP (Part 1, above).
-- **Unit of Work** — coordinates one logical transaction across multiple repositories.
-- **CQRS** — separates read and write models for systems where their concerns diverge enough to justify the cost.
-- **Result / Either** — return value carries success or failure; alternative to exceptions for expected error paths.
-- **Pipeline / Middleware** — composition of `next`-calling handlers (HTTP middleware, validation chains).
-- **Specification** — encapsulate business rules as composable predicates (`new InGoodStanding().and(new HasOpenOrders())`).
+- **Repository** — abstrae la persistencia detrás de una interfaz tipo colección. Se combina con DIP (Parte 1, arriba).
+- **Unit of Work** — coordina una transacción lógica a través de múltiples repositories.
+- **CQRS** — separa los modelos de lectura y escritura en sistemas donde sus preocupaciones divergen lo suficiente como para justificar el costo.
+- **Result / Either** — el valor de retorno lleva éxito o fallo; alternativa a las excepciones para rutas de error esperadas.
+- **Pipeline / Middleware** — composición de handlers que llaman a `next` (middleware HTTP, cadenas de validación).
+- **Specification** — encapsula reglas de negocio como predicados componibles (`new InGoodStanding().and(new HasOpenOrders())`).
 
-### How to recommend a pattern
+### Cómo recomendar un patrón
 
-1. State the *problem* in one sentence.
-2. Name the pattern.
-3. Sketch the smallest viable structure — usually 2-4 types and their relationships.
-4. Mention what the pattern costs (extra indirection, harder navigation, learning curve for the team).
-5. If a simpler alternative exists (a function, a closure, a config map), say so and let the user choose.
+1. Enuncia el *problema* en una oración.
+2. Nombra el patrón.
+3. Esboza la estructura mínima viable — usualmente 2-4 tipos y sus relaciones.
+4. Menciona qué cuesta el patrón (indirección extra, navegación más difícil, curva de aprendizaje para el equipo).
+5. Si existe una alternativa más simple (una función, un closure, un mapa de config), dilo y deja que el usuario elija.
 
-### Anti-patterns to avoid
+### Anti-patrones a evitar
 
-- **Pattern-itis** — applying patterns because they're "good practice" rather than because the problem calls for them.
-- **Singleton everywhere** — most "singletons" are global state in disguise; prefer a single instance managed by your DI container.
-- **Manager / Helper / Util** classes — these are bag-of-functions classes with no single responsibility; usually a sign you skipped naming the real abstraction.
-- **Pattern by name** — "make it a Strategy" is not a design discussion until you've stated *what's varying*.
+- **Pattern-itis** — aplicar patrones porque son "buena práctica" en vez de porque el problema los pide.
+- **Singleton everywhere** — la mayoría de los "singletons" son estado global disfrazado; prefiere una única instancia gestionada por tu contenedor de DI.
+- **Clases Manager / Helper / Util** — son clases bolsa-de-funciones sin una responsabilidad única; usualmente una señal de que te saltaste nombrar la abstracción real.
+- **Patrón por nombre** — "conviértelo en un Strategy" no es una discusión de diseño hasta que hayas dicho *qué está variando*.
 
-### See also
+### Ver también
 
-- SOLID principles (Part 1, above) — most GoF patterns are concrete applications of SRP, OCP, or DIP.
-- System architectures (Part 3, above) — large-scale structural patterns (hexagonal, layered, microservices).
+- SOLID principles (Parte 1, arriba) — la mayoría de los patrones GoF son aplicaciones concretas de SRP, OCP o DIP.
+- System architectures (Parte 3, abajo) — patrones estructurales a gran escala (hexagonal, layered, microservices).
 
-## Part 3 — System architectures
+## Parte 3 — Arquitecturas de sistema
 
-Patterns above the class level — how a whole system is organized. Pick one based on the *forces* in the project (team size, deploy cadence, failure isolation, change frequency). Don't pick by fashion. Most failures here are choosing distributed when monolith would do, or hexagonal when a 200-line script would do.
+Patrones por encima del nivel de clase — cómo se organiza un sistema completo. Elige uno según las *fuerzas* del proyecto (tamaño del equipo, cadencia de despliegue, aislamiento de fallos, frecuencia de cambio). No elijas por moda. La mayoría de los fallos aquí son elegir distribuido cuando un monolito bastaría, u hexagonal cuando un script de 200 líneas bastaría.
 
-### When to invoke this skill
+### Cuándo invocar esta skill
 
-- User asks to lay out a new project or restructure an existing one.
-- User mentions an architecture name and wants a comparison or recommendation.
-- You're proposing a non-trivial refactor that crosses module boundaries.
+- El usuario pide organizar un proyecto nuevo o reestructurar uno existente.
+- El usuario menciona el nombre de una arquitectura y quiere una comparación o recomendación.
+- Estás proponiendo un refactor no trivial que cruza límites de módulos.
 
-### Pick-by-force quick guide
+### Guía rápida de elección por fuerza
 
-| Force in the project | Strong fit |
+| Fuerza en el proyecto | Buen fit |
 |---|---|
-| Small team, single deploy, one DB | **Modular monolith** |
-| Domain logic dominates; multiple delivery channels (web + CLI + queue) | **Hexagonal / Clean / Onion** |
-| Independent deploy cadence per area, separate teams, separate scale needs | **Microservices** |
-| Read load ≫ write load and read model differs from write model | **CQRS** (often with event sourcing) |
-| State *is* the history (audit, finance, regulatory) | **Event sourcing** |
-| Loose coupling between bounded contexts; async OK | **Event-driven** |
-| Highly variable, spiky load; pay-per-request | **Serverless** |
-| UI app with clear view/state/logic separation | **MVC / MVP / MVVM** |
+| Equipo pequeño, un solo deploy, una sola DB | **Monolito modular** |
+| La lógica de dominio domina; múltiples canales de entrega (web + CLI + queue) | **Hexagonal / Clean / Onion** |
+| Cadencia de despliegue independiente por área, equipos separados, necesidades de escala separadas | **Microservicios** |
+| Carga de lectura ≫ carga de escritura y el modelo de lectura difiere del de escritura | **CQRS** (a menudo con event sourcing) |
+| El estado *es* la historia (auditoría, finanzas, regulatorio) | **Event sourcing** |
+| Acoplamiento laxo entre bounded contexts; async está bien | **Event-driven** |
+| Carga muy variable, con picos; pago por request | **Serverless** |
+| App de UI con separación clara de vista/estado/lógica | **MVC / MVP / MVVM** |
 
-### The patterns, with the trade-off that bites
+### Los patrones, con el trade-off que muerde
 
-#### Layered (n-tier)
+#### Layered (por capas / n-tier)
 
-Presentation → application → domain → infrastructure. Each layer depends only on the one below.
+Presentación → aplicación → dominio → infraestructura. Cada capa depende solo de la que está debajo.
 
-**Wins:** familiar to everyone; easy to onboard.
-**Bites:** the "domain" layer almost always ends up depending on the ORM, defeating the layering. Layered without dependency inversion is just folders.
+**A favor:** familiar para todos; fácil de aprender.
+**En contra:** la capa de "dominio" casi siempre termina dependiendo del ORM, anulando la separación por capas. Layered sin inversión de dependencias es solo carpetas.
 
-#### Hexagonal (a.k.a. Ports and Adapters)
+#### Hexagonal (a.k.a. Ports and Adapters / Puertos y Adaptadores)
 
-Domain in the center exposes **ports** (interfaces). External tech (DB, HTTP, queue, CLI) implements **adapters** behind those ports. Domain code has zero `import` of frameworks.
+El dominio en el centro expone **puertos** (interfaces). La tecnología externa (DB, HTTP, queue, CLI) implementa **adaptadores** detrás de esos puertos. El código de dominio no tiene ningún `import` de frameworks.
 
-**Wins:** swap delivery channels and storage without touching business logic. Unit tests run with in-memory adapters.
-**Bites:** more files, more ceremony. Wrong for a script or a tiny CRUD app. Right for systems where the domain rules live for years and the tech doesn't.
+**A favor:** puedes intercambiar canales de entrega y almacenamiento sin tocar la lógica de negocio. Los tests unitarios corren con adaptadores en memoria.
+**En contra:** más archivos, más ceremonia. Incorrecto para un script o una app CRUD pequeña. Correcto para sistemas donde las reglas de dominio viven durante años y la tecnología no.
 
 #### Clean / Onion
 
-Same idea as hexagonal, with a stricter ring discipline (entities → use cases → interface adapters → frameworks). Robert C. Martin's framing; the substance is hexagonal.
+La misma idea que hexagonal, con una disciplina de anillos más estricta (entities → use cases → interface adapters → frameworks). Es el enfoque de Robert C. Martin; la sustancia es hexagonal.
 
-**Wins:** clear dependency rule (deps point inward, never outward).
-**Bites:** when followed religiously, you write four classes to do one thing. Use it when complexity earns the structure.
+**A favor:** regla de dependencia clara (las dependencias apuntan hacia adentro, nunca hacia afuera).
+**En contra:** si se sigue religiosamente, terminas escribiendo cuatro clases para hacer una sola cosa. Úsalo cuando la complejidad justifique la estructura.
 
 #### MVC / MVP / MVVM
 
-UI patterns. View renders; Model holds state; Controller / Presenter / ViewModel mediates.
+Patrones de UI. La View renderiza; el Model guarda el estado; el Controller / Presenter / ViewModel media.
 
-- **MVC** — controller takes input, updates model, picks view. Server-side web frameworks.
-- **MVP** — presenter holds presentation state, view is dumb. Easier to test than MVC because the view's state is in the presenter.
-- **MVVM** — viewmodel exposes observable state; view binds to it. Native pattern for data-bound UIs (WPF, SwiftUI, Vue, Knockout).
+- **MVC** — el controller toma la entrada, actualiza el model, elige la view. Frameworks web del lado del servidor.
+- **MVP** — el presenter guarda el estado de presentación, la view es tonta. Más fácil de testear que MVC porque el estado de la view vive en el presenter.
+- **MVVM** — el viewmodel expone estado observable; la view se enlaza (bind) a él. Patrón nativo para UIs con data-binding (WPF, SwiftUI, Vue, Knockout).
 
-Bites: all three rot into "fat controller" / "fat viewmodel" if you don't push real logic down into the domain.
+En contra: los tres se pudren hacia "fat controller" / "fat viewmodel" si no empujas la lógica real hacia abajo, al dominio.
 
-#### Modular Monolith
+#### Monolito modular
 
-One deployable, internal modules with explicit boundaries (one module = one folder + a public interface + private internals). Modules can become services later if forced.
+Un solo deployable, con módulos internos con límites explícitos (un módulo = una carpeta + una interfaz pública + internals privados). Los módulos pueden convertirse en servicios más adelante si se ven forzados a ello.
 
-**Wins:** simple ops; in-process calls; refactors stay local; you only pay distributed-system tax when you need it.
-**Bites:** "modules" rot to spaghetti without enforced boundaries. Use a build-time tool (architecture tests, layered eslint rules, jdepend) to keep imports honest.
+**A favor:** operación simple; llamadas in-process; los refactors se quedan locales; solo pagas el impuesto de sistema distribuido cuando lo necesitas.
+**En contra:** los "módulos" se pudren hacia spaghetti sin límites forzados. Usa una herramienta en build-time (architecture tests, reglas de eslint por capas, jdepend) para mantener los imports honestos.
 
-#### Microservices
+#### Microservicios
 
-Many independently deployable services, each owning its data. Communicate via HTTP or events. Each service is small enough that a team can hold it in their head.
+Muchos servicios desplegables de forma independiente, cada uno dueño de sus datos. Se comunican vía HTTP o eventos. Cada servicio es lo bastante pequeño como para que un equipo lo tenga completo en la cabeza.
 
-**Wins:** independent deploys, fault isolation, polyglot stacks, scale per service.
-**Bites:** distributed transactions are *hard*. Network is unreliable. Observability bill is real. Debugging spans 12 services. Don't start here unless team size and product complexity demand it; **start with a modular monolith and extract services when seams emerge.**
+**A favor:** deploys independientes, aislamiento de fallos, stacks poliglota, escala por servicio.
+**En contra:** las transacciones distribuidas son *difíciles*. La red no es confiable. La factura de observability es real. Depurar abarca 12 servicios. No empieces aquí a menos que el tamaño del equipo y la complejidad del producto lo exijan; **empieza con un monolito modular y extrae servicios cuando aparezcan las costuras (seams).**
 
-#### Event-driven architecture
+#### Event-driven architecture (arquitectura orientada a eventos)
 
-Components publish events; others subscribe. Loose coupling; eventual consistency.
+Los componentes publican eventos; otros se suscriben. Acoplamiento laxo; consistencia eventual.
 
-**Wins:** scaling, isolation, audit trail, late-binding new subscribers.
-**Bites:** ordering, exactly-once delivery, schema evolution, "where did that event go?" debugging. Need an event bus and observability tooling. Don't sprinkle events into a CRUD app for fun.
+**A favor:** escalado, aislamiento, rastro de auditoría, suscriptores nuevos que se enlazan tarde (late-binding).
+**En contra:** ordenamiento, entrega exactly-once, evolución de esquemas, depurar "¿a dónde fue ese evento?". Necesitas un event bus y tooling de observability. No le esparzas eventos a una app CRUD por diversión.
 
 #### CQRS (Command Query Responsibility Segregation)
 
-Write model handles commands; separate read model(s) serve queries. Often paired with event sourcing.
+El modelo de escritura maneja los comandos; modelo(s) de lectura separados sirven las queries. A menudo combinado con event sourcing.
 
-**Wins:** read model is shaped for queries (denormalized, projected); write model enforces invariants.
-**Bites:** two models to keep in sync; eventual consistency surfaces to users; cognitive overhead. Worth it when read/write loads or shapes diverge dramatically.
+**A favor:** el modelo de lectura está moldeado para las queries (desnormalizado, proyectado); el modelo de escritura hace cumplir los invariantes.
+**En contra:** dos modelos que mantener sincronizados; la consistencia eventual se les nota a los usuarios; sobrecarga cognitiva. Vale la pena cuando las cargas o formas de lectura/escritura divergen dramáticamente.
 
 #### Event sourcing
 
-Persist a sequence of immutable events. Current state is a fold over the events.
+Persiste una secuencia de eventos inmutables. El estado actual es un fold sobre los eventos.
 
-**Wins:** perfect audit, time-travel, rebuild projections.
-**Bites:** schema evolution of events (events are immutable but their shape changes); replay performance; mental model shift. Heavy lift; only worth it when history *is* the product (banking, healthcare, regulatory).
+**A favor:** auditoría perfecta, viaje en el tiempo (time-travel), reconstrucción de proyecciones.
+**En contra:** evolución del esquema de los eventos (los eventos son inmutables pero su forma cambia); rendimiento del replay; cambio de modelo mental. Esfuerzo pesado; solo vale la pena cuando la historia *es* el producto (banca, salud, regulatorio).
 
 #### Serverless
 
-Functions triggered by events (HTTP, queue, schedule). No long-running servers; provider handles scale.
+Funciones disparadas por eventos (HTTP, queue, schedule). Sin servidores de larga duración; el proveedor maneja la escala.
 
-**Wins:** pay per request; auto-scale; minimal ops.
-**Bites:** cold starts, vendor lock-in, function size limits, debugging across functions, distributed-system problems at a finer granularity. Great for spiky workloads and glue code; risky for tight latency budgets.
+**A favor:** pago por request; auto-escalado; operación mínima.
+**En contra:** cold starts, vendor lock-in, límites de tamaño de función, depurar a través de funciones, problemas de sistema distribuido a una granularidad más fina. Excelente para cargas con picos y código de "pegamento" (glue code); riesgoso para presupuestos de latencia ajustados.
 
-### The "boring" decision is usually right
+### La decisión "aburrida" suele ser la correcta
 
-When in doubt:
+Ante la duda:
 
-- Start with a **modular monolith** using **hexagonal** boundaries.
-- One database. One deploy. One service.
-- Push side-effects (DB, HTTP, queue) behind ports.
-- Apply the SOLID principles (Part 1, above) inside modules; apply design patterns (Part 2, above) within classes.
-- Extract a service only when an actual force (independent deploy, isolation, scale) demands it, not because microservices are in the conference talk.
+- Empieza con un **monolito modular** usando límites **hexagonales**.
+- Una base de datos. Un deploy. Un servicio.
+- Empuja los efectos secundarios (DB, HTTP, queue) detrás de puertos.
+- Aplica los principios SOLID (Parte 1, arriba) dentro de los módulos; aplica patrones de diseño (Parte 2, arriba) dentro de las clases.
+- Extrae un servicio solo cuando una fuerza real (deploy independiente, aislamiento, escala) lo exija, no porque los microservicios sean el tema de moda en la charla de la conferencia.
 
-### How to recommend an architecture
+### Cómo recomendar una arquitectura
 
-1. State the *forces* (team size, deploy cadence, failure isolation, scale axis).
-2. Name the pattern that fits *those* forces.
-3. State what it costs (operational, cognitive, infrastructural).
-4. If the cost outweighs the force, recommend the simpler option and say what would make you reconsider.
+1. Enuncia las *fuerzas* (tamaño del equipo, cadencia de despliegue, aislamiento de fallos, eje de escala).
+2. Nombra el patrón que encaja con *esas* fuerzas.
+3. Enuncia qué cuesta (operacional, cognitivo, de infraestructura).
+4. Si el costo supera la fuerza, recomienda la opción más simple y di qué te haría reconsiderar.
 
-### Anti-patterns to avoid
+### Anti-patrones a evitar
 
-- **Microservices for a 3-person team** — distributed monolith on hard mode.
-- **Hexagonal for a 200-line script** — over-engineering.
-- **MVC where the model is a database row** — that's just CRUD; call it that.
-- **Event-driven because "events are cool"** — pick async only when async actually buys decoupling you need.
-- **CQRS without the read/write divergence** — two models maintained for no benefit.
+- **Microservicios para un equipo de 3 personas** — monolito distribuido en modo difícil.
+- **Hexagonal para un script de 200 líneas** — sobreingeniería.
+- **MVC donde el model es una fila de base de datos** — eso es solo CRUD; llámalo así.
+- **Event-driven porque "los eventos son geniales"** — elige async solo cuando realmente compra el desacoplamiento que necesitas.
+- **CQRS sin divergencia real de lectura/escritura** — dos modelos mantenidos sin ningún beneficio.
 
-### See also
+### Ver también
 
-- SOLID principles (Part 1, above) — most architectures formalize SRP/DIP at the module boundary level.
-- Design patterns (Part 2, above) — within-module structure.
-- [[conventional-commits]] — `feat`, `refactor`, `chore` map cleanly to architectural changes.
+- SOLID principles (Parte 1, arriba) — la mayoría de las arquitecturas formalizan SRP/DIP a nivel de límite de módulo.
+- Design patterns (Parte 2, arriba) — estructura dentro del módulo.
+- [[conventional-commits]] — `feat`, `refactor`, `chore` se mapean limpiamente a cambios arquitectónicos.
 
 ---
 
