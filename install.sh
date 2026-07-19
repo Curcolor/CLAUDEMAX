@@ -53,7 +53,7 @@ ONLY=()
 SKIP=()
 AC_CONFIG_DIR_OVERRIDE=""
 
-ALL_COMPONENTS=(rtk caveman figma ui-ux dev-skills)
+ALL_COMPONENTS=(rtk caveman figma ui-ux dev-skills rag)
 
 usage() {
     cat <<EOF
@@ -80,6 +80,11 @@ Examples:
   bash install.sh --only rtk --only caveman
   bash install.sh --skip ui-ux --no-npm
   bash install.sh --dry-run --all
+
+  RAG env flags (component 'rag'):
+    RAG_ROOT=<path>            workspace root (required for rag)
+    VAULT_MODE=create|import|connect   RAG_MODE=create|import|connect
+    VAULT_SRC / VAULT_REMOTE / RAG_DUMP / RAG_REMOTE_URL per mode
 EOF
 }
 
@@ -169,6 +174,10 @@ component_run() {
             . "$AC_REPO_DIR/bin/components/dev-skills.sh"
             ac_component_dev_skills
             ;;
+        rag)
+            . "$AC_REPO_DIR/bin/components/rag.sh"
+            ac_component_rag
+            ;;
         *)
             ac_warn "Unknown component: $id (valid: ${ALL_COMPONENTS[*]})"
             ;;
@@ -211,6 +220,7 @@ ${AC_GREEN}Done.${AC_NC} Next steps:
        /ui-ux-pro-max     — (skill name may differ; see your skill picker)
        /superpowers       — meta-skill bundle (obra/superpowers)
        /architecture-principles /conventional-commits
+       /mcp → rag            — semantic search over your V.A.U.L.T (rag_query)
 
   See README.md for full docs. To remove everything: bash uninstall.sh
 EOF

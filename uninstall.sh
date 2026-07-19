@@ -93,6 +93,17 @@ if [ "$AC_HAS_CLAUDE" = "1" ]; then
     ac_run claude mcp remove figma 2>/dev/null || true
 fi
 
+# --- RAG (MCP + container; data volume and folders are preserved)
+ac_step "RAG (MCP registration + container)"
+if [ "$AC_HAS_CLAUDE" = "1" ]; then
+    ac_run claude mcp remove rag 2>/dev/null || true
+fi
+if docker info >/dev/null 2>&1 && docker ps -a --format '{{.Names}}' | grep -q '^claudemax-ragdb$'; then
+    ac_run docker stop claudemax-ragdb
+    ac_run docker rm claudemax-ragdb
+    ac_info "ragdb container removed. Data volume 'ragdata' and V.A.U.L.T/R.A.G folders left in place."
+fi
+
 # --- RTK binary + hook
 ac_step "RTK binary + PreToolUse hook"
 removed_any=0
