@@ -18,6 +18,7 @@ bash install.sh
 | **Framer Motion + GSAP** | `npm install --save framer-motion gsap` in your project (skipped if no `package.json`). | [framer-motion](https://www.npmjs.com/package/framer-motion), [GSAP](https://gsap.com/docs/v3/) |
 | **superpowers skill** | Cloned into `~/.claude/skills/superpowers/`. Meta-skill bundle. | [obra/superpowers](https://github.com/obra/superpowers) |
 | **Engineering-discipline skills** | First-party: `architecture-principles` (merges the former `solid`, `design-patterns`, and `architecture-patterns` skills into one SOLID → GoF patterns → system-architecture skill) and `conventional-commits`. | this repo |
+| **rag** | V.A.U.L.T vault + PGVector (Docker) RAG + Ollama bge-m3 + `rag` MCP (rag_query/rag_status). | first-party (this repo) |
 
 ## Install
 
@@ -36,7 +37,7 @@ Re-runnable. Idempotent. Pass `--dry-run` to see exactly what would happen.
 | Flag | Effect |
 |---|---|
 | `--all` | Install every component (default). |
-| `--only <id>` | One component only. Repeatable. ids: `rtk`, `caveman`, `figma`, `ui-ux`, `dev-skills`. |
+| `--only <id>` | One component only. Repeatable. ids: `rtk`, `caveman`, `figma`, `ui-ux`, `dev-skills`, `rag`. |
 | `--skip <id>` | Skip a component. Repeatable. |
 | `--no-npm` | Skip `npm install framer-motion gsap`. |
 | `--with-npm` | Force the npm step even if no `package.json` (runs `npm init -y`). |
@@ -57,6 +58,25 @@ Only two things left, and one of them is just restarting your editor:
    - `/superpowers` — meta-skill bundle (obra/superpowers).
    - `architecture-principles`, `conventional-commits` — engineering-discipline skills. Invoke by name or let their triggers fire automatically during a review/refactor/commit.
    - `ui-ux-pro-max` — UI/UX design intelligence. Triggers automatically on design/build/review prompts touching UI, or ask for it by name.
+
+## RAG quickstart
+
+```bash
+RAG_ROOT=<workspace-root> VAULT_MODE=create RAG_MODE=create bash install.sh --only rag
+# then:
+cd <workspace-root>/R.A.G
+node rag.mjs ingest          # index the vault
+node rag.mjs query "..."     # semantic search (Spanish or English)
+node rag.mjs status
+```
+
+`VAULT_MODE` / `RAG_MODE` each take one of three values (default `create`):
+
+- `create` — new vault / new local Docker Postgres+pgvector stack.
+- `import` — bring an existing vault (`VAULT_SRC=<folder>`) or restore a DB dump (`RAG_DUMP=<file>`) into a fresh stack.
+- `connect` — point at an existing vault repo (`VAULT_REMOTE=<git url>`) or an existing Postgres instance (`RAG_REMOTE_URL=<postgres://...>`) instead of creating one.
+
+Needs Docker (for the local DB) and Ollama with `bge-m3` pulled (for embeddings) — the component warns and skips those steps if either is missing, without failing the install.
 
 ## Skills 2.0 format
 

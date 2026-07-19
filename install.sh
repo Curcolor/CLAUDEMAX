@@ -209,7 +209,7 @@ fi
 ac_info "Installed skills under $CLAUDE_CONFIG_DIR/skills/:"
 ls -1 "$CLAUDE_CONFIG_DIR/skills/" 2>/dev/null | sed 's/^/    /' || true
 
-cat <<EOF
+DONE_MSG=$(cat <<EOF
 
 ${AC_GREEN}Done.${AC_NC} Next steps:
 
@@ -224,3 +224,5 @@ ${AC_GREEN}Done.${AC_NC} Next steps:
 
   See README.md for full docs. To remove everything: bash uninstall.sh
 EOF
+)
+printf '%b\n' "$DONE_MSG"

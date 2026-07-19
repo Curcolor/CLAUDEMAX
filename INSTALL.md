@@ -21,23 +21,35 @@ ABSOLUTE-CLAUDE/
 │       ├── caveman.sh          # `npx -y github:JuliusBrussee/caveman -- --all`
 │       ├── figma-mcp.sh        # `claude mcp add --transport http figma ...`
 │       ├── ui-ux.sh            # copies skills/ui-ux-pro-max + registers magic MCP + npm i
-│       └── dev-skills.sh       # superpowers clone + 2 first-party engineering skills
-└── skills/
-    ├── architecture-principles/
-    │   ├── SKILL.md
-    │   ├── skill.yaml
-    │   └── schema.json
-    ├── conventional-commits/
-    │   ├── SKILL.md
-    │   ├── skill.yaml
-    │   └── schema.json
-    ├── ui-ux-pro-max/
-    │   ├── SKILL.md
-    │   ├── skill.yaml
-    │   ├── schema.json
-    │   ├── data/            # CSVs: styles, colors, typography, ux-guidelines, per-stack, ...
-    │   └── scripts/         # core.py, design_system.py, search.py
-    └── validate-skills.mjs  # Skills 2.0 contract checker — run after any skill edit
+│       ├── dev-skills.sh       # superpowers clone + 2 first-party engineering skills
+│       └── rag.sh              # V.A.U.L.T vault + R.A.G stack (compose/schema/CLI/MCP) + MCP registration
+├── skills/
+│   ├── architecture-principles/
+│   │   ├── SKILL.md
+│   │   ├── skill.yaml
+│   │   └── schema.json
+│   ├── conventional-commits/
+│   │   ├── SKILL.md
+│   │   ├── skill.yaml
+│   │   └── schema.json
+│   ├── ui-ux-pro-max/
+│   │   ├── SKILL.md
+│   │   ├── skill.yaml
+│   │   ├── schema.json
+│   │   ├── data/            # CSVs: styles, colors, typography, ux-guidelines, per-stack, ...
+│   │   └── scripts/         # core.py, design_system.py, search.py
+│   └── validate-skills.mjs  # Skills 2.0 contract checker — run after any skill edit
+└── templates/
+    ├── vault/                   # V.A.U.L.T Obsidian vault seed (copied to <RAG_ROOT>/V.A.U.L.T)
+    │   ├── .obsidian/graph.json
+    │   ├── 00-Inbox/, Projects/, Journal/
+    │   └── README.md
+    └── rag/                     # R.A.G stack seed (copied to <RAG_ROOT>/R.A.G)
+        ├── docker-compose.yml   # pgvector/pgvector:pg17, port 5433
+        ├── schema.sql           # chunks table + hnsw index
+        ├── .env.example, package.json, .gitignore
+        ├── rag.mjs              # CLI: init/ingest/query/reindex/status
+        └── mcp-server.mjs       # stdio MCP wrapper (rag_query/rag_status)
 ```
 
 ## Where things land on your machine
@@ -52,6 +64,7 @@ ABSOLUTE-CLAUDE/
 | `$CLAUDE_CONFIG_DIR/.caveman-active` | Caveman | Caveman handles |
 | Claude MCP registry: `figma`, `magic`, `caveman-shrink` | figma-mcp.sh, ui-ux.sh, Caveman | Yes for figma + magic; Caveman handles its own |
 | `<cwd>/package.json`, `<cwd>/node_modules/` | ui-ux.sh `npm install` | **No** — we don't touch your project's deps on uninstall |
+| `<RAG_ROOT>/V.A.U.L.T`, `<RAG_ROOT>/R.A.G`, Claude MCP registry: `rag`, docker volume `ragdata` | rag.sh (`cp -R` templates, `docker compose up`, `claude mcp add`) | MCP registration + `claudemax-ragdb` container only — folders and the `ragdata` volume survive uninstall |
 
 `uninstall.sh` also best-effort removes a handful of legacy paths from older ABSOLUTE-CLAUDE installs (`skills/repo-map/`, `skills/dcp-lite/`, `hooks/dcp-lite-dedup.mjs`, `state/dcp-lite-*.json`, and the pre-2.0 skill names `solid`, `design-patterns`, `architecture-patterns`) so upgrading in place leaves nothing behind. None of those components are installed by current `install.sh`.
 
@@ -65,6 +78,7 @@ ABSOLUTE-CLAUDE/
 3. **figma** — needs `claude` CLI; registers at **user scope** (`claude mcp add -s user`) so it works in every project.
 4. **ui-ux** — also needs `claude` for the magic MCP (also registered at **user scope**); mutates cwd via `npm install` (gated).
 5. **dev-skills** — pure file copy for `architecture-principles` / `conventional-commits`; `git clone`/`git pull` for `superpowers`. No order dependency on the others.
+6. **rag** — opt-in (needs `RAG_ROOT` set, else it warns and skips): copies `templates/vault` → `<RAG_ROOT>/V.A.U.L.T` and `templates/rag` → `<RAG_ROOT>/R.A.G`, brings up the `ragdb` Docker Compose stack + `bge-m3` via Ollama, `npm install`s the CLI/MCP deps, and registers the `rag` MCP at **user scope**. No order dependency on the others.
 
 ## Flag interactions
 
@@ -114,6 +128,10 @@ bash install.sh --only figma --only ui-ux
 ### "Re-running the installer keeps re-cloning superpowers"
 
 If `--force` is set, `dev-skills.sh` deletes and re-clones. Without `--force`, it does `git pull --ff-only` in the existing checkout. If the pull is failing repeatedly, your local clone has diverged — `rm -rf $CLAUDE_CONFIG_DIR/skills/superpowers` then re-run.
+
+### "Docker not running / ollama missing"
+
+The `rag` component warns and skips those steps rather than failing the install (compose/schema steps need Docker; `bge-m3` pull needs `ollama` on PATH). Start Docker Desktop / install Ollama, then re-run `bash install.sh --only rag` — it's idempotent and picks up where it left off.
 
 ### "`node skills/validate-skills.mjs` fails after I edited a skill"
 
