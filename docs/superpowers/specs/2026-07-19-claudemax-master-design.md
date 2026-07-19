@@ -9,14 +9,16 @@ Evolve ABSOLUTE-CLAUDE into **CLAUDEMAX**: a context-aware, RAG-driven developme
 
 ## Root workspace layout
 
-New root folder `CLAUDEMAX/` (assumed at `C:\Users\JHONNY\Desktop\CLAUDEMAX\` — adjust at implementation if another parent is preferred). All members are siblings:
+**Naming rule:** CLAUDEMAX is the *project/upgrade name only* — no folder anywhere is named CLAUDEMAX. The root folder is named **WORKSPACE** (the existing `C:\Users\JHONNY\Desktop\WORKSPACE\`). All members are siblings:
 
 ```
-CLAUDEMAX/
+WORKSPACE/
 ├── V.A.U.L.T/              # Obsidian vault — STRICTLY markdown notes, nothing else
 ├── R.A.G/                  # vector DB + retrieval components (PGVector, Ollama, ingestion)
-├── .claude/                # shared rules for sessions launched from the CLAUDEMAX root
-├── CLAUDEMAX-INSTALLER/    # this repo, renamed (installer + uninstaller + first-party skills)
+├── .claude/                # shared rules for sessions launched from the WORKSPACE root
+├── CLAUDEMAX-INSTALLER.cmd # interactive setup wizard launcher (a file at the root, NOT a folder)
+├── Herramientas/
+│   └── ABSOLUTE-CLAUDE/    # this repo — source of the wizard, skills, and components (name unchanged)
 ├── <ProjectRepo1>/         # individual project code repositories
 └── <ProjectRepo2>/
 ```
@@ -89,7 +91,7 @@ All implemented as Claude Code hooks (registered in settings.json via the existi
 
 ## E — Operational rules
 
-Live in CLAUDEMAX root `.claude/` rules (propagated to projects by the init ritual) and, where enforceable, as hooks:
+Live in WORKSPACE root `.claude/` rules (propagated to projects by the init ritual) and, where enforceable, as hooks:
 
 - **3-attempt loop breaker:** after 3 failed fix attempts on the same error, STOP; summarize context for the user and wait for manual input instead of burning tokens.
 - **Git commits:** always strip any "Co-authored-by: Claude" footer from generated commits (rule + optional commit-msg hook for enforcement).
@@ -97,17 +99,20 @@ Live in CLAUDEMAX root `.claude/` rules (propagated to projects by the init ritu
 - **Model policy:** (already applied, see A).
 - Legacy memory tooling (Context7 / Claude-Mem) must not be reinstalled; the RAG brain is the single source of context retention.
 
-## Installer rename
+## Interactive installer (setup wizard)
 
-- Repo `ABSOLUTE-CLAUDE` becomes **CLAUDEMAX-INSTALLER**, living at `CLAUDEMAX/CLAUDEMAX-INSTALLER/`.
-- Entry points renamed: `install.sh` → `claudemax-installer.sh`, `uninstall.sh` → `claudemax-uninstaller.sh` (thin compat shims `install.sh`/`uninstall.sh` may forward during transition).
-- Internal architecture preserved: `bin/lib/*` helpers, `bin/components/*` with `ac_component_<id>` functions, JSONC settings merger with `.bak` backups, `--all/--only/--skip/--dry-run/--force/--config-dir` flags.
-- New responsibilities: scaffold `CLAUDEMAX/` root (V.A.U.L.T skeleton + Obsidian config, R.A.G skeleton, root `.claude/` rules), install sub-project C components, register sub-project D hooks.
+The upgrade replaces the flag-driven `install.sh` UX with an **interactive, application-style setup wizard**:
+
+- **Entry point:** a launcher file at the WORKSPACE root (`CLAUDEMAX-INSTALLER.cmd` + a matching `CLAUDEMAX-UNINSTALLER.cmd`) — files, not folders. They invoke the wizard shipped inside this repo (`Herramientas/ABSOLUTE-CLAUDE/`), whose name stays unchanged.
+- **Experience:** visual step-by-step flow like a desktop app installer — welcome screen, dependency checklist with live detected/missing status, per-component selection (install everything or piece by piece), progress per step, final summary. Recommended tech: Node TUI (dependency-free `readline`-based menus, repo convention) — final choice in the installer sub-spec.
+- **System dependencies it detects and offers to install** (via `winget` on Windows): Obsidian, Docker Desktop (+ WSL2 if missing), Ollama, PostgreSQL + PGVector (or the Docker route), Git, Node.js, Python. Each is optional and individually skippable.
+- **Then the CLAUDEMAX components:** everything from sub-projects A/C (skills, MCPs, RTK, Caveman, Graphify, Cyber Neo, parsers) plus root scaffolding: V.A.U.L.T skeleton with Obsidian color config, R.A.G skeleton, root `.claude/` rules, sub-project D hooks.
+- **Internals preserved:** `bin/lib/*` helpers, `bin/components/*` with `ac_component_<id>` functions, JSONC settings merger with `.bak` backups. The wizard orchestrates these same components; non-interactive flags (`--all/--only/--skip/--dry-run/--force/--config-dir`) remain for scripted use.
 
 ## Open questions (inputs to sub-specs, not blockers for A)
 
 1. **B:** embedding model final choice; PGVector via Docker vs native; RAG query interface (CLI vs local MCP server).
-2. **B:** exact parent path of `CLAUDEMAX/` (assumed `Desktop\CLAUDEMAX`).
+2. **Installer:** final wizard tech (dependency-free Node TUI recommended) and exact `winget` package ids per system dependency.
 3. **C:** whether Graphify and Cyber Neo install as skills, MCP servers, or plain CLIs (depends on what upstream ships).
 4. **D:** exact hook events for "end of day" / "end of cycle" signals (likely skill/slash-command triggered rather than automatic).
 5. **Installer:** whether existing repos under `WORKSPACE\` move into `CLAUDEMAX/` or stay and get symlinked/referenced.
@@ -115,5 +120,5 @@ Live in CLAUDEMAX root `.claude/` rules (propagated to projects by the init ritu
 ## Master verification
 
 1. Each sub-project passes its own spec verification before the next starts.
-2. End-to-end smoke after D: fresh `claudemax-installer.sh --all` on a clean config dir → new session inside a project repo self-contextualizes (RAG query + Graphify) → end-of-day journal lands in V.A.U.L.T → Context Dump Ritual indexes into PGVector.
-3. `claudemax-uninstaller.sh` removes everything it installed, including legacy artifacts (repo-map, dcp-lite, Context7/Claude-Mem remnants).
+2. End-to-end smoke after D: fresh run of the setup wizard (`CLAUDEMAX-INSTALLER.cmd`, full install) on a clean config dir → new session inside a project repo self-contextualizes (RAG query + Graphify) → end-of-day journal lands in V.A.U.L.T → Context Dump Ritual indexes into PGVector.
+3. `CLAUDEMAX-UNINSTALLER.cmd` removes everything the wizard installed, including legacy artifacts (repo-map, dcp-lite, Context7/Claude-Mem remnants); system dependencies (Obsidian, Docker, WSL) are listed but left for manual removal.
