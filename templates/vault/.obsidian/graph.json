@@ -1,0 +1,15 @@
+{
+  "collapse-filter": true, "search": "", "showTags": true,
+  "showAttachments": false, "hideUnresolved": false, "showOrphans": true,
+  "collapse-color-groups": false,
+  "colorGroups": [
+    { "query": "path:Projects/example-project", "color": { "a": 1, "rgb": 5431378 } },
+    { "query": "tag:#example-project/api",      "color": { "a": 1, "rgb": 11621088 } },
+    { "query": "path:Journal",                  "color": { "a": 1, "rgb": 14701138 } },
+    { "query": "path:00-Inbox",                 "color": { "a": 1, "rgb": 9079434 } }
+  ],
+  "collapse-display": false, "showArrow": false, "textFadeMultiplier": 0,
+  "nodeSizeMultiplier": 1, "lineSizeMultiplier": 1,
+  "collapse-forces": false, "centerStrength": 0.52, "repelStrength": 10,
+  "linkStrength": 1, "linkDistance": 250, "scale": 1, "close": true
+}
