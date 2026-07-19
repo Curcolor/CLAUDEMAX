@@ -1,24 +1,24 @@
-# Workspace + RAG (Sub-project B) — Design Spec
+# Workspace + RAG (Subproyecto B) — Especificación de Diseño
 
-**Date:** 2026-07-19
-**Parent:** [CLAUDEMAX master design](2026-07-19-claudemax-master-design.md)
-**Status:** Approved design
+**Fecha:** 2026-07-19
+**Padre:** [Diseño maestro de CLAUDEMAX](2026-07-19-claudemax-master-design.md)
+**Estado:** Diseño aprobado
 
-## Goal
+## Objetivo
 
-Build the CLAUDEMAX knowledge layer: the V.A.U.L.T Obsidian vault skeleton and the R.A.G retrieval stack (PostgreSQL + PGVector via Docker Compose, Ollama `bge-m3` embeddings, Node CLI + thin MCP wrapper), installable through a new `rag` installer component supporting create / import / connect modes for both vault and database.
+Construir la capa de conocimiento de CLAUDEMAX: el esqueleto del vault de Obsidian V.A.U.L.T y el stack de recuperación R.A.G (PostgreSQL + PGVector vía Docker Compose, embeddings `bge-m3` de Ollama, CLI en Node + wrapper MCP delgado), instalable mediante un nuevo componente `rag` del instalador que soporta los modos crear / importar / conectar tanto para el vault como para la base de datos.
 
-## Decisions log
+## Registro de decisiones
 
-| Decision | Choice |
+| Decisión | Elección |
 |---|---|
-| Vector store deployment | Docker Compose, image `pgvector/pgvector:pg17`, persistent volume, host port 5433 (avoids clashing with any native PG on 5432) |
-| Query interface | CLI core (`rag.mjs`) + thin MCP stdio wrapper (`mcp-server.mjs`) exposing the same functions as in-session tools |
-| Embedding model | `bge-m3` via local Ollama HTTP API — multilingual (Spanish vault + English code), 1024 dims |
-| Implementation language | Node ≥18. R.A.G/ carries its own `package.json` (deps: `pg`, `@modelcontextprotocol/sdk`) — exception to the repo's dep-free rule, justified: PG wire protocol and MCP need real libraries |
-| Setup modes | Both vault and RAG support create-from-scratch / import-existing / connect-remote, driven by component flags now, by the interactive wizard later |
+| Despliegue del almacén vectorial | Docker Compose, imagen `pgvector/pgvector:pg17`, volumen persistente, puerto host 5433 (evita chocar con cualquier PG nativo en 5432) |
+| Interfaz de consulta | Núcleo CLI (`rag.mjs`) + wrapper MCP stdio delgado (`mcp-server.mjs`) que expone las mismas funciones como herramientas dentro de la sesión |
+| Modelo de embeddings | `bge-m3` vía API HTTP local de Ollama — multilingüe (vault en español + código en inglés), 1024 dimensiones |
+| Lenguaje de implementación | Node ≥18. R.A.G/ lleva su propio `package.json` (deps: `pg`, `@modelcontextprotocol/sdk`) — excepción a la regla del repo de ir sin dependencias, justificada: el protocolo de cable de PG y MCP necesitan librerías reales |
+| Modos de configuración | Tanto el vault como el RAG soportan crear-desde-cero / importar-existente / conectar-remoto, manejados por flags de componente ahora, por el wizard interactivo más adelante |
 
-## Directory layout (created at the chosen root)
+## Disposición de directorios (creada en la raíz elegida)
 
 ```
 <root>/
@@ -36,9 +36,9 @@ Build the CLAUDEMAX knowledge layer: the V.A.U.L.T Obsidian vault skeleton and t
     └── mcp-server.mjs          # MCP stdio server: tools rag_query, rag_status
 ```
 
-Templates for all of the above live in this repo under `templates/rag/` and `templates/vault/`; the installer component copies them to the chosen root.
+Las plantillas de todo lo anterior viven en este repo bajo `templates/rag/` y `templates/vault/`; el componente del instalador las copia a la raíz elegida.
 
-## Database schema
+## Esquema de base de datos
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
@@ -57,47 +57,47 @@ CREATE INDEX IF NOT EXISTS chunks_embedding_idx ON chunks
   USING hnsw (embedding vector_cosine_ops);
 ```
 
-## Pipeline behavior
+## Comportamiento del pipeline
 
-- **Ingest:** walk the given path (default: the vault) for `.md` files; split by markdown headings targeting ~500 tokens per chunk with ~50-token overlap; skip chunks whose `(source, content_hash)` already exist; embed via `POST {OLLAMA_URL}/api/embed` with model `bge-m3`; upsert. Delete DB rows whose source file disappeared.
-- **Query:** embed the question, `SELECT ... ORDER BY embedding <=> $1 LIMIT k` (cosine), optional `WHERE project = $2`. Plain-text output for hooks/humans; `--json` for the MCP wrapper.
-- **Reindex:** truncate + full re-ingest (this is what sub-project D's Context Dump Ritual calls).
-- **Status:** row/chunk counts per project, last ingest time, DB and Ollama connectivity.
+- **Ingesta:** recorre la ruta dada (por defecto: el vault) en busca de archivos `.md`; divide por encabezados markdown apuntando a ~500 tokens por chunk con ~50 tokens de solape; salta los chunks cuyo `(source, content_hash)` ya existe; embebe vía `POST {OLLAMA_URL}/api/embed` con el modelo `bge-m3`; hace upsert. Elimina las filas de la BD cuyo archivo fuente desapareció.
+- **Consulta:** embebe la pregunta, `SELECT ... ORDER BY embedding <=> $1 LIMIT k` (coseno), con `WHERE project = $2` opcional. Salida en texto plano para hooks/humanos; `--json` para el wrapper MCP.
+- **Reindex:** truncar + reingesta completa (esto es lo que llama el Context Dump Ritual del subproyecto D).
+- **Status:** conteo de filas/chunks por proyecto, hora de la última ingesta, conectividad de la BD y de Ollama.
 
-## Installer component (`bin/components/rag.sh`, id `rag`)
+## Componente del instalador (`bin/components/rag.sh`, id `rag`)
 
-Env-flag driven (wizard will front-end these later):
+Manejado por flags de entorno (el wizard los pondrá al frente más adelante):
 
-- `RAG_ROOT` — target root folder (required; the component refuses to guess).
-- `VAULT_MODE=create|import|connect` — create: copy `templates/vault/`; import: adopt existing folder at `VAULT_SRC` (copy config non-destructively, never overwrite notes); connect: `git clone VAULT_REMOTE` into `V.A.U.L.T/`.
-- `RAG_MODE=create|import|connect` — create: copy `templates/rag/`, `docker compose up -d`, apply `schema.sql`, `ollama pull bge-m3`, `npm install`; import: same as create then restore `RAG_DUMP` via `psql < dump`; connect: copy templates but write `PG_URL` from `RAG_REMOTE_URL` into `.env`, skip Docker entirely.
-- Registers the MCP: `claude mcp add -s user rag -- node <root>/R.A.G/mcp-server.mjs` (idempotent, same pattern as figma/magic).
-- Added to `ALL_COMPONENTS` after `dev-skills`; skipped gracefully with a warning when `RAG_ROOT` is unset (so `--all` still works non-interactively).
-- `uninstall.sh`: `docker compose down` (volume LEFT in place — data survives uninstall), `claude mcp remove rag`; vault and R.A.G folders are never deleted.
+- `RAG_ROOT` — carpeta raíz de destino (obligatoria; el componente se niega a adivinarla).
+- `VAULT_MODE=create|import|connect` — create: copia `templates/vault/`; import: adopta una carpeta existente en `VAULT_SRC` (copia la config de forma no destructiva, nunca sobrescribe notas); connect: `git clone VAULT_REMOTE` dentro de `V.A.U.L.T/`.
+- `RAG_MODE=create|import|connect` — create: copia `templates/rag/`, `docker compose up -d`, aplica `schema.sql`, `ollama pull bge-m3`, `npm install`; import: igual que create y luego restaura `RAG_DUMP` vía `psql < dump`; connect: copia las plantillas pero escribe `PG_URL` desde `RAG_REMOTE_URL` en `.env`, se salta Docker por completo.
+- Registra el MCP: `claude mcp add -s user rag -- node <root>/R.A.G/mcp-server.mjs` (idempotente, mismo patrón que figma/magic).
+- Añadido a `ALL_COMPONENTS` después de `dev-skills`; se salta con una advertencia cuando `RAG_ROOT` no está definida (así `--all` sigue funcionando de forma no interactiva).
+- `uninstall.sh`: `docker compose down` (el volumen SE DEJA en su sitio — los datos sobreviven a la desinstalación), `claude mcp remove rag`; las carpetas del vault y de R.A.G nunca se eliminan.
 
-## MCP wrapper
+## Wrapper MCP
 
-`mcp-server.mjs` (stdio, `@modelcontextprotocol/sdk`): two tools —
-- `rag_query { query: string, project?: string, topk?: number }` → shells into `rag.mjs query --json`, returns matched chunks with source/heading/score.
-- `rag_status {}` → `rag.mjs status` output.
-No direct DB access in the wrapper; the CLI is the single implementation.
+`mcp-server.mjs` (stdio, `@modelcontextprotocol/sdk`): dos herramientas —
+- `rag_query { query: string, project?: string, topk?: number }` → invoca `rag.mjs query --json`, devuelve los chunks encontrados con source/heading/score.
+- `rag_status {}` → salida de `rag.mjs status`.
+Sin acceso directo a la BD en el wrapper; la CLI es la única implementación.
 
-## Vault conventions
+## Convenciones del vault
 
-- Notes only (markdown). Folder per project under `Projects/`; nested tags `#<project>/<subtopic>`.
-- `graph.json` template ships color groups keyed by `path:Projects/<name>` with a documented palette slot per project and sub-colors by tag; user extends per project.
-- `Journal/YYYY-MM-DD.md` naming for daily logs.
+- Solo notas (markdown). Una carpeta por proyecto bajo `Projects/`; tags anidados `#<project>/<subtopic>`.
+- La plantilla `graph.json` distribuye grupos de color asociados a `path:Projects/<name>` con un slot de paleta documentado por proyecto y subcolores por tag; el usuario extiende por proyecto.
+- Nomenclatura `Journal/YYYY-MM-DD.md` para los logs diarios.
 
-## Verification
+## Verificación
 
-1. `bash install.sh --only rag --config-dir /tmp/cm-test` with `RAG_ROOT=/tmp/cm-root VAULT_MODE=create RAG_MODE=create` → folders scaffolded, compose up, healthcheck green, schema applied, bge-m3 pulled.
-2. Seed 3 Spanish test notes in the vault → `node rag.mjs ingest` → `status` shows chunks > 0.
-3. `node rag.mjs query "<Spanish question>"` returns the correct chunk.
-4. `rag_query` MCP tool answers inside a Claude Code session.
-5. `bash uninstall.sh --dry-run` shows compose-down + mcp-remove, never a vault/RAG folder deletion.
+1. `bash install.sh --only rag --config-dir /tmp/cm-test` con `RAG_ROOT=/tmp/cm-root VAULT_MODE=create RAG_MODE=create` → carpetas creadas, compose up, healthcheck en verde, esquema aplicado, bge-m3 descargado.
+2. Sembrar 3 notas de prueba en español en el vault → `node rag.mjs ingest` → `status` muestra chunks > 0.
+3. `node rag.mjs query "<pregunta en español>"` devuelve el chunk correcto.
+4. La herramienta MCP `rag_query` responde dentro de una sesión de Claude Code.
+5. `bash uninstall.sh --dry-run` muestra compose-down + mcp-remove, nunca la eliminación de una carpeta del vault/RAG.
 
-## Out of scope
+## Fuera de alcance
 
-- Interactive wizard UI (installer sub-spec; this component exposes the flags it will drive).
-- Non-markdown ingestion — MarkItDown / opendataloader-pdf / Whisper parsers (sub-project C; `rag.mjs ingest` accepts any path of `.md` files, so C's parsers just emit markdown into a staging dir).
-- SessionStart hook querying the RAG (sub-project D).
+- UI del wizard interactivo (sub-spec del instalador; este componente expone los flags que lo impulsarán).
+- Ingesta no-markdown — parsers de MarkItDown / opendataloader-pdf / Whisper (subproyecto C; `rag.mjs ingest` acepta cualquier ruta con archivos `.md`, así que los parsers de C simplemente emiten markdown a un directorio de staging).
+- Hook de SessionStart que consulta el RAG (subproyecto D).

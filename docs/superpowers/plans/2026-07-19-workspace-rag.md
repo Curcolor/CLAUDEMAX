@@ -1,27 +1,27 @@
-# Workspace + RAG Implementation Plan (Sub-project B)
+# Plan de Implementación: Workspace + RAG (Subproyecto B)
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Para workers agénticos:** SUB-SKILL REQUERIDO: usa superpowers:subagent-driven-development (recomendado) o superpowers:executing-plans para implementar este plan tarea por tarea. Los pasos usan sintaxis de checkbox (`- [ ]`) para el seguimiento.
 
-**Goal:** Ship `templates/vault/`, `templates/rag/` (compose + schema + CLI + MCP wrapper), and the `rag` installer component with create/import/connect modes.
+**Objetivo:** Entregar `templates/vault/`, `templates/rag/` (compose + schema + CLI + wrapper MCP) y el componente `rag` del instalador con los modos crear/importar/conectar.
 
-**Architecture:** Templates live in the repo; the component copies them to a user-chosen root. CLI (`rag.mjs`) is the single implementation; MCP server shells into it. DB via Docker Compose (pgvector/pgvector:pg17, port 5433); embeddings via Ollama `bge-m3` (1024 dims).
+**Arquitectura:** Las plantillas viven en el repo; el componente las copia a una raíz elegida por el usuario. La CLI (`rag.mjs`) es la única implementación; el servidor MCP la invoca. BD vía Docker Compose (pgvector/pgvector:pg17, puerto 5433); embeddings vía Ollama `bge-m3` (1024 dimensiones).
 
-**Tech Stack:** Node ≥18 (`pg`, `@modelcontextprotocol/sdk`), Bash installer, Docker Compose, PostgreSQL+pgvector, Ollama.
+**Stack tecnológico:** Node ≥18 (`pg`, `@modelcontextprotocol/sdk`), instalador Bash, Docker Compose, PostgreSQL+pgvector, Ollama.
 
 **Spec:** [2026-07-19-workspace-rag-design.md](../specs/2026-07-19-workspace-rag-design.md)
 
-**Branch:** `feat/workspace-rag` off `main`. Commit rule: Conventional Commits, no AI-attribution footers.
+**Rama:** `feat/workspace-rag` a partir de `main`. Regla de commits: Conventional Commits, sin footers de atribución de IA.
 
-**Environment note:** Docker Desktop and Ollama may be absent on the dev machine. Every verification step that needs them MUST first probe (`docker info`, `curl -s http://localhost:11434/api/tags`) and, if absent, print a SKIPPED warning and continue — never fail the task for a missing daemon. Full end-to-end runs happen in Task 6 only if both daemons are up.
+**Nota de entorno:** Docker Desktop y Ollama pueden estar ausentes en la máquina de desarrollo. Cada paso de verificación que los necesite DEBE primero sondearlos (`docker info`, `curl -s http://localhost:11434/api/tags`) y, si están ausentes, imprimir una advertencia SKIPPED y continuar — nunca fallar la tarea por un daemon faltante. Las ejecuciones end-to-end completas ocurren en la Tarea 6 solo si ambos daemons están activos.
 
 ---
 
-### Task 1: Vault template
+### Tarea 1: Plantilla del vault
 
-**Files:**
-- Create: `templates/vault/.obsidian/graph.json`, `templates/vault/00-Inbox/.gitkeep`, `templates/vault/Projects/README.md`, `templates/vault/Journal/.gitkeep`, `templates/vault/README.md`
+**Archivos:**
+- Crear: `templates/vault/.obsidian/graph.json`, `templates/vault/00-Inbox/.gitkeep`, `templates/vault/Projects/README.md`, `templates/vault/Journal/.gitkeep`, `templates/vault/README.md`
 
-- [ ] **Step 1: Create the tree**
+- [ ] **Paso 1: Crear el árbol**
 
 `templates/vault/.obsidian/graph.json`:
 
@@ -69,9 +69,9 @@ Obsidian vault — STRICTLY markdown notes.
 Indexed into the RAG by `R.A.G/rag.mjs ingest`.
 ```
 
-`00-Inbox/.gitkeep` and `Journal/.gitkeep`: empty files.
+`00-Inbox/.gitkeep` y `Journal/.gitkeep`: archivos vacíos.
 
-- [ ] **Step 2: Commit**
+- [ ] **Paso 2: Commit**
 
 ```bash
 git add templates/vault
@@ -80,12 +80,12 @@ git commit -m "feat(rag): add vault template"
 
 ---
 
-### Task 2: RAG infra templates (compose, schema, env, package)
+### Tarea 2: Plantillas de infraestructura RAG (compose, schema, env, package)
 
-**Files:**
-- Create: `templates/rag/docker-compose.yml`, `templates/rag/schema.sql`, `templates/rag/.env.example`, `templates/rag/package.json`, `templates/rag/.gitignore`
+**Archivos:**
+- Crear: `templates/rag/docker-compose.yml`, `templates/rag/schema.sql`, `templates/rag/.env.example`, `templates/rag/package.json`, `templates/rag/.gitignore`
 
-- [ ] **Step 1: docker-compose.yml**
+- [ ] **Paso 1: docker-compose.yml**
 
 ```yaml
 services:
@@ -110,7 +110,7 @@ volumes:
   ragdata:
 ```
 
-- [ ] **Step 2: schema.sql**
+- [ ] **Paso 2: schema.sql**
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
@@ -129,7 +129,7 @@ CREATE INDEX IF NOT EXISTS chunks_embedding_idx ON chunks
   USING hnsw (embedding vector_cosine_ops);
 ```
 
-- [ ] **Step 3: .env.example**
+- [ ] **Paso 3: .env.example**
 
 ```bash
 PG_URL=postgres://rag:rag@localhost:5433/rag
@@ -137,7 +137,7 @@ OLLAMA_URL=http://localhost:11434
 EMBED_MODEL=bge-m3
 ```
 
-- [ ] **Step 4: package.json + .gitignore**
+- [ ] **Paso 4: package.json + .gitignore**
 
 `package.json`:
 
@@ -161,7 +161,7 @@ node_modules/
 .env
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **Paso 5: Commit**
 
 ```bash
 git add templates/rag
@@ -170,12 +170,12 @@ git commit -m "feat(rag): add compose, schema, env templates"
 
 ---
 
-### Task 3: rag.mjs CLI
+### Tarea 3: CLI rag.mjs
 
-**Files:**
-- Create: `templates/rag/rag.mjs`
+**Archivos:**
+- Crear: `templates/rag/rag.mjs`
 
-- [ ] **Step 1: Write the CLI**
+- [ ] **Paso 1: Escribir la CLI**
 
 `templates/rag/rag.mjs`:
 
@@ -392,15 +392,15 @@ try {
 }
 ```
 
-- [ ] **Step 2: Syntax check (no daemons needed)**
+- [ ] **Paso 2: Comprobación de sintaxis (no requiere daemons)**
 
 ```bash
 node --check templates/rag/rag.mjs
 ```
 
-Expected: exit 0. Then run `node templates/rag/rag.mjs` (no args) → prints usage, exit 0. Run `node templates/rag/rag.mjs status` → if no DB running, prints `db: DOWN ...` and exits 1 — acceptable offline behavior, do not "fix".
+Esperado: sale con 0. Luego ejecutar `node templates/rag/rag.mjs` (sin args) → imprime el uso, sale con 0. Ejecutar `node templates/rag/rag.mjs status` → si no hay BD corriendo, imprime `db: DOWN ...` y sale con 1 — comportamiento offline aceptable, no "arreglarlo".
 
-- [ ] **Step 3: Unit-test chunker offline**
+- [ ] **Paso 3: Test unitario del chunker offline**
 
 ```bash
 node -e "
@@ -420,9 +420,9 @@ console.log("chunker OK:", out.length, "chunks");
 EOF
 ```
 
-Expected: `chunker OK: <n> chunks` with n ≥ 2.
+Esperado: `chunker OK: <n> chunks` con n ≥ 2.
 
-- [ ] **Step 4: Commit**
+- [ ] **Paso 4: Commit**
 
 ```bash
 git add templates/rag/rag.mjs
@@ -431,12 +431,12 @@ git commit -m "feat(rag): add rag.mjs CLI (ingest/query/status)"
 
 ---
 
-### Task 4: MCP wrapper
+### Tarea 4: Wrapper MCP
 
-**Files:**
-- Create: `templates/rag/mcp-server.mjs`
+**Archivos:**
+- Crear: `templates/rag/mcp-server.mjs`
 
-- [ ] **Step 1: Write the server**
+- [ ] **Paso 1: Escribir el servidor**
 
 `templates/rag/mcp-server.mjs`:
 
@@ -508,15 +508,15 @@ const transport = new StdioServerTransport();
 await server.connect(transport);
 ```
 
-- [ ] **Step 2: Syntax check**
+- [ ] **Paso 2: Comprobación de sintaxis**
 
 ```bash
 node --check templates/rag/mcp-server.mjs
 ```
 
-Expected: exit 0. (Runtime import of the SDK only works after `npm install` at the deployed location — Task 6 covers that; do not `npm install` inside `templates/`.)
+Esperado: sale con 0. (El import en runtime del SDK solo funciona tras `npm install` en la ubicación desplegada — la Tarea 6 cubre eso; no hacer `npm install` dentro de `templates/`.)
 
-- [ ] **Step 3: Commit**
+- [ ] **Paso 3: Commit**
 
 ```bash
 git add templates/rag/mcp-server.mjs
@@ -525,13 +525,13 @@ git commit -m "feat(rag): add MCP stdio wrapper"
 
 ---
 
-### Task 5: Installer component `rag`
+### Tarea 5: Componente `rag` del instalador
 
-**Files:**
-- Create: `bin/components/rag.sh`
-- Modify: `install.sh` (ALL_COMPONENTS, component_run case, usage/help, final message), `uninstall.sh`
+**Archivos:**
+- Crear: `bin/components/rag.sh`
+- Modificar: `install.sh` (ALL_COMPONENTS, case de component_run, usage/help, mensaje final), `uninstall.sh`
 
-- [ ] **Step 1: Write bin/components/rag.sh**
+- [ ] **Paso 1: Escribir bin/components/rag.sh**
 
 ```bash
 #!/usr/bin/env bash
@@ -683,10 +683,10 @@ ac_rag_register_mcp() {
 }
 ```
 
-- [ ] **Step 2: Wire install.sh**
+- [ ] **Paso 2: Conectar install.sh**
 
 - `ALL_COMPONENTS=(rtk caveman figma ui-ux dev-skills)` → `ALL_COMPONENTS=(rtk caveman figma ui-ux dev-skills rag)`
-- Add case to `component_run()`:
+- Añadir el case a `component_run()`:
 
 ```bash
         rag)
@@ -695,7 +695,7 @@ ac_rag_register_mcp() {
             ;;
 ```
 
-- Usage heredoc: add under Flags examples:
+- Heredoc de usage: añadir bajo los ejemplos de Flags:
 
 ```
   RAG env flags (component 'rag'):
@@ -704,11 +704,11 @@ ac_rag_register_mcp() {
     VAULT_SRC / VAULT_REMOTE / RAG_DUMP / RAG_REMOTE_URL per mode
 ```
 
-- Final "Try the commands" heredoc: add line `       /mcp → rag            — semantic search over your V.A.U.L.T (rag_query)`.
+- Heredoc final "Try the commands": añadir la línea `       /mcp → rag            — semantic search over your V.A.U.L.T (rag_query)`.
 
-- [ ] **Step 3: Wire uninstall.sh**
+- [ ] **Paso 3: Conectar uninstall.sh**
 
-After the Figma MCP block add:
+Después del bloque del MCP de Figma, añadir:
 
 ```bash
 # --- RAG (MCP + container; data volume and folders are preserved)
@@ -723,7 +723,7 @@ if docker info >/dev/null 2>&1 && docker ps -a --format '{{.Names}}' | grep -q '
 fi
 ```
 
-- [ ] **Step 4: Verify**
+- [ ] **Paso 4: Verificar**
 
 ```bash
 bash -n install.sh && bash -n uninstall.sh && bash -n bin/components/rag.sh && echo SYNTAX-OK
@@ -732,9 +732,9 @@ RAG_ROOT=/tmp/cm-root bash install.sh --dry-run --only rag   # prints vault crea
 bash uninstall.sh --dry-run                          # includes RAG step
 ```
 
-Expected: all exit 0 with the outputs noted. (Docker/Ollama probes inside dry-run must not fail the run when daemons are absent.)
+Esperado: todos salen con 0 con las salidas indicadas. (Los sondeos de Docker/Ollama dentro del dry-run no deben fallar la ejecución cuando los daemons están ausentes.)
 
-- [ ] **Step 5: Commit**
+- [ ] **Paso 5: Commit**
 
 ```bash
 git add bin/components/rag.sh install.sh uninstall.sh
@@ -743,21 +743,21 @@ git commit -m "feat(installer): add rag component (vault+pgvector+mcp)"
 
 ---
 
-### Task 6: End-to-end verification + docs
+### Tarea 6: Verificación end-to-end + documentación
 
-**Files:**
-- Modify: `README.md`, `INSTALL.md`
+**Archivos:**
+- Modificar: `README.md`, `INSTALL.md`
 
-- [ ] **Step 1: Probe daemons**
+- [ ] **Paso 1: Sondear los daemons**
 
 ```bash
 docker info >/dev/null 2>&1 && echo DOCKER-UP || echo DOCKER-DOWN
 curl -s http://localhost:11434/api/tags >/dev/null && echo OLLAMA-UP || echo OLLAMA-DOWN
 ```
 
-If either is DOWN: skip Steps 2–3, note it in the report (docs still get updated), and the human runs the E2E later.
+Si alguno está DOWN: saltar los pasos 2–3, anotarlo en el reporte (la documentación se actualiza igualmente), y el humano ejecuta el E2E más tarde.
 
-- [ ] **Step 2 (daemons up): Real install to a temp root**
+- [ ] **Paso 2 (daemons activos): Instalación real en una raíz temporal**
 
 ```bash
 RAG_ROOT=/tmp/cm-root VAULT_MODE=create RAG_MODE=create \
@@ -765,9 +765,9 @@ RAG_ROOT=/tmp/cm-root VAULT_MODE=create RAG_MODE=create \
 ls /tmp/cm-root/V.A.U.L.T /tmp/cm-root/R.A.G
 ```
 
-Expected: vault tree + R.A.G files present; compose container `claudemax-ragdb` healthy; `bge-m3` pulled; `npm install` done.
+Esperado: presentes el árbol del vault + los archivos de R.A.G; el contenedor de compose `claudemax-ragdb` saludable; `bge-m3` descargado; `npm install` hecho.
 
-- [ ] **Step 3 (daemons up): Spanish E2E**
+- [ ] **Paso 3 (daemons activos): E2E en español**
 
 ```bash
 mkdir -p /tmp/cm-root/V.A.U.L.T/Projects/demo
@@ -784,7 +784,7 @@ node rag.mjs status                       # expect: chunks > 0, project 'demo'
 node rag.mjs query "¿qué base de datos usa el proyecto?" --topk 2
 ```
 
-Expected: query top result is the "Base de datos" chunk. Then cleanup:
+Esperado: el resultado principal de la consulta es el chunk "Base de datos". Luego limpiar:
 
 ```bash
 docker compose -f /tmp/cm-root/R.A.G/docker-compose.yml down -v
@@ -792,11 +792,11 @@ rm -rf /tmp/cm-root /tmp/cm-cfg
 claude mcp remove rag 2>/dev/null || true
 ```
 
-- [ ] **Step 4: Docs**
+- [ ] **Paso 4: Documentación**
 
-README.md: add a `rag` row to the components table ("V.A.U.L.T vault + PGVector RAG + bge-m3 + rag MCP — first-party") and a short "RAG quickstart" block (the env-flag one-liner from Task 5 Step 2's dry-run, plus `rag.mjs` commands). INSTALL.md: add `templates/` and `bin/components/rag.sh` to the layout tree, a "Where things land" row (`<RAG_ROOT>/V.A.U.L.T`, `<RAG_ROOT>/R.A.G`, MCP `rag` at user scope, docker volume `ragdata` — uninstall removes container+MCP only), and a troubleshooting entry: "Docker not running / ollama missing → component warns and skips; re-run `--only rag` after starting them."
+README.md: añadir una fila `rag` a la tabla de componentes ("vault V.A.U.L.T + RAG con PGVector + bge-m3 + MCP rag — propio") y un breve bloque "RAG quickstart" (el one-liner de flags de entorno del dry-run del Paso 2 de la Tarea 5, más los comandos de `rag.mjs`). INSTALL.md: añadir `templates/` y `bin/components/rag.sh` al árbol de disposición, una fila "Dónde aterriza cada cosa" (`<RAG_ROOT>/V.A.U.L.T`, `<RAG_ROOT>/R.A.G`, MCP `rag` a nivel de usuario, volumen docker `ragdata` — la desinstalación solo elimina el contenedor+MCP), y una entrada de troubleshooting: "Docker no está corriendo / falta ollama → el componente advierte y salta; reejecutar `--only rag` después de arrancarlos."
 
-- [ ] **Step 5: Commit**
+- [ ] **Paso 5: Commit**
 
 ```bash
 git add README.md INSTALL.md

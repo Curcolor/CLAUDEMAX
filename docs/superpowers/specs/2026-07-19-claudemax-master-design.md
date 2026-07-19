@@ -1,15 +1,15 @@
-# CLAUDEMAX — Master Upgrade Design Spec
+# CLAUDEMAX — Especificación de Diseño Maestra de la Actualización
 
-**Date:** 2026-07-19
-**Status:** Master design covering the full ABSOLUTE-CLAUDE → CLAUDEMAX upgrade. Sub-project A has its own approved spec ([2026-07-19-skills-2.0-migration-design.md](2026-07-19-skills-2.0-migration-design.md)); sub-projects B–E get their own detailed spec before implementation, using this document as the source of truth for scope and decisions.
+**Fecha:** 2026-07-19
+**Estado:** Diseño maestro que cubre toda la actualización de ABSOLUTE-CLAUDE → CLAUDEMAX. El subproyecto A tiene su propia especificación aprobada ([2026-07-19-skills-2.0-migration-design.md](2026-07-19-skills-2.0-migration-design.md)); los subproyectos B–E tendrán su propia especificación detallada antes de implementarse, usando este documento como fuente de verdad para el alcance y las decisiones.
 
-## Vision
+## Visión
 
-Evolve ABSOLUTE-CLAUDE into **CLAUDEMAX**: a context-aware, RAG-driven development environment. Knowledge lives in an Obsidian vault and a local vector database; sessions self-contextualize at startup; legacy context handlers (repo-map, dcp-lite, Context7, Claude-Mem) are deprecated in favor of the RAG brain; all first-party skills move to the Skills 2.0 format (YAML config + JSON Schema).
+Evolucionar ABSOLUTE-CLAUDE hacia **CLAUDEMAX**: un entorno de desarrollo consciente del contexto, impulsado por RAG. El conocimiento vive en un vault de Obsidian y una base de datos vectorial local; las sesiones se autocontextualizan al arrancar; los manejadores de contexto legados (repo-map, dcp-lite, Context7, Claude-Mem) quedan obsoletos en favor del cerebro RAG; todos los skills propios pasan al formato Skills 2.0 (config YAML + JSON Schema).
 
-## Root workspace layout
+## Disposición del workspace raíz
 
-**Naming:** this repo is renamed **CLAUDEMAX** (local folder + GitHub repository). The root workspace folder is **created automatically by the setup wizard at a location the user chooses** (default name: `WORKSPACE`). The wizard is the single entry point: a user needs only the installer to end up with everything below.
+**Nomenclatura:** este repo se renombra **CLAUDEMAX** (carpeta local + repositorio de GitHub). La carpeta raíz del workspace se **crea automáticamente mediante el wizard de instalación en la ubicación que elija el usuario** (nombre por defecto: `WORKSPACE`). El wizard es el único punto de entrada: al usuario le basta con el instalador para terminar con todo lo de abajo.
 
 ```
 <chosen-root>/              # created by the wizard where the user picks (default: WORKSPACE)
@@ -22,106 +22,107 @@ Evolve ABSOLUTE-CLAUDE into **CLAUDEMAX**: a context-aware, RAG-driven developme
 └── <ProjectRepo2>/
 ```
 
-The CLAUDEMAX repo itself (wizard source, skills, components) lives wherever it was cloned — currently `Desktop\WORKSPACE\Herramientas\` — and the wizard self-bootstraps (clone-and-run, like the current `install.sh` curl-mode), so its location is irrelevant to end users.
+El propio repo de CLAUDEMAX (fuente del wizard, skills, componentes) vive donde se haya clonado — actualmente `Desktop\WORKSPACE\Herramientas\` — y el wizard se autoarranca (clone-and-run, como el actual modo curl de `install.sh`), así que su ubicación es irrelevante para los usuarios finales.
 
-- **V.A.U.L.T** is visually and logically divided by project using Obsidian color-coding (graph-view color groups keyed by project tag), with sub-colors for subtopics within each project (nested tags, e.g. `#proj-alpha/api`).
-- **R.A.G** holds the vector infrastructure and ingestion/query scripts; never notes.
-- **.claude/** at the root carries the base rules; the project-init ritual (sub-project D) propagates them into each new project repo's own `.claude/`.
+- **V.A.U.L.T** está dividido visual y lógicamente por proyecto mediante el código de color de Obsidian (grupos de color en graph-view asociados a la etiqueta del proyecto), con subcolores para subtemas dentro de cada proyecto (tags anidados, p. ej. `#proj-alpha/api`).
+- **R.A.G** contiene la infraestructura vectorial y los scripts de ingesta/consulta; nunca notas.
+- **.claude/** en la raíz lleva las reglas base; el ritual de inicialización de proyecto (subproyecto D) las propaga al `.claude/` propio de cada nuevo repo de proyecto.
 
-## Sub-projects and order
+## Subproyectos y orden
 
-| # | Sub-project | Status | Depends on |
+| # | Subproyecto | Estado | Depende de |
 |---|---|---|---|
-| A | Skills 2.0 migration + pruning | Spec approved | — |
-| B | CLAUDEMAX workspace + RAG stack | This master spec → own spec | — |
-| C | Tooling integrations | This master spec → own spec | A (skill format), B (parsers feed RAG) |
-| E | Operational rules | This master spec → own spec | — (cheap, can interleave) |
-| D | Lifecycle rituals | This master spec → own spec | B, C (queries what they build) |
+| A | Migración y poda a Skills 2.0 | Especificación aprobada | — |
+| B | Workspace CLAUDEMAX + stack RAG | Esta spec maestra → spec propia | — |
+| C | Integraciones de herramientas | Esta spec maestra → spec propia | A (formato de skill), B (los parsers alimentan el RAG) |
+| E | Reglas operativas | Esta spec maestra → spec propia | — (barata, puede intercalarse) |
+| D | Rituales de ciclo de vida | Esta spec maestra → spec propia | B, C (consulta lo que construyen) |
 
-Implementation order: **A → B → C → E → D**.
+Orden de implementación: **A → B → C → E → D**.
 
-## A — Skills 2.0 migration (approved, summarized)
+## A — Migración a Skills 2.0 (aprobado, resumido)
 
-See [dedicated spec](2026-07-19-skills-2.0-migration-design.md). Key outcomes:
+Ver la [spec dedicada](2026-07-19-skills-2.0-migration-design.md). Resultados clave:
 
-- Format: SKILL.md (discovery) + `skill.yaml` + `schema.json` sidecars, `validate-skills.mjs` validator.
-- Final inventory: `architecture-principles` (physical merge of solid + design-patterns + architecture-patterns), `conventional-commits`, `ui-ux-pro-max` (first-party fork consolidating Taste, Frontend Design, Webarticast, Brand Guidelines + motion section for transitions with Framer Motion + GSAP).
-- Removed: `repo-map` (→ Graphify, sub-project C) and `dcp-lite` entirely (RAG brain takes over context/memory).
-- Model policy already live in `~/.claude/CLAUDE.md`: subagent-driven Agent spawns use Sonnet 5; code reviews stay in-session on the current model (Fable 5 / Opus 4.8).
+- Formato: SKILL.md (descubrimiento) + sidecars `skill.yaml` + `schema.json`, validador `validate-skills.mjs`.
+- Inventario final: `architecture-principles` (fusión física de solid + design-patterns + architecture-patterns), `conventional-commits`, `ui-ux-pro-max` (fork propio que consolida Taste, Frontend Design, Webarticast, Brand Guidelines + sección de motion para transiciones con Framer Motion + GSAP).
+- Eliminados: `repo-map` (→ Graphify, subproyecto C) y `dcp-lite` por completo (el cerebro RAG asume el contexto/memoria).
+- Política de modelos ya vigente en `~/.claude/CLAUDE.md`: los spawns de Agent para desarrollo dirigido por subagentes usan Sonnet 5; las revisiones de código permanecen en la sesión actual con el modelo activo (Fable 5 / Opus 4.8).
 
-## B — Workspace + RAG stack
+## B — Workspace + stack RAG
 
-**Obsidian vault (V.A.U.L.T):**
-- Markdown notes only. Folder-per-project, tag taxonomy `#<project>/<subtopic>`.
-- Graph-view color groups: one base color per project, sub-colors per subtopic tag. Config committed as part of the vault (`.obsidian/graph.json`) so the scheme survives reinstalls.
+**Vault de Obsidian (V.A.U.L.T):**
+- Solo notas markdown. Una carpeta por proyecto, taxonomía de tags `#<project>/<subtopic>`.
+- Grupos de color en graph-view: un color base por proyecto, subcolores por tag de subtema. La configuración se commitea como parte del vault (`.obsidian/graph.json`) para que el esquema sobreviva a las reinstalaciones.
 
 **RAG (R.A.G):**
-- **Embeddings:** local via Ollama (open-source model; candidate `nomic-embed-text` — final choice in sub-spec B after benchmarking on the user's hardware).
-- **Vector store:** PostgreSQL + PGVector. Deployment mode (Docker container vs native Windows install) decided in sub-spec B.
-- **Ingestion pipeline:** source file → parser (MarkItDown for standard files, `opendataloader-pdf` for PDFs, Whisper for audio) → markdown → chunk → embed (Ollama) → upsert into PGVector. Vault notes ingest directly (already markdown).
-- **Query interface:** a retrieval entry point callable from Claude Code sessions (CLI script vs local MCP server — decided in sub-spec B; MCP preferred if SessionStart hooks can consume it cleanly).
-- All R.A.G scripts follow the repo convention: dependency-free where possible, Node or Python, no cloud calls — fully local.
+- **Embeddings:** locales vía Ollama (modelo open-source; candidato `nomic-embed-text` — elección final en la sub-spec B tras hacer benchmarking en el hardware del usuario).
+- **Almacén vectorial:** PostgreSQL + PGVector. El modo de despliegue (contenedor Docker vs instalación nativa en Windows) se decide en la sub-spec B.
+- **Pipeline de ingesta:** archivo fuente → parser (MarkItDown para archivos estándar, `opendataloader-pdf` para PDFs, Whisper para audio) → markdown → chunk → embed (Ollama) → upsert en PGVector. Las notas del vault se ingieren directamente (ya son markdown).
+- **Interfaz de consulta:** un punto de entrada de recuperación invocable desde sesiones de Claude Code (script CLI vs servidor MCP local — se decide en la sub-spec B; se prefiere MCP si los hooks de SessionStart pueden consumirlo limpiamente).
+- Todos los scripts de R.A.G siguen la convención del repo: sin dependencias cuando sea posible, Node o Python, sin llamadas a la nube — totalmente local.
 
-## C — Tooling integrations
+## C — Integraciones de herramientas
 
-New components installed by CLAUDEMAX-INSTALLER (each as an `ac_component_<id>` following existing installer architecture):
+Nuevos componentes instalados por CLAUDEMAX-INSTALLER (cada uno como un `ac_component_<id>` siguiendo la arquitectura existente del instalador):
 
-| Tool | Purpose | Source |
+| Herramienta | Propósito | Fuente |
 |---|---|---|
-| **Graphify** (Understand-Anything) | Interactive codebase knowledge graphs; replaces repo-map; its output is read at SessionStart | github.com/Egonex-AI/Understand-Anything |
-| **Cyber Neo** | OWASP 2025 / CWE Top 25 vulnerability scanning and security audits | github.com/Hainrixz/cyber-neo |
-| **opendataloader-pdf** | PDF parsing (also feeds RAG ingestion) | github.com/opendataloader-project/opendataloader-pdf |
-| **MarkItDown** | General file → markdown parsing (also feeds RAG ingestion) | Microsoft open source |
-| **Whisper** | Audio transcription (also feeds RAG ingestion) | OpenAI open source, run locally |
-| **Meta-dev skill** | Unified "Skill Creator + MCP Builder": creating Skills 2.0 and MCP servers as one workflow, in Skills 2.0 format | first-party, new |
+| **Graphify** (Understand-Anything) | Grafos de conocimiento interactivos del codebase; reemplaza a repo-map; su salida se lee en SessionStart | github.com/Egonex-AI/Understand-Anything |
+| **Cyber Neo** | Escaneo de vulnerabilidades y auditorías de seguridad OWASP 2025 / CWE Top 25 | github.com/Hainrixz/cyber-neo |
+| **opendataloader-pdf** | Parsing de PDF (también alimenta la ingesta del RAG) | github.com/opendataloader-project/opendataloader-pdf |
+| **MarkItDown** | Parsing general de archivo → markdown (también alimenta la ingesta del RAG) | Open source de Microsoft |
+| **Whisper** | Transcripción de audio (también alimenta la ingesta del RAG) | Open source de OpenAI, ejecutado localmente |
+| **Meta-dev skill** | "Skill Creator + MCP Builder" unificado: crear Skills 2.0 y servidores MCP como un único flujo, en formato Skills 2.0 | propio, nuevo |
 
-Kept as-is: superpowers (obra/superpowers), Figma MCP (https://mcp.figma.com/mcp), 21st.dev Magic MCP (`npx -y @21st-dev/magic@latest`), RTK proxy (rtk-ai/rtk), Caveman.
+Se conservan tal cual: superpowers (obra/superpowers), Figma MCP (https://mcp.figma.com/mcp), 21st.dev Magic MCP (`npx -y @21st-dev/magic@latest`), proxy RTK (rtk-ai/rtk), Caveman.
 
-Removed from the ecosystem: Context7 and Claude-Mem (conflict with the RAG brain; not present in this repo — sub-spec C includes an environment sweep to remove them from `~/.claude/` if found).
+Eliminados del ecosistema: Context7 y Claude-Mem (entran en conflicto con el cerebro RAG; no están presentes en este repo — la sub-spec C incluye un barrido del entorno para eliminarlos de `~/.claude/` si se encuentran).
 
-## D — Lifecycle rituals
+## D — Rituales de ciclo de vida
 
-All implemented as Claude Code hooks (registered in settings.json via the existing `ac_merge_hook` JSONC merger) plus CLAUDE.md rules where a hook cannot express the behavior:
+Todos implementados como hooks de Claude Code (registrados en settings.json vía el merger JSONC existente `ac_merge_hook`) más reglas de CLAUDE.md donde un hook no pueda expresar el comportamiento:
 
-| Ritual | Trigger | Behavior |
+| Ritual | Disparador | Comportamiento |
 |---|---|---|
-| **Session start** | SessionStart hook | Query the RAG for project context + read the latest Graphify output; inject both as session context |
-| **New project init** | User creates a project (skill/command) | Generate `.claude/` inside the new repo: base rules (conventional-commits, model policy, operational rules) + project-specific context |
-| **End of day (minor)** | User signals end of workday | Write a daily log/journal note into V.A.U.L.T. Do NOT trigger RAG re-index or Graphify rebuild (compute saving) |
-| **End of cycle (major)** | User signals end of sprint/cycle | Prompt the user to run the **Context Dump Ritual**: permanently index all accumulated knowledge into the RAG and the vault; rebuild Graphify |
+| **Inicio de sesión** | Hook SessionStart | Consultar el RAG para el contexto del proyecto + leer la última salida de Graphify; inyectar ambos como contexto de la sesión |
+| **Inicialización de nuevo proyecto** | El usuario crea un proyecto (skill/comando) | Generar `.claude/` dentro del nuevo repo: reglas base (conventional-commits, política de modelos, reglas operativas) + contexto específico del proyecto |
+| **Fin de día (menor)** | El usuario indica el fin de la jornada | Escribir una nota de log/diario diario en V.A.U.L.T. NO disparar el re-indexado del RAG ni la reconstrucción de Graphify (ahorro de cómputo) |
+| **Fin de ciclo (mayor)** | El usuario indica el fin de un sprint/ciclo | Pedir al usuario que ejecute el **Context Dump Ritual**: indexar de forma permanente todo el conocimiento acumulado en el RAG y el vault; reconstruir Graphify |
 
-## E — Operational rules
+## E — Reglas operativas
 
-Live in WORKSPACE root `.claude/` rules (propagated to projects by the init ritual) and, where enforceable, as hooks:
+Viven en las reglas de `.claude/` en la raíz de WORKSPACE (propagadas a los proyectos por el ritual de inicialización) y, donde sea posible, como hooks:
 
-- **3-attempt loop breaker:** after 3 failed fix attempts on the same error, STOP; summarize context for the user and wait for manual input instead of burning tokens.
-- **Git commits:** always strip any "Co-authored-by: Claude" footer from generated commits (rule + optional commit-msg hook for enforcement).
-- **Token-saver / skill search:** whenever a new language, framework, or tactic enters the conversation (C#, .NET, WinUI 3, XAML, Python, …), pause and ask: "Would you like me to search/create a specific Skill 2.0 for this technology, or should we proceed without it to save tokens?" — including a brief warning about the trade-offs of skipping the skill.
-- **Model policy:** subagent-driven Agent spawns use Sonnet 5; code reviews stay in-session on the current model (Fable 5 / Opus 4.8). Already applied to the user's `~/.claude/CLAUDE.md`, but the canonical copy MUST ship inside the CLAUDEMAX repo (rules templates installed by the wizard into the root `.claude/` and propagated to projects) — same for every rule in this section. The repo, not any personal config, is the source of truth.
-- Legacy memory tooling (Context7 / Claude-Mem) must not be reinstalled; the RAG brain is the single source of context retention.
+- **Freno de bucle a los 3 intentos:** tras 3 intentos fallidos de arreglar el mismo error, DETENERSE; resumir el contexto para el usuario y esperar entrada manual en vez de quemar tokens.
+- **Commits de git:** siempre eliminar cualquier footer "Co-authored-by: Claude" de los commits generados (regla + hook opcional de commit-msg para reforzarlo).
+- **Ahorro de tokens / búsqueda de skill:** cada vez que entra en la conversación un lenguaje, framework o técnica nuevos (C#, .NET, WinUI 3, XAML, Python, …), pausar y preguntar: "¿Quieres que busque/cree un Skill 2.0 específico para esta tecnología, o seguimos sin él para ahorrar tokens?" — incluyendo una breve advertencia sobre las contrapartidas de omitir el skill.
+- **Política de modelos:** los spawns de Agent para desarrollo dirigido por subagentes usan Sonnet 5; las revisiones de código permanecen en la sesión actual con el modelo activo (Fable 5 / Opus 4.8). Ya aplicado en el `~/.claude/CLAUDE.md` del usuario, pero la copia canónica DEBE distribuirse dentro del repo de CLAUDEMAX (plantillas de reglas instaladas por el wizard en el `.claude/` raíz y propagadas a los proyectos) — igual que cada regla de esta sección. El repo, no ninguna configuración personal, es la fuente de verdad.
+- **Idioma:** TODO el contenido del proyecto en español — README, INSTALL, specs, planes, comentarios de código, mensajes del instalador y salidas al usuario. Skills en modo bilingüe: cuerpo en español, triggers/descriptions con keywords en inglés Y español para el matching del modelo. Identificadores de código y términos técnicos quedan en inglés. Los tipos de Conventional Commits (feat/fix/docs...) quedan en inglés; el subject del commit en español.
+- La herramienta de memoria legada (Context7 / Claude-Mem) no debe reinstalarse; el cerebro RAG es la única fuente de retención de contexto.
 
-## Interactive installer (setup wizard)
+## Instalador interactivo (setup wizard)
 
-The upgrade replaces the flag-driven `install.sh` UX with an **interactive, application-style setup wizard**:
+La actualización reemplaza la UX de `install.sh` basada en flags por un **setup wizard interactivo, tipo aplicación**:
 
-- **Entry point:** launcher files placed at the chosen root (`CLAUDEMAX-INSTALLER.cmd` + `CLAUDEMAX-UNINSTALLER.cmd`) — files, not folders. They invoke the wizard shipped inside the CLAUDEMAX repo; the wizard also self-bootstraps for first-time users (download → clone → run).
-- **Experience:** visual step-by-step flow like a desktop app installer — welcome screen, **destination picker** (the wizard creates the root folder wherever the user chooses, default name `WORKSPACE`), dependency checklist with live detected/missing status, per-component selection (install everything or piece by piece), progress per step, final summary. Recommended tech: Node TUI (dependency-free `readline`-based menus, repo convention) — final choice in the installer sub-spec.
-- **Vault setup step:** the user picks one of three modes for V.A.U.L.T — **(1) create from scratch** (skeleton + Obsidian color config), **(2) import an existing vault** (point at a folder, wizard adopts it and applies the tag/color conventions non-destructively), or **(3) connect to a remote vault** (synced/Git-hosted vault: wizard clones/links it).
-- **RAG setup step:** same three modes for R.A.G — **(1) create from scratch** (fresh PostgreSQL + PGVector schema, Ollama model pull), **(2) import existing** (restore a database dump / reuse an existing local instance), or **(3) connect to remote** (connection string to an existing PostgreSQL+PGVector server; embeddings stay local via Ollama or point at a remote Ollama endpoint).
-- **System dependencies it detects and offers to install** (via `winget` on Windows): Obsidian, Docker Desktop (+ WSL2 if missing), Ollama, PostgreSQL + PGVector (or the Docker route), Git, Node.js, Python. Each is optional and individually skippable.
-- **Then the CLAUDEMAX components:** everything from sub-projects A/C (skills, MCPs, RTK, Caveman, Graphify, Cyber Neo, parsers) plus root scaffolding: V.A.U.L.T skeleton with Obsidian color config, R.A.G skeleton, root `.claude/` rules, sub-project D hooks.
-- **Internals preserved:** `bin/lib/*` helpers, `bin/components/*` with `ac_component_<id>` functions, JSONC settings merger with `.bak` backups. The wizard orchestrates these same components; non-interactive flags (`--all/--only/--skip/--dry-run/--force/--config-dir`) remain for scripted use.
+- **Punto de entrada:** archivos lanzadores colocados en la raíz elegida (`CLAUDEMAX-INSTALLER.cmd` + `CLAUDEMAX-UNINSTALLER.cmd`) — archivos, no carpetas. Invocan al wizard distribuido dentro del repo de CLAUDEMAX; el wizard también se autoarranca para usuarios primerizos (descargar → clonar → ejecutar).
+- **Experiencia:** flujo visual paso a paso como el instalador de una app de escritorio — pantalla de bienvenida, **selector de destino** (el wizard crea la carpeta raíz donde el usuario elija, nombre por defecto `WORKSPACE`), checklist de dependencias con estado detectado/faltante en vivo, selección por componente (instalar todo o pieza por pieza), progreso por paso, resumen final. Tecnología recomendada: TUI en Node (menús basados en `readline` sin dependencias, convención del repo) — elección final en la sub-spec del instalador.
+- **Paso de configuración del vault:** el usuario elige uno de tres modos para V.A.U.L.T — **(1) crear desde cero** (esqueleto + configuración de color de Obsidian), **(2) importar un vault existente** (apuntar a una carpeta, el wizard lo adopta y aplica las convenciones de tags/color de forma no destructiva), o **(3) conectar a un vault remoto** (vault sincronizado/alojado en Git: el wizard lo clona/enlaza).
+- **Paso de configuración del RAG:** los mismos tres modos para R.A.G — **(1) crear desde cero** (esquema nuevo de PostgreSQL + PGVector, pull del modelo de Ollama), **(2) importar existente** (restaurar un dump de base de datos / reusar una instancia local existente), o **(3) conectar a remoto** (cadena de conexión a un servidor PostgreSQL+PGVector existente; los embeddings siguen siendo locales vía Ollama o apuntan a un endpoint remoto de Ollama).
+- **Dependencias del sistema que detecta y ofrece instalar** (vía `winget` en Windows): Obsidian, Docker Desktop (+ WSL2 si falta), Ollama, PostgreSQL + PGVector (o la vía Docker), Git, Node.js, Python. Cada una es opcional y se puede omitir individualmente.
+- **Luego los componentes de CLAUDEMAX:** todo lo de los subproyectos A/C (skills, MCPs, RTK, Caveman, Graphify, Cyber Neo, parsers) más el andamiaje raíz: esqueleto de V.A.U.L.T con configuración de color de Obsidian, esqueleto de R.A.G, reglas de `.claude/` raíz, hooks del subproyecto D.
+- **Internos preservados:** los helpers `bin/lib/*`, `bin/components/*` con funciones `ac_component_<id>`, el merger JSONC de settings con backups `.bak`. El wizard orquesta estos mismos componentes; los flags no interactivos (`--all/--only/--skip/--dry-run/--force/--config-dir`) se mantienen para uso scripteado.
 
-## Open questions (inputs to sub-specs, not blockers for A)
+## Preguntas abiertas (insumos para las sub-specs, no bloqueantes para A)
 
-1. **B:** embedding model final choice; PGVector via Docker vs native; RAG query interface (CLI vs local MCP server).
-2. **Installer:** final wizard tech (dependency-free Node TUI recommended) and exact `winget` package ids per system dependency.
-3. **C:** whether Graphify and Cyber Neo install as skills, MCP servers, or plain CLIs (depends on what upstream ships).
-4. **D:** exact hook events for "end of day" / "end of cycle" signals (likely skill/slash-command triggered rather than automatic).
-5. **Installer:** whether existing repos under `WORKSPACE\` move into `CLAUDEMAX/` or stay and get symlinked/referenced.
+1. **B:** elección final del modelo de embeddings; PGVector vía Docker vs nativo; interfaz de consulta del RAG (CLI vs servidor MCP local).
+2. **Instalador:** tecnología final del wizard (se recomienda TUI en Node sin dependencias) e ids exactos de paquete `winget` por dependencia del sistema.
+3. **C:** si Graphify y Cyber Neo se instalan como skills, servidores MCP o CLIs planas (depende de lo que distribuya el upstream).
+4. **D:** eventos de hook exactos para las señales de "fin de día" / "fin de ciclo" (probablemente disparados por skill/slash-command en vez de automáticos).
+5. **Instalador:** si los repos existentes bajo `WORKSPACE\` se mueven a `CLAUDEMAX/` o se quedan y se enlazan/referencian mediante symlink.
 
-## Master verification
+## Verificación maestra
 
-1. Each sub-project passes its own spec verification before the next starts.
-2. End-to-end smoke after D: fresh run of the setup wizard (`CLAUDEMAX-INSTALLER.cmd`, full install) on a clean config dir → new session inside a project repo self-contextualizes (RAG query + Graphify) → end-of-day journal lands in V.A.U.L.T → Context Dump Ritual indexes into PGVector.
-3. `CLAUDEMAX-UNINSTALLER.cmd` removes everything the wizard installed, including legacy artifacts (repo-map, dcp-lite, Context7/Claude-Mem remnants); system dependencies (Obsidian, Docker, WSL) are listed but left for manual removal.
+1. Cada subproyecto pasa la verificación de su propia spec antes de que empiece el siguiente.
+2. Smoke end-to-end tras D: ejecución limpia del setup wizard (`CLAUDEMAX-INSTALLER.cmd`, instalación completa) en un config dir limpio → una nueva sesión dentro de un repo de proyecto se autocontextualiza (consulta RAG + Graphify) → el diario de fin de día aterriza en V.A.U.L.T → el Context Dump Ritual indexa en PGVector.
+3. `CLAUDEMAX-UNINSTALLER.cmd` elimina todo lo que instaló el wizard, incluidos los artefactos legados (repo-map, dcp-lite, restos de Context7/Claude-Mem); las dependencias del sistema (Obsidian, Docker, WSL) se listan pero se dejan para eliminación manual.
