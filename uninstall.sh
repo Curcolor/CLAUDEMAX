@@ -87,6 +87,10 @@ if [ "$AC_HAS_CLAUDE" = "1" ]; then
     ac_run claude mcp remove magic 2>/dev/null || true
 fi
 
+# --- Cyber Neo (clon git aparte; no forma parte del loop de skills de ingeniería)
+ac_step "Cyber Neo"
+ac_run rm -rf "$CLAUDE_CONFIG_DIR/skills/cyber-neo"
+
 # --- Figma MCP
 ac_step "Figma MCP"
 if [ "$AC_HAS_CLAUDE" = "1" ]; then

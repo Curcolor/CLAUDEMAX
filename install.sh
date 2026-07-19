@@ -53,7 +53,7 @@ ONLY=()
 SKIP=()
 AC_CONFIG_DIR_OVERRIDE=""
 
-ALL_COMPONENTS=(rtk caveman figma ui-ux dev-skills rag graphify)
+ALL_COMPONENTS=(rtk caveman figma ui-ux dev-skills rag graphify cyber-neo)
 
 usage() {
     cat <<EOF
@@ -182,6 +182,10 @@ component_run() {
             . "$AC_REPO_DIR/bin/components/graphify.sh"
             ac_component_graphify
             ;;
+        cyber-neo)
+            . "$AC_REPO_DIR/bin/components/cyber-neo.sh"
+            ac_component_cyber_neo
+            ;;
         *)
             ac_warn "Componente desconocido: $id (válidos: ${ALL_COMPONENTS[*]})"
             ;;
@@ -226,6 +230,7 @@ ${AC_GREEN}Listo.${AC_NC} Próximos pasos:
        /architecture-principles /conventional-commits
        /mcp → rag            — búsqueda semántica sobre tu V.A.U.L.T (rag_query)
        /understand           — grafo de conocimiento del proyecto (Graphify)
+       /cyber-neo <ruta>     — auditoría de seguridad OWASP/CWE
 
   Ver README.md para la documentación completa. Para eliminar todo: bash uninstall.sh
 EOF
