@@ -19,24 +19,25 @@ ABSOLUTE-CLAUDE/
 │   └── components/
 │       ├── rtk.sh              # pipes rtk install + `rtk init --global`
 │       ├── caveman.sh          # `npx -y github:JuliusBrussee/caveman -- --all`
-│       ├── dcp.sh              # installs dcp-lite skill+hook; real DCP if opencode present
-│       ├── repo-map.sh         # copies skills/repo-map → $CLAUDE_CONFIG_DIR/skills/
 │       ├── figma-mcp.sh        # `claude mcp add --transport http figma ...`
-│       ├── ui-ux.sh            # clone ui-ux-pro-max + register magic MCP + npm i
-│       └── dev-skills.sh       # superpowers clone + 4 first-party engineering skills
-├── skills/
-│   ├── repo-map/
-│   │   ├── SKILL.md
-│   │   └── build-map.mjs
-│   ├── dcp-lite/
-│   │   ├── SKILL.md
-│   │   └── dcp-lite.mjs
-│   ├── solid/SKILL.md
-│   ├── design-patterns/SKILL.md
-│   ├── conventional-commits/SKILL.md
-│   └── architecture-patterns/SKILL.md
-└── hooks/
-    └── dcp-lite-dedup.mjs      # PostToolUse hook for dcp-lite
+│       ├── ui-ux.sh            # copies skills/ui-ux-pro-max + registers magic MCP + npm i
+│       └── dev-skills.sh       # superpowers clone + 2 first-party engineering skills
+└── skills/
+    ├── architecture-principles/
+    │   ├── SKILL.md
+    │   ├── skill.yaml
+    │   └── schema.json
+    ├── conventional-commits/
+    │   ├── SKILL.md
+    │   ├── skill.yaml
+    │   └── schema.json
+    ├── ui-ux-pro-max/
+    │   ├── SKILL.md
+    │   ├── skill.yaml
+    │   ├── schema.json
+    │   ├── data/            # CSVs: styles, colors, typography, ux-guidelines, per-stack, ...
+    │   └── scripts/         # core.py, design_system.py, search.py
+    └── validate-skills.mjs  # Skills 2.0 contract checker — run after any skill edit
 ```
 
 ## Where things land on your machine
@@ -44,19 +45,15 @@ ABSOLUTE-CLAUDE/
 | Path | Written by | Removed by `uninstall.sh`? |
 |---|---|---|
 | `$HOME/.local/bin/rtk` | RTK installer (upstream) | Yes |
-| `$CLAUDE_CONFIG_DIR/settings.json` (hook entries) | Caveman, rtk init, dcp.sh | Caveman entries by Caveman; dcp-lite entry by us; rtk entries left alone |
-| `$CLAUDE_CONFIG_DIR/hooks/*` | Caveman, dcp.sh | Caveman cleans its own; we remove `dcp-lite-dedup.mjs` |
-| `$CLAUDE_CONFIG_DIR/skills/repo-map/` | repo-map.sh | Yes |
-| `$CLAUDE_CONFIG_DIR/skills/dcp-lite/` | dcp.sh | Yes |
-| `$CLAUDE_CONFIG_DIR/skills/ui-ux-pro-max/` | ui-ux.sh (`git clone`) | Yes |
+| `$CLAUDE_CONFIG_DIR/settings.json` (hook entries) | Caveman, rtk init | Caveman entries by Caveman; rtk entries by us |
+| `$CLAUDE_CONFIG_DIR/skills/ui-ux-pro-max/` | ui-ux.sh (`cp -R` from this repo) | Yes |
 | `$CLAUDE_CONFIG_DIR/skills/superpowers/` | dev-skills.sh (`git clone`) | Yes |
-| `$CLAUDE_CONFIG_DIR/skills/{solid,design-patterns,conventional-commits,architecture-patterns}/` | dev-skills.sh (copy) | Yes |
-| `$CLAUDE_CONFIG_DIR/state/dcp-lite-*.json` | dcp-lite hook at runtime | Yes |
+| `$CLAUDE_CONFIG_DIR/skills/{architecture-principles,conventional-commits}/` | dev-skills.sh (`cp -R` from this repo) | Yes |
 | `$CLAUDE_CONFIG_DIR/.caveman-active` | Caveman | Caveman handles |
 | Claude MCP registry: `figma`, `magic`, `caveman-shrink` | figma-mcp.sh, ui-ux.sh, Caveman | Yes for figma + magic; Caveman handles its own |
 | `<cwd>/package.json`, `<cwd>/node_modules/` | ui-ux.sh `npm install` | **No** — we don't touch your project's deps on uninstall |
-| `<cwd>/.claude/repo-map.md` | repo-map skill at runtime | **No** — left for you |
-| opencode plugin: `@tarquinen/opencode-dcp` | dcp.sh (only if opencode present) | Best-effort via `opencode plugin uninstall` |
+
+`uninstall.sh` also best-effort removes a handful of legacy paths from older ABSOLUTE-CLAUDE installs (`skills/repo-map/`, `skills/dcp-lite/`, `hooks/dcp-lite-dedup.mjs`, `state/dcp-lite-*.json`, and the pre-2.0 skill names `solid`, `design-patterns`, `architecture-patterns`) so upgrading in place leaves nothing behind. None of those components are installed by current `install.sh`.
 
 ## Component install order (and why)
 
@@ -65,17 +62,16 @@ ABSOLUTE-CLAUDE/
    - On Windows (MinGW/MSYS/Cygwin via Git Bash): downloads `rtk-x86_64-pc-windows-msvc.zip` from the latest GitHub release and extracts `rtk.exe` to `~/.local/bin/`. Tries `unzip`, then `powershell.exe Expand-Archive`, then `python -m zipfile` until one works.
    - The PreToolUse/Bash hook (`rtk hook claude`) is written directly into `~/.claude/settings.json` via our JSONC merger — we do not depend on `rtk init -g`'s interactive y/N prompt, which defaults to `N` in non-interactive shells.
 2. **caveman** — wires hooks, statusline, `caveman-shrink` MCP. Idempotent. The `caveman-shrink` MCP registers at project scope (Caveman's own installer manages this).
-3. **dcp** — needs `$CLAUDE_CONFIG_DIR/settings.json` to exist; Caveman's earlier merge ensures it does.
-4. **repo-map** — pure file copy; no order dependency.
-5. **figma** — needs `claude` CLI; registers at **user scope** (`claude mcp add -s user`) so it works in every project.
-6. **ui-ux** — also needs `claude` for the magic MCP (also registered at **user scope**); mutates cwd via `npm install` (gated).
+3. **figma** — needs `claude` CLI; registers at **user scope** (`claude mcp add -s user`) so it works in every project.
+4. **ui-ux** — also needs `claude` for the magic MCP (also registered at **user scope**); mutates cwd via `npm install` (gated).
+5. **dev-skills** — pure file copy for `architecture-principles` / `conventional-commits`; `git clone`/`git pull` for `superpowers`. No order dependency on the others.
 
 ## Flag interactions
 
 - `--dry-run` is honored by every component **and** is forwarded to Caveman's own `--dry-run`. RTK's upstream installer does not support dry-run; we print the curl command instead and skip it.
-- `--force` does not blanket-reinstall — each component decides what "force" means for itself (rtk: re-pipe installer; Caveman: pass `--force`; Figma/magic: `mcp remove` then `mcp add`; ui-ux clone: `rm -rf` + clone).
+- `--force` does not blanket-reinstall — each component decides what "force" means for itself (rtk: re-pipe installer; Caveman: pass `--force`; Figma/magic: `mcp remove` then `mcp add`; ui-ux skill copy: `rm -rf` + `cp -R`; superpowers clone: `rm -rf` + re-clone instead of `git pull`).
 - `--no-npm` only affects the framer-motion/gsap step in `ui-ux`. It does **not** suppress `npx`-based steps (`caveman`, `magic` MCP) — those use the npm registry but don't mutate your project.
-- `--config-dir` propagates to dcp-lite, repo-map, and Caveman (via Caveman's own `--config-dir`). RTK and the Figma/magic MCP registrations don't take a config-dir override — they use the `claude` CLI's defaults.
+- `--config-dir` propagates to Caveman (via Caveman's own `--config-dir`) and to where `dev-skills`/`ui-ux` copy skill directories. RTK and the Figma/magic MCP registrations don't take a config-dir override — they use the `claude` CLI's defaults.
 
 ## Troubleshooting
 
@@ -90,14 +86,6 @@ Claude Code versions before MCP support don't have `claude mcp`. Upgrade Claude 
 ### "Figma MCP shows in `/mcp` but never authenticates"
 
 OAuth requires a default browser. If you're on a headless server, run the OAuth flow on a desktop machine signed into the same Claude account; the token syncs.
-
-### "`/dcp-compress` does nothing"
-
-`dcp-lite` is a skill, not a hook that auto-fires. The model has to invoke it. Try a more explicit prompt: "Use the dcp-lite skill to compress the tool outputs since my last message, focused on test failures."
-
-### "The PostToolUse hook is spamming `<system-reminder>` lines"
-
-The hook only emits when it detects a duplicate or stale-error pattern. If you're seeing them constantly, you probably have a loop. Run `/dcp-context` to inspect, and `/dcp-stats` for cumulative numbers. To reset: `node $CLAUDE_CONFIG_DIR/skills/dcp-lite/dcp-lite.mjs reset`.
 
 ### "My `settings.json` got mangled"
 
@@ -123,9 +111,13 @@ Everything else still installs.
 bash install.sh --only figma --only ui-ux
 ```
 
-### "Re-running the installer keeps re-cloning ui-ux-pro-max"
+### "Re-running the installer keeps re-cloning superpowers"
 
-If `--force` is set, ui-ux.sh deletes and re-clones. Without `--force`, it does `git pull --ff-only` in the existing checkout. If the pull is failing repeatedly, your local clone has diverged — `rm -rf $CLAUDE_CONFIG_DIR/skills/ui-ux-pro-max` then re-run.
+If `--force` is set, `dev-skills.sh` deletes and re-clones. Without `--force`, it does `git pull --ff-only` in the existing checkout. If the pull is failing repeatedly, your local clone has diverged — `rm -rf $CLAUDE_CONFIG_DIR/skills/superpowers` then re-run.
+
+### "`node skills/validate-skills.mjs` fails after I edited a skill"
+
+Every skill under `skills/<name>/` needs all three files (`SKILL.md`, `skill.yaml`, `schema.json`), the `name` field in `SKILL.md` frontmatter and `skill.yaml` must match the directory name, `skill.yaml` needs a non-empty `triggers` list and a `kind` of `knowledge` or `tool`, and `schema.json` needs `definitions.inputs` / `definitions.outputs`. The validator prints exactly which check failed per skill.
 
 ## Manual install (no installer)
 

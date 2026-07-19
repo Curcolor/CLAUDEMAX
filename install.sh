@@ -24,7 +24,7 @@ else
     if [ -z "${AC_BOOTSTRAPPED:-}" ]; then
         TMP="$(mktemp -d)"
         echo "[INFO]  Piped install detected; cloning ABSOLUTE-CLAUDE to $TMP ..."
-        git clone --depth 1 https://github.com/JuliusBrussee/ABSOLUTE-CLAUDE "$TMP/ABSOLUTE-CLAUDE" 2>/dev/null \
+        git clone --depth 1 https://github.com/Curcolor/CLAUDEMAX "$TMP/ABSOLUTE-CLAUDE" 2>/dev/null \
             || { echo "[ERR] Could not clone ABSOLUTE-CLAUDE. Clone manually and run bash install.sh."; exit 1; }
         export AC_BOOTSTRAPPED=1
         exec bash "$TMP/ABSOLUTE-CLAUDE/install.sh" "$@"
