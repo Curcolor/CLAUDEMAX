@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "architecture-principles",
+  "definitions": {
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "type": "string",
+          "description": "Optional free-form description of the code, component, or system under discussion"
+        },
+        "level": {
+          "type": "string",
+          "enum": ["principles", "patterns", "system"],
+          "description": "Which altitude to apply: SOLID (principles), GoF (patterns), or system architecture (system). Omit to let the skill pick."
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "recommendation": {
+          "type": "string",
+          "description": "Named principle/pattern/architecture with rationale and trade-offs"
+        },
+        "anti_patterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Pitfalls to avoid for the chosen approach"
+        }
+      },
+      "required": ["recommendation"]
+    }
+  }
+}

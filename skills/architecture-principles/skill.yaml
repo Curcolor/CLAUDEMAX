@@ -1,0 +1,16 @@
+name: architecture-principles
+version: 2.0.0
+kind: knowledge
+triggers:
+  - "SOLID"
+  - "design pattern"
+  - "factory / strategy / observer / decorator"
+  - "architecture"
+  - "structure the project"
+  - "hexagonal / clean architecture / microservices / monolith"
+  - "refactor for cleaner design"
+commands: []
+scripts: []
+dependencies:
+  - conventional-commits
+schema: ./schema.json
