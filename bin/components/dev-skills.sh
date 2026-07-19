@@ -1,20 +1,18 @@
 #!/usr/bin/env bash
 # Install engineering-discipline skills:
-#   - superpowers   (cloned from obra/superpowers — upstream meta-skill)
-#   - solid                  (first-party)
-#   - design-patterns        (first-party)
-#   - conventional-commits   (first-party)
-#   - architecture-patterns  (first-party)
+#   - superpowers             (cloned from obra/superpowers — upstream meta-skill)
+#   - architecture-principles (first-party)
+#   - conventional-commits    (first-party)
 #
 # All go under $CLAUDE_CONFIG_DIR/skills/. First-party skills are copied;
 # superpowers is git-cloned so upstream updates flow on re-run.
 
 SUPERPOWERS_REPO="https://github.com/obra/superpowers"
 
-FIRST_PARTY_SKILLS=(solid design-patterns conventional-commits architecture-patterns)
+FIRST_PARTY_SKILLS=(architecture-principles conventional-commits)
 
 ac_component_dev_skills() {
-    ac_step "Engineering skills — superpowers + SOLID + design-patterns + conventional-commits + architecture-patterns"
+    ac_step "Engineering skills — superpowers + architecture-principles + conventional-commits"
 
     ac_devskills_install_first_party
     ac_devskills_install_superpowers

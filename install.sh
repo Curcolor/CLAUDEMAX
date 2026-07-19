@@ -210,7 +210,7 @@ ${AC_GREEN}Done.${AC_NC} Next steps:
        /caveman           — terse mode (Caveman)
        /ui-ux-pro-max     — (skill name may differ; see your skill picker)
        /superpowers       — meta-skill bundle (obra/superpowers)
-       /solid /design-patterns /conventional-commits /architecture-patterns
+       /architecture-principles /conventional-commits
 
   See README.md for full docs. To remove everything: bash uninstall.sh
 EOF

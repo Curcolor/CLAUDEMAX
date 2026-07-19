@@ -76,7 +76,7 @@ ac_run rm -rf "$CLAUDE_CONFIG_DIR/skills/repo-map"
 
 # --- dev-skills (superpowers + SOLID + design-patterns + conventional-commits + architecture-patterns)
 ac_step "Engineering skills (superpowers + SOLID + design-patterns + conventional-commits + architecture-patterns)"
-for s in superpowers solid design-patterns conventional-commits architecture-patterns; do
+for s in superpowers solid design-patterns conventional-commits architecture-patterns architecture-principles; do
     ac_run rm -rf "$CLAUDE_CONFIG_DIR/skills/$s"
 done
 
