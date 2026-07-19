@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # ABSOLUTE-CLAUDE — one-shot installer for the token-saving + UI/UX stack.
 #
-# Components: RTK, Caveman, DCP (real for opencode + dcp-lite skill for Claude Code),
-# Figma MCP, UI/UX bundle (ui-ux-pro-max skill + 21st.dev magic MCP
-# + framer-motion/gsap npm).
+# Components: RTK, Caveman, Figma MCP, UI/UX bundle (ui-ux-pro-max skill
+# + 21st.dev magic MCP + framer-motion/gsap npm).
 #
 # Usage:
 #   bash install.sh                    # install everything
@@ -54,7 +53,7 @@ ONLY=()
 SKIP=()
 AC_CONFIG_DIR_OVERRIDE=""
 
-ALL_COMPONENTS=(rtk caveman dcp figma ui-ux dev-skills)
+ALL_COMPONENTS=(rtk caveman figma ui-ux dev-skills)
 
 usage() {
     cat <<EOF
@@ -158,10 +157,6 @@ component_run() {
             . "$AC_REPO_DIR/bin/components/caveman.sh"
             ac_component_caveman
             ;;
-        dcp)
-            . "$AC_REPO_DIR/bin/components/dcp.sh"
-            ac_component_dcp
-            ;;
         figma)
             . "$AC_REPO_DIR/bin/components/figma-mcp.sh"
             ac_component_figma
@@ -213,8 +208,6 @@ ${AC_GREEN}Done.${AC_NC} Next steps:
   2. Finish Figma OAuth: open Claude Code → /mcp → select figma → browser.
   3. Try the commands:
        /caveman           — terse mode (Caveman)
-       /dcp-compress      — focused context compression (dcp-lite)
-       /dcp-context       — current-session pruning stats
        /ui-ux-pro-max     — (skill name may differ; see your skill picker)
        /superpowers       — meta-skill bundle (obra/superpowers)
        /solid /design-patterns /conventional-commits /architecture-patterns
