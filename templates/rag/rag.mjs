@@ -75,7 +75,8 @@ function chunkMarkdown(text) {
 function projectOf(file, root) {
     const rel = path.relative(root, file).split(path.sep);
     const i = rel.indexOf("Projects");
-    if (i >= 0 && rel[i + 1]) return rel[i + 1];
+    // Solo cuenta como proyecto si es un subdirectorio (no un archivo suelto en Projects/)
+    if (i >= 0 && rel[i + 1] && rel.length > i + 2) return rel[i + 1];
     if (rel[0] === "Journal") return "journal";
     return null;
 }

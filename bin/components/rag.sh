@@ -68,6 +68,73 @@ ac_rag_vault() {
     esac
 }
 
+# Instala y arranca automáticamente las dependencias de sistema (Docker Desktop
+# y Ollama) cuando faltan. En Windows usa winget; en otros SO solo avisa.
+ac_rag_ensure_deps() {
+    # --- Docker: instalar si falta el binario
+    if ! command -v docker >/dev/null 2>&1; then
+        if [ "$AC_OS" = "windows" ] && command -v winget >/dev/null 2>&1; then
+            ac_info "Docker no encontrado — instalando Docker Desktop vía winget..."
+            ac_run winget install -e --id Docker.DockerDesktop --accept-package-agreements --accept-source-agreements \
+                || ac_warn "winget no pudo instalar Docker Desktop — instálalo manualmente."
+        else
+            ac_warn "Docker no encontrado y no hay winget — instala Docker manualmente."
+        fi
+    fi
+    # --- Docker: arrancar el daemon si está apagado
+    if command -v docker >/dev/null 2>&1 && ! docker info >/dev/null 2>&1; then
+        if [ "$AC_OS" = "windows" ]; then
+            ac_info "Arrancando Docker Desktop..."
+            if [ "${DRY_RUN:-0}" = "1" ]; then
+                ac_dim "\$ powershell Start-Process 'Docker Desktop'"
+            else
+                powershell.exe -NoProfile -Command "Start-Process -FilePath \"\$env:ProgramFiles\\Docker\\Docker\\Docker Desktop.exe\"" 2>/dev/null || true
+                ac_info "  esperando el daemon de Docker (hasta 120s)..."
+                local i=0
+                until docker info >/dev/null 2>&1; do
+                    i=$((i+1)); [ $i -gt 60 ] && { ac_warn "  Docker no respondió tras 120s — los pasos de compose se omitirán."; break; }
+                    sleep 2
+                done
+            fi
+        else
+            ac_warn "El daemon de Docker no responde — arráncalo manualmente."
+        fi
+    fi
+    # --- Ollama: si el daemon ya responde, no hay nada que instalar ni arrancar
+    if curl -s "http://localhost:11434/api/tags" >/dev/null 2>&1; then
+        return 0
+    fi
+    # --- Ollama: instalar si falta
+    if ! command -v ollama >/dev/null 2>&1; then
+        if [ "$AC_OS" = "windows" ] && command -v winget >/dev/null 2>&1; then
+            ac_info "Ollama no encontrado — instalando vía winget..."
+            ac_run winget install -e --id Ollama.Ollama --accept-package-agreements --accept-source-agreements \
+                || ac_warn "winget no pudo instalar Ollama — instálalo manualmente."
+            hash -r 2>/dev/null || true
+        else
+            ac_warn "Ollama no encontrado y no hay winget — instálalo manualmente."
+        fi
+    fi
+    # --- Ollama: arrancar el servicio si está apagado
+    if command -v ollama >/dev/null 2>&1 && ! curl -s "http://localhost:11434/api/tags" >/dev/null 2>&1; then
+        ac_info "Arrancando el servicio de Ollama..."
+        if [ "${DRY_RUN:-0}" = "1" ]; then
+            ac_dim "\$ ollama serve &"
+        else
+            if [ "$AC_OS" = "windows" ]; then
+                powershell.exe -NoProfile -Command "Start-Process -WindowStyle Hidden ollama -ArgumentList 'serve'" 2>/dev/null || true
+            else
+                (ollama serve >/dev/null 2>&1 &) || true
+            fi
+            local j=0
+            until curl -s "http://localhost:11434/api/tags" >/dev/null 2>&1; do
+                j=$((j+1)); [ $j -gt 15 ] && { ac_warn "  Ollama no respondió tras 30s — descarga bge-m3 manualmente después."; break; }
+                sleep 2
+            done
+        fi
+    fi
+}
+
 ac_rag_stack() {
     local mode="${RAG_MODE:-create}"
     local dst="$RAG_ROOT/R.A.G"
@@ -79,6 +146,8 @@ ac_rag_stack() {
         ac_run cp "$AC_REPO_DIR/templates/rag/$f" "$dst/$f"
     done
     [ -f "$dst/.env" ] || ac_run cp "$dst/.env.example" "$dst/.env"
+
+    [ "$mode" != "connect" ] && ac_rag_ensure_deps
 
     case "$mode" in
         connect)
@@ -115,8 +184,17 @@ ac_rag_stack() {
             fi
             if command -v ollama >/dev/null 2>&1; then
                 ac_run ollama pull bge-m3
+            elif curl -s "http://localhost:11434/api/tags" >/dev/null 2>&1; then
+                ac_info "Descargando bge-m3 vía API de Ollama (el CLI no está en el PATH)..."
+                if [ "${DRY_RUN:-0}" = "1" ]; then
+                    ac_dim "\$ curl -s http://localhost:11434/api/pull -d '{\"name\":\"bge-m3\"}'"
+                else
+                    curl -s "http://localhost:11434/api/pull" -d '{"name":"bge-m3"}' >/dev/null \
+                        && ac_info "bge-m3 descargado." \
+                        || ac_warn "falló la descarga de bge-m3 vía API — ejecuta: ollama pull bge-m3"
+                fi
             else
-                ac_warn "ollama no está en el PATH — descarga bge-m3 manualmente: ollama pull bge-m3"
+                ac_warn "ollama no disponible — descarga bge-m3 manualmente: ollama pull bge-m3"
             fi
             ;;
         *) ac_warn "RAG_MODE desconocido '$mode' (create|import|connect)" ;;
