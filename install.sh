@@ -53,7 +53,7 @@ ONLY=()
 SKIP=()
 AC_CONFIG_DIR_OVERRIDE=""
 
-ALL_COMPONENTS=(rtk caveman figma ui-ux dev-skills rag graphify cyber-neo)
+ALL_COMPONENTS=(rtk caveman figma ui-ux dev-skills rag graphify cyber-neo parsers)
 
 usage() {
     cat <<EOF
@@ -186,6 +186,10 @@ component_run() {
             . "$AC_REPO_DIR/bin/components/cyber-neo.sh"
             ac_component_cyber_neo
             ;;
+        parsers)
+            . "$AC_REPO_DIR/bin/components/parsers.sh"
+            ac_component_parsers
+            ;;
         *)
             ac_warn "Componente desconocido: $id (válidos: ${ALL_COMPONENTS[*]})"
             ;;
@@ -231,6 +235,7 @@ ${AC_GREEN}Listo.${AC_NC} Próximos pasos:
        /mcp → rag            — búsqueda semántica sobre tu V.A.U.L.T (rag_query)
        /understand           — grafo de conocimiento del proyecto (Graphify)
        /cyber-neo <ruta>     — auditoría de seguridad OWASP/CWE
+       markitdown / whisper-ctranslate2 / opendataloader-pdf — parsers de ingesta (Bash)
 
   Ver README.md para la documentación completa. Para eliminar todo: bash uninstall.sh
 EOF

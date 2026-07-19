@@ -91,6 +91,13 @@ fi
 ac_step "Cyber Neo"
 ac_run rm -rf "$CLAUDE_CONFIG_DIR/skills/cyber-neo"
 
+# --- Parsers (solo el registro MCP; los paquetes pip y el JDK se quedan)
+ac_step "Parsers (MCP markitdown)"
+if [ "$AC_HAS_CLAUDE" = "1" ]; then
+    ac_run claude mcp remove markitdown 2>/dev/null || true
+fi
+ac_dim "  (se conservan: paquetes pip markitdown/opendataloader-pdf/whisper-ctranslate2 y el JDK — desinstálalos a mano si quieres)"
+
 # --- Figma MCP
 ac_step "Figma MCP"
 if [ "$AC_HAS_CLAUDE" = "1" ]; then
