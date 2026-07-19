@@ -1,9 +1,9 @@
 # Projects
 
-One folder per project: `Projects/<project-name>/`.
-Tag notes with nested tags: `#<project-name>/<subtopic>` (e.g. `#claudemax/rag`).
+Una carpeta por proyecto: `Projects/<project-name>/`.
+Etiqueta las notas con tags anidados: `#<project-name>/<subtopic>` (ej. `#claudemax/rag`).
 
-Color coding (Obsidian → Settings → Appearance → Graph, or edit .obsidian/graph.json):
-- One base color per project via a `path:Projects/<name>` group.
-- Sub-colors per subtopic via `tag:#<name>/<subtopic>` groups.
-Duplicate the example entries in graph.json for each new project.
+Código de colores (Obsidian → Settings → Appearance → Graph, o edita .obsidian/graph.json):
+- Un color base por proyecto vía un grupo `path:Projects/<name>`.
+- Sub-colores por subtema vía grupos `tag:#<name>/<subtopic>`.
+Duplica las entradas de ejemplo en graph.json para cada proyecto nuevo.

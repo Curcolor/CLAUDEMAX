@@ -1,127 +1,127 @@
 # ABSOLUTE-CLAUDE
 
-One bash command. Every token-saver and UX/UI skill for Claude Code, wired and ready. Figma OAuth is the only manual step.
+Un solo comando bash. Todos los ahorradores de tokens y skills de UX/UI para Claude Code, cableados y listos. El OAuth de Figma es el único paso manual.
 
 ```bash
 bash install.sh
 ```
 
-## What's inside
+## Qué incluye
 
-| Component | What it does | Source |
+| Componente | Qué hace | Fuente |
 |---|---|---|
-| **RTK** | Rust proxy CLI that filters and compresses shell-command output before it hits the LLM. Wires a Claude Code hook. | [rtk-ai/rtk](https://github.com/rtk-ai/rtk) |
-| **Caveman** | Terse-mode plugin, statusline badge, `caveman-shrink` MCP middleware, multi-agent fan-out. | [JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman) |
-| **Figma MCP** | Remote MCP server at `https://mcp.figma.com/mcp`, registered with Claude Code. OAuth is browser-based and manual. | [Figma docs](https://developers.figma.com/docs/figma-mcp-server/) |
-| **ui-ux-pro-max skill** | First-party UI/UX design-intelligence skill — 50+ styles, 161 color palettes, 57 font pairings, 161 product types, 99 UX guidelines, and 25 chart types across 10 stacks. Consolidates what used to be separate `frontend-design`, `brand-guidelines`, and `taste` skills, plus motion guidance (Framer Motion, GSAP). Shipped in this repo; no upstream repo to auto-update from. | first-party (this repo) |
-| **21st.dev magic MCP** | Live component generator from [21st.dev](https://21st.dev). | `@21st-dev/magic` (npx) |
-| **Framer Motion + GSAP** | `npm install --save framer-motion gsap` in your project (skipped if no `package.json`). | [framer-motion](https://www.npmjs.com/package/framer-motion), [GSAP](https://gsap.com/docs/v3/) |
-| **superpowers skill** | Cloned into `~/.claude/skills/superpowers/`. Meta-skill bundle. | [obra/superpowers](https://github.com/obra/superpowers) |
-| **Engineering-discipline skills** | First-party: `architecture-principles` (merges the former `solid`, `design-patterns`, and `architecture-patterns` skills into one SOLID → GoF patterns → system-architecture skill) and `conventional-commits`. | this repo |
-| **rag** | V.A.U.L.T vault + PGVector (Docker) RAG + Ollama bge-m3 + `rag` MCP (rag_query/rag_status). | first-party (this repo) |
+| **RTK** | CLI proxy en Rust que filtra y comprime la salida de comandos de shell antes de que llegue al LLM. Cablea un hook de Claude Code. | [rtk-ai/rtk](https://github.com/rtk-ai/rtk) |
+| **Caveman** | Plugin de modo terso, badge de statusline, middleware MCP `caveman-shrink`, fan-out multi-agente. | [JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman) |
+| **Figma MCP** | Servidor MCP remoto en `https://mcp.figma.com/mcp`, registrado con Claude Code. El OAuth es manual y basado en navegador. | [Figma docs](https://developers.figma.com/docs/figma-mcp-server/) |
+| **skill ui-ux-pro-max** | Skill propia de inteligencia de diseño UI/UX — 50+ estilos, 161 paletas de color, 57 combinaciones tipográficas, 161 tipos de producto y 99 guías de UX en 10 stacks. Consolida lo que antes eran skills separadas (`frontend-design`, `brand-guidelines` y `taste`), además de guía de motion (Framer Motion, GSAP). Incluida en este repo; no tiene repo upstream del que autoactualizarse. | propia (este repo) |
+| **21st.dev magic MCP** | Generador de componentes en vivo de [21st.dev](https://21st.dev). | `@21st-dev/magic` (npx) |
+| **Framer Motion + GSAP** | `npm install --save framer-motion gsap` en tu proyecto (se omite si no hay `package.json`). | [framer-motion](https://www.npmjs.com/package/framer-motion), [GSAP](https://gsap.com/docs/v3/) |
+| **skill superpowers** | Clonada en `~/.claude/skills/superpowers/`. Paquete de meta-skills. | [obra/superpowers](https://github.com/obra/superpowers) |
+| **Skills de disciplina de ingeniería** | Propias: `architecture-principles` (fusiona las antiguas skills `solid`, `design-patterns` y `architecture-patterns` en una sola skill SOLID → patrones GoF → arquitectura de sistemas) y `conventional-commits`. | este repo |
+| **rag** | Vault V.A.U.L.T + RAG con PGVector (Docker) + Ollama bge-m3 + MCP `rag` (rag_query/rag_status). | propia (este repo) |
 
-## Install
+## Instalación
 
 ```bash
-# From a clone of this repo:
+# Desde un clon de este repo:
 bash install.sh
 
-# Or, once published, one-liner:
+# O, una vez publicado, en una línea:
 curl -fsSL https://raw.githubusercontent.com/Curcolor/CLAUDEMAX/main/install.sh | bash
 ```
 
-Re-runnable. Idempotent. Pass `--dry-run` to see exactly what would happen.
+Re-ejecutable. Idempotente. Pasa `--dry-run` para ver exactamente qué haría.
 
 ## Flags
 
-| Flag | Effect |
+| Flag | Efecto |
 |---|---|
-| `--all` | Install every component (default). |
-| `--only <id>` | One component only. Repeatable. ids: `rtk`, `caveman`, `figma`, `ui-ux`, `dev-skills`, `rag`. |
-| `--skip <id>` | Skip a component. Repeatable. |
-| `--no-npm` | Skip `npm install framer-motion gsap`. |
-| `--with-npm` | Force the npm step even if no `package.json` (runs `npm init -y`). |
-| `--dry-run` | Print every command. Touches nothing. |
-| `--force` | Reinstall components that detect themselves as already installed. |
-| `--config-dir <path>` | Override `$CLAUDE_CONFIG_DIR` (default `~/.claude`). |
-| `--uninstall` | Shell out to `uninstall.sh`. |
-| `--no-color` | Disable ANSI colors. |
+| `--all` | Instala todos los componentes (por defecto). |
+| `--only <id>` | Solo un componente. Repetible. ids: `rtk`, `caveman`, `figma`, `ui-ux`, `dev-skills`, `rag`. |
+| `--skip <id>` | Omite un componente. Repetible. |
+| `--no-npm` | Omite `npm install framer-motion gsap`. |
+| `--with-npm` | Fuerza el paso de npm aunque no haya `package.json` (ejecuta `npm init -y`). |
+| `--dry-run` | Imprime cada comando. No toca nada. |
+| `--force` | Reinstala componentes que se detectan a sí mismos como ya instalados. |
+| `--config-dir <path>` | Sobrescribe `$CLAUDE_CONFIG_DIR` (por defecto `~/.claude`). |
+| `--uninstall` | Delega en `uninstall.sh`. |
+| `--no-color` | Desactiva los colores ANSI. |
 
-## After install
+## Después de instalar
 
-Only two things left, and one of them is just restarting your editor:
+Solo quedan dos cosas, y una de ellas es simplemente reiniciar tu editor:
 
-1. **Restart Claude Code** — hooks and skills load at session start.
-2. **Finish Figma OAuth**: open Claude Code, run `/mcp`, select `figma`, complete the browser flow. ABSOLUTE-CLAUDE stores no Figma tokens. (This is the only step we can't automate — OAuth requires a browser.)
-3. Try the commands:
-   - `/caveman` — terse mode on.
-   - `/superpowers` — meta-skill bundle (obra/superpowers).
-   - `architecture-principles`, `conventional-commits` — engineering-discipline skills. Invoke by name or let their triggers fire automatically during a review/refactor/commit.
-   - `ui-ux-pro-max` — UI/UX design intelligence. Triggers automatically on design/build/review prompts touching UI, or ask for it by name.
+1. **Reinicia Claude Code** — los hooks y skills se cargan al inicio de la sesión.
+2. **Completa el OAuth de Figma**: abre Claude Code, ejecuta `/mcp`, selecciona `figma`, completa el flujo en el navegador. ABSOLUTE-CLAUDE no guarda tokens de Figma. (Este es el único paso que no podemos automatizar — el OAuth requiere navegador.)
+3. Prueba los comandos:
+   - `/caveman` — activa el modo terso.
+   - `/superpowers` — paquete de meta-skills (obra/superpowers).
+   - `architecture-principles`, `conventional-commits` — skills de disciplina de ingeniería. Invócalas por nombre o deja que sus triggers se disparen automáticamente durante una revisión/refactor/commit.
+   - `ui-ux-pro-max` — inteligencia de diseño UI/UX. Se dispara automáticamente en prompts de diseño/construcción/revisión que toquen UI, o pídela por nombre.
 
-## RAG quickstart
+## Inicio rápido de RAG
 
 ```bash
 RAG_ROOT=<workspace-root> VAULT_MODE=create RAG_MODE=create bash install.sh --only rag
-# then:
+# luego:
 cd <workspace-root>/R.A.G
-node rag.mjs ingest          # index the vault
-node rag.mjs query "..."     # semantic search (Spanish or English)
+node rag.mjs ingest          # indexa el vault
+node rag.mjs query "..."     # búsqueda semántica (español o inglés)
 node rag.mjs status
 ```
 
-`VAULT_MODE` / `RAG_MODE` each take one of three values (default `create`):
+`VAULT_MODE` / `RAG_MODE` toman cada una uno de tres valores (por defecto `create`):
 
-- `create` — new vault / new local Docker Postgres+pgvector stack.
-- `import` — bring an existing vault (`VAULT_SRC=<folder>`) or restore a DB dump (`RAG_DUMP=<file>`) into a fresh stack.
-- `connect` — point at an existing vault repo (`VAULT_REMOTE=<git url>`) or an existing Postgres instance (`RAG_REMOTE_URL=<postgres://...>`) instead of creating one.
+- `create` — vault nuevo / stack local nuevo de Docker Postgres+pgvector.
+- `import` — trae un vault existente (`VAULT_SRC=<folder>`) o restaura un dump de BD (`RAG_DUMP=<file>`) en un stack recién creado.
+- `connect` — apunta a un repo de vault existente (`VAULT_REMOTE=<git url>`) o a una instancia de Postgres existente (`RAG_REMOTE_URL=<postgres://...>`) en vez de crear uno nuevo.
 
-Needs Docker (for the local DB) and Ollama with `bge-m3` pulled (for embeddings) — the component warns and skips those steps if either is missing, without failing the install.
+Necesita Docker (para la BD local) y Ollama con `bge-m3` descargado (para los embeddings) — el componente avisa y omite esos pasos si falta alguno, sin hacer fallar la instalación.
 
-## Skills 2.0 format
+## Formato Skills 2.0
 
-Every first-party skill in `skills/<name>/` ships three files:
+Cada skill propia en `skills/<name>/` incluye tres archivos:
 
     skills/<name>/
-    ├── SKILL.md      # frontmatter (name, description) for Claude Code discovery + prose body
-    ├── skill.yaml    # structured config: version, kind (knowledge|tool), triggers,
-    │                 # commands, scripts, dependencies, schema pointer
-    └── schema.json   # JSON Schema (draft 2020-12) with definitions.inputs / definitions.outputs
+    ├── SKILL.md      # frontmatter (name, description) para el descubrimiento de Claude Code + cuerpo en prosa
+    ├── skill.yaml    # configuración estructurada: version, kind (knowledge|tool), triggers,
+    │                 # commands, scripts, dependencies, puntero a schema
+    └── schema.json   # JSON Schema (draft 2020-12) con definitions.inputs / definitions.outputs
 
-Claude Code only enforces the SKILL.md frontmatter; the sidecars are a repo convention
-the model reads on invocation and that tooling consumes as machine-readable artifacts.
-Validate the whole tree with:
+Claude Code solo exige el frontmatter de SKILL.md; los archivos complementarios son una convención
+del repo que el modelo lee al invocarse y que el tooling consume como artefactos legibles por máquina.
+Valida todo el árbol con:
 
     node skills/validate-skills.mjs
 
-## Uninstall
+## Desinstalación
 
 ```bash
 bash uninstall.sh
 ```
 
-Symmetric teardown. Leaves per-repo files (Caveman's rule files written with `--with-init`, `framer-motion`/`gsap` in your project's `node_modules`) for you to delete by hand.
+Desmontaje simétrico. Deja los archivos por-repo (los archivos de reglas de Caveman escritos con `--with-init`, `framer-motion`/`gsap` en el `node_modules` de tu proyecto) para que los borres a mano.
 
-## Privacy
+## Privacidad
 
-No telemetry. The installer makes no analytics calls. It does shell out to:
+Sin telemetría. El instalador no hace llamadas de analítica. Sí delega en:
 
-- `rtk-ai/rtk`'s install script (downloads the rtk binary from GitHub releases).
-- `npx -y github:JuliusBrussee/caveman` (Caveman's installer fetches from GitHub and npm).
-- `claude mcp add` (Anthropic CLI) for the Figma and 21st.dev magic MCP registrations.
-- `git clone` for the superpowers skill (`obra/superpowers`). The other first-party skills (`architecture-principles`, `conventional-commits`, `ui-ux-pro-max`) are copied straight out of this repo — no network call.
-- `npm install framer-motion gsap` in your cwd (only if a `package.json` exists or `--with-npm` is passed).
+- El script de instalación de `rtk-ai/rtk` (descarga el binario de rtk desde los releases de GitHub).
+- `npx -y github:JuliusBrussee/caveman` (el instalador de Caveman descarga desde GitHub y npm).
+- `claude mcp add` (CLI de Anthropic) para los registros MCP de Figma y 21st.dev magic.
+- `git clone` para la skill superpowers (`obra/superpowers`). Las demás skills propias (`architecture-principles`, `conventional-commits`, `ui-ux-pro-max`) se copian directo desde este repo — sin llamadas de red.
+- `npm install framer-motion gsap` en tu cwd (solo si existe un `package.json` o se pasa `--with-npm`).
 
-See `bin/components/*.sh` for every command line.
+Consulta `bin/components/*.sh` para ver cada línea de comando.
 
-## Scope (what this is and isn't)
+## Alcance (qué es y qué no es esto)
 
-- ✅ Single bash installer, macOS / Linux / WSL / **Git Bash on Windows**.
-- ✅ Windows-native: RTK ships an `rtk.exe` binary which the installer downloads automatically when it detects MINGW/MSYS/Cygwin. MCPs (`figma`, `magic`) register at user scope so they work in every project.
-- ✅ Idempotent, dry-runnable, surgical uninstall.
-- ❌ No native Windows PowerShell installer (use Git Bash — already shipped with Git for Windows).
-- ❌ No Figma token storage. OAuth stays browser-based — this is the only manual step.
+- ✅ Instalador bash único, macOS / Linux / WSL / **Git Bash en Windows**.
+- ✅ Nativo en Windows: RTK incluye un binario `rtk.exe` que el instalador descarga automáticamente cuando detecta MINGW/MSYS/Cygwin. Los MCPs (`figma`, `magic`) se registran a nivel de usuario para que funcionen en todos los proyectos.
+- ✅ Idempotente, con dry-run, desinstalación quirúrgica.
+- ❌ Sin instalador nativo de PowerShell para Windows (usa Git Bash — ya viene con Git for Windows).
+- ❌ Sin almacenamiento de tokens de Figma. El OAuth se mantiene basado en navegador — este es el único paso manual.
 
 ---
 
-Issues / PRs welcome.
+Issues / PRs bienvenidos.

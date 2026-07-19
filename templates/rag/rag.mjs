@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// CLAUDEMAX RAG CLI. Single implementation for ingest/query/status; the MCP
-// wrapper shells into this. Config from .env next to this file (fallback: env vars).
-//   node rag.mjs init                 apply schema.sql
-//   node rag.mjs ingest [path]        default path: ../V.A.U.L.T
-//   node rag.mjs query "<text>" [--project P] [--topk N] [--json]
-//   node rag.mjs reindex [path]       truncate + full ingest
+// CLI de RAG de CLAUDEMAX. Implementación única para ingest/query/status; el
+// wrapper MCP delega en este archivo. Config desde .env junto a este archivo (alternativa: variables de entorno).
+//   node rag.mjs init                 aplica schema.sql
+//   node rag.mjs ingest [path]        ruta por defecto: ../V.A.U.L.T
+//   node rag.mjs query "<texto>" [--project P] [--topk N] [--json]
+//   node rag.mjs reindex [path]       trunca + ingesta completa
 //   node rag.mjs status
 
 import fs from "node:fs";
@@ -35,19 +35,19 @@ async function embed(texts) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ model: EMBED_MODEL, input: texts })
     });
-    if (!res.ok) throw new Error(`ollama embed HTTP ${res.status}: ${await res.text()}`);
+    if (!res.ok) throw new Error(`embed de ollama devolvió HTTP ${res.status}: ${await res.text()}`);
     const data = await res.json();
     const vecs = data.embeddings;
     if (!Array.isArray(vecs) || vecs.length !== texts.length || vecs[0].length !== DIMS) {
-        throw new Error(`unexpected embedding shape from ${EMBED_MODEL}`);
+        throw new Error(`forma de embedding inesperada desde ${EMBED_MODEL}`);
     }
     return vecs;
 }
 
 function toVec(v) { return `[${v.join(",")}]`; }
 
-// Split a markdown file into ~500-token chunks (~4 chars/token heuristic) on
-// heading boundaries, with ~50-token overlap between adjacent chunks.
+// Divide un archivo markdown en chunks de ~500 tokens (heurística de ~4 caracteres/token)
+// en los límites de los encabezados, con un solapamiento de ~50 tokens entre chunks adyacentes.
 function chunkMarkdown(text) {
     const MAX = 2000, OVERLAP = 200;
     const lines = text.split(/\r?\n/);
@@ -99,7 +99,7 @@ async function cmdInit() {
     await withDb(async db => {
         await db.query(fs.readFileSync(path.join(HERE, "schema.sql"), "utf8"));
     });
-    console.log("rag: schema applied");
+    console.log("rag: schema aplicado");
 }
 
 async function cmdIngest(root) {
@@ -140,7 +140,7 @@ async function cmdIngest(root) {
             }
         }
     });
-    console.log(`rag: ingest done — ${added} chunks added, ${skipped} unchanged`);
+    console.log(`rag: ingesta completa — ${added} chunks añadidos, ${skipped} sin cambios`);
 }
 
 async function cmdQuery(text, opts) {
@@ -158,7 +158,7 @@ async function cmdQuery(text, opts) {
         console.log(`--- ${r.source}${r.heading ? " · " + r.heading : ""} (score ${Number(r.score).toFixed(3)})`);
         console.log(r.content.slice(0, 600) + (r.content.length > 600 ? " …" : ""));
     }
-    if (!rows.length) console.log("rag: no results");
+    if (!rows.length) console.log("rag: sin resultados");
 }
 
 async function cmdReindex(root) {
@@ -167,22 +167,22 @@ async function cmdReindex(root) {
 }
 
 async function cmdStatus() {
-    let ollama = "down";
+    let ollama = "caído";
     try {
         const r = await fetch(`${OLLAMA_URL}/api/tags`);
         if (r.ok) ollama = (await r.json()).models?.some(m => m.name.startsWith(EMBED_MODEL))
-            ? `up (${EMBED_MODEL} present)` : `up (${EMBED_MODEL} MISSING — run: ollama pull ${EMBED_MODEL})`;
+            ? `activo (${EMBED_MODEL} presente)` : `activo (falta ${EMBED_MODEL} — ejecuta: ollama pull ${EMBED_MODEL})`;
     } catch {}
     try {
         await withDb(async db => {
             const tot = await db.query("SELECT count(*) FROM chunks");
             const per = await db.query(
-                "SELECT coalesce(project,'(none)') p, count(*) c, max(mtime) m FROM chunks GROUP BY 1 ORDER BY 2 DESC");
-            console.log(`db: up — ${tot.rows[0].count} chunks | ollama: ${ollama}`);
-            for (const r of per.rows) console.log(`  ${r.p}: ${r.c} chunks (latest note ${r.m ? r.m.toISOString().slice(0, 10) : "-"})`);
+                "SELECT coalesce(project,'(ninguno)') p, count(*) c, max(mtime) m FROM chunks GROUP BY 1 ORDER BY 2 DESC");
+            console.log(`db: activa — ${tot.rows[0].count} chunks | ollama: ${ollama}`);
+            for (const r of per.rows) console.log(`  ${r.p}: ${r.c} chunks (nota más reciente ${r.m ? r.m.toISOString().slice(0, 10) : "-"})`);
         });
     } catch (e) {
-        console.log(`db: DOWN (${e.message}) | ollama: ${ollama}`);
+        console.log(`db: CAÍDA (${e.message}) | ollama: ${ollama}`);
         process.exitCode = 1;
     }
 }
@@ -201,7 +201,7 @@ try {
     else if (cmd === "reindex") await cmdReindex(positional[0]);
     else if (cmd === "status") await cmdStatus();
     else {
-        console.log("usage: rag.mjs init | ingest [path] | query \"<text>\" [--project P] [--topk N] [--json] | reindex [path] | status");
+        console.log("uso: rag.mjs init | ingest [path] | query \"<texto>\" [--project P] [--topk N] [--json] | reindex [path] | status");
         process.exitCode = cmd ? 1 : 0;
     }
 } catch (e) {

@@ -1,7 +1,7 @@
 # V.A.U.L.T
 
-Obsidian vault — STRICTLY markdown notes.
-- `00-Inbox/` unsorted captures
-- `Projects/<name>/` per-project notes, tags `#<name>/<subtopic>`
-- `Journal/YYYY-MM-DD.md` daily logs (written by the end-of-day ritual)
-Indexed into the RAG by `R.A.G/rag.mjs ingest`.
+Vault de Obsidian — ESTRICTAMENTE notas en markdown.
+- `00-Inbox/` capturas sin clasificar
+- `Projects/<name>/` notas por proyecto, tags `#<name>/<subtopic>`
+- `Journal/YYYY-MM-DD.md` bitácoras diarias (escritas por el ritual de fin de día)
+Se indexa en el RAG con `R.A.G/rag.mjs ingest`.

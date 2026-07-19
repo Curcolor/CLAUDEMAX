@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Thin MCP stdio wrapper over rag.mjs — no direct DB access here.
+// Wrapper MCP stdio ligero sobre rag.mjs — sin acceso directo a la BD aquí.
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -26,20 +26,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: [
         {
             name: "rag_query",
-            description: "Semantic search over the CLAUDEMAX knowledge base (V.A.U.L.T notes indexed in PGVector). Returns matching chunks with source, heading and score.",
+            description: "Búsqueda semántica sobre la base de conocimiento de CLAUDEMAX (notas V.A.U.L.T indexadas en PGVector). Devuelve los chunks coincidentes con source, heading y score.",
             inputSchema: {
                 type: "object",
                 properties: {
-                    query: { type: "string", description: "Natural-language question (Spanish or English)" },
-                    project: { type: "string", description: "Optional project filter (folder name under Projects/)" },
-                    topk: { type: "number", description: "Max results, default 5" }
+                    query: { type: "string", description: "Pregunta en lenguaje natural (español o inglés)" },
+                    project: { type: "string", description: "Filtro opcional de proyecto (nombre de carpeta bajo Projects/)" },
+                    topk: { type: "number", description: "Máximo de resultados, por defecto 5" }
                 },
                 required: ["query"]
             }
         },
         {
             name: "rag_status",
-            description: "RAG health: DB/Ollama connectivity and chunk counts per project.",
+            description: "Estado de salud del RAG: conectividad de BD/Ollama y conteo de chunks por proyecto.",
             inputSchema: { type: "object", properties: {} }
         }
     ]
@@ -56,7 +56,7 @@ server.setRequestHandler(CallToolRequestSchema, async req => {
     } else if (name === "rag_status") {
         res = await run(["status"]);
     } else {
-        return { content: [{ type: "text", text: `unknown tool ${name}` }], isError: true };
+        return { content: [{ type: "text", text: `tool desconocida ${name}` }], isError: true };
     }
     return { content: [{ type: "text", text: res.out }], isError: !res.ok };
 });

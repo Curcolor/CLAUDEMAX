@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-// Validates every skill directory under skills/ against the Skills 2.0 contract:
-//   SKILL.md   — frontmatter with name (== dir name) and description
-//   skill.yaml — name (== dir name), version, kind, triggers, schema
-//   schema.json — valid JSON with definitions.inputs and definitions.outputs
-//   every entry in skill.yaml `scripts` exists on disk
-// Exit 0 when all pass; exit 1 with an error listing otherwise.
-// Dependency-free: node: built-ins only. Parses the small YAML subset we use
-// (top-level `key: value` and `key: [a, b]` / block lists with "- ").
+// Valida cada directorio de skill bajo skills/ contra el contrato Skills 2.0:
+//   SKILL.md   — frontmatter con name (== nombre del dir) y description
+//   skill.yaml — name (== nombre del dir), version, kind, triggers, schema
+//   schema.json — JSON válido con definitions.inputs y definitions.outputs
+//   cada entrada en `scripts` de skill.yaml existe en disco
+// Exit 0 si todo pasa; exit 1 con un listado de errores en caso contrario.
+// Sin dependencias: solo built-ins de node. Parsea el pequeño subconjunto de
+// YAML que usamos (`key: value` de nivel superior y `key: [a, b]` / listas en
+// bloque con "- ").
 
 import fs from "node:fs";
 import path from "node:path";
@@ -64,44 +65,44 @@ for (const dir of dirs) {
 
     // SKILL.md
     const skillMd = path.join(base, "SKILL.md");
-    if (!fs.existsSync(skillMd)) { fail("missing SKILL.md"); continue; }
+    if (!fs.existsSync(skillMd)) { fail("falta SKILL.md"); continue; }
     const fm = parseFrontmatter(fs.readFileSync(skillMd, "utf8"));
-    if (!fm) fail("SKILL.md has no parseable frontmatter");
+    if (!fm) fail("SKILL.md no tiene frontmatter parseable");
     else {
-        if (fm.name !== dir) fail(`SKILL.md frontmatter name "${fm.name}" != dir name`);
-        if (!fm.description) fail("SKILL.md frontmatter missing description");
+        if (fm.name !== dir) fail(`el name del frontmatter de SKILL.md "${fm.name}" no coincide con el nombre del directorio`);
+        if (!fm.description) fail("al frontmatter de SKILL.md le falta description");
     }
 
     // skill.yaml
     const yamlPath = path.join(base, "skill.yaml");
-    if (!fs.existsSync(yamlPath)) { fail("missing skill.yaml"); continue; }
+    if (!fs.existsSync(yamlPath)) { fail("falta skill.yaml"); continue; }
     const cfg = parseMiniYaml(fs.readFileSync(yamlPath, "utf8"));
-    if (cfg.name !== dir) fail(`skill.yaml name "${cfg.name}" != dir name`);
+    if (cfg.name !== dir) fail(`el name de skill.yaml "${cfg.name}" no coincide con el nombre del directorio`);
     for (const req of ["version", "kind", "schema"]) {
-        if (!cfg[req]) fail(`skill.yaml missing ${req}`);
+        if (!cfg[req]) fail(`a skill.yaml le falta ${req}`);
     }
     if (!Array.isArray(cfg.triggers) || cfg.triggers.length === 0) {
-        fail("skill.yaml triggers must be a non-empty list");
+        fail("triggers de skill.yaml debe ser una lista no vacía");
     }
     if (cfg.kind && !["knowledge", "tool"].includes(cfg.kind)) {
-        fail(`skill.yaml kind "${cfg.kind}" not knowledge|tool`);
+        fail(`kind de skill.yaml "${cfg.kind}" no es knowledge|tool`);
     }
     for (const s of cfg.scripts || []) {
-        if (!fs.existsSync(path.join(base, s))) fail(`declared script missing: ${s}`);
+        if (!fs.existsSync(path.join(base, s))) fail(`script declarado no encontrado: ${s}`);
     }
 
     // schema.json
     const schemaPath = path.join(base, "schema.json");
-    if (!fs.existsSync(schemaPath)) { fail("missing schema.json"); continue; }
+    if (!fs.existsSync(schemaPath)) { fail("falta schema.json"); continue; }
     let schema;
     try { schema = JSON.parse(fs.readFileSync(schemaPath, "utf8")); }
-    catch (e) { fail(`schema.json invalid JSON: ${e.message}`); continue; }
-    if (!schema.definitions?.inputs) fail("schema.json missing definitions.inputs");
-    if (!schema.definitions?.outputs) fail("schema.json missing definitions.outputs");
+    catch (e) { fail(`schema.json no es JSON válido: ${e.message}`); continue; }
+    if (!schema.definitions?.inputs) fail("a schema.json le falta definitions.inputs");
+    if (!schema.definitions?.outputs) fail("a schema.json le falta definitions.outputs");
 }
 
 if (errors.length) {
-    console.error(`validate-skills: ${errors.length} error(s)`);
+    console.error(`validate-skills: ${errors.length} error(es)`);
     for (const e of errors) console.error("  - " + e);
     process.exit(1);
 }
