@@ -9,19 +9,20 @@ Evolve ABSOLUTE-CLAUDE into **CLAUDEMAX**: a context-aware, RAG-driven developme
 
 ## Root workspace layout
 
-**Naming rule:** CLAUDEMAX is the *project/upgrade name only* — no folder anywhere is named CLAUDEMAX. The root folder is named **WORKSPACE** (the existing `C:\Users\JHONNY\Desktop\WORKSPACE\`). All members are siblings:
+**Naming:** this repo is renamed **CLAUDEMAX** (local folder + GitHub repository). The root workspace folder is **created automatically by the setup wizard at a location the user chooses** (default name: `WORKSPACE`). The wizard is the single entry point: a user needs only the installer to end up with everything below.
 
 ```
-WORKSPACE/
+<chosen-root>/              # created by the wizard where the user picks (default: WORKSPACE)
 ├── V.A.U.L.T/              # Obsidian vault — STRICTLY markdown notes, nothing else
 ├── R.A.G/                  # vector DB + retrieval components (PGVector, Ollama, ingestion)
-├── .claude/                # shared rules for sessions launched from the WORKSPACE root
-├── CLAUDEMAX-INSTALLER.cmd # interactive setup wizard launcher (a file at the root, NOT a folder)
-├── Herramientas/
-│   └── ABSOLUTE-CLAUDE/    # this repo — source of the wizard, skills, and components (name unchanged)
+├── .claude/                # shared rules for sessions launched from the root
+├── CLAUDEMAX-INSTALLER.cmd # setup wizard launcher (a file at the root, NOT a folder)
+├── CLAUDEMAX-UNINSTALLER.cmd
 ├── <ProjectRepo1>/         # individual project code repositories
 └── <ProjectRepo2>/
 ```
+
+The CLAUDEMAX repo itself (wizard source, skills, components) lives wherever it was cloned — currently `Desktop\WORKSPACE\Herramientas\` — and the wizard self-bootstraps (clone-and-run, like the current `install.sh` curl-mode), so its location is irrelevant to end users.
 
 - **V.A.U.L.T** is visually and logically divided by project using Obsidian color-coding (graph-view color groups keyed by project tag), with sub-colors for subtopics within each project (nested tags, e.g. `#proj-alpha/api`).
 - **R.A.G** holds the vector infrastructure and ingestion/query scripts; never notes.
@@ -103,8 +104,10 @@ Live in WORKSPACE root `.claude/` rules (propagated to projects by the init ritu
 
 The upgrade replaces the flag-driven `install.sh` UX with an **interactive, application-style setup wizard**:
 
-- **Entry point:** a launcher file at the WORKSPACE root (`CLAUDEMAX-INSTALLER.cmd` + a matching `CLAUDEMAX-UNINSTALLER.cmd`) — files, not folders. They invoke the wizard shipped inside this repo (`Herramientas/ABSOLUTE-CLAUDE/`), whose name stays unchanged.
-- **Experience:** visual step-by-step flow like a desktop app installer — welcome screen, dependency checklist with live detected/missing status, per-component selection (install everything or piece by piece), progress per step, final summary. Recommended tech: Node TUI (dependency-free `readline`-based menus, repo convention) — final choice in the installer sub-spec.
+- **Entry point:** launcher files placed at the chosen root (`CLAUDEMAX-INSTALLER.cmd` + `CLAUDEMAX-UNINSTALLER.cmd`) — files, not folders. They invoke the wizard shipped inside the CLAUDEMAX repo; the wizard also self-bootstraps for first-time users (download → clone → run).
+- **Experience:** visual step-by-step flow like a desktop app installer — welcome screen, **destination picker** (the wizard creates the root folder wherever the user chooses, default name `WORKSPACE`), dependency checklist with live detected/missing status, per-component selection (install everything or piece by piece), progress per step, final summary. Recommended tech: Node TUI (dependency-free `readline`-based menus, repo convention) — final choice in the installer sub-spec.
+- **Vault setup step:** the user picks one of three modes for V.A.U.L.T — **(1) create from scratch** (skeleton + Obsidian color config), **(2) import an existing vault** (point at a folder, wizard adopts it and applies the tag/color conventions non-destructively), or **(3) connect to a remote vault** (synced/Git-hosted vault: wizard clones/links it).
+- **RAG setup step:** same three modes for R.A.G — **(1) create from scratch** (fresh PostgreSQL + PGVector schema, Ollama model pull), **(2) import existing** (restore a database dump / reuse an existing local instance), or **(3) connect to remote** (connection string to an existing PostgreSQL+PGVector server; embeddings stay local via Ollama or point at a remote Ollama endpoint).
 - **System dependencies it detects and offers to install** (via `winget` on Windows): Obsidian, Docker Desktop (+ WSL2 if missing), Ollama, PostgreSQL + PGVector (or the Docker route), Git, Node.js, Python. Each is optional and individually skippable.
 - **Then the CLAUDEMAX components:** everything from sub-projects A/C (skills, MCPs, RTK, Caveman, Graphify, Cyber Neo, parsers) plus root scaffolding: V.A.U.L.T skeleton with Obsidian color config, R.A.G skeleton, root `.claude/` rules, sub-project D hooks.
 - **Internals preserved:** `bin/lib/*` helpers, `bin/components/*` with `ac_component_<id>` functions, JSONC settings merger with `.bak` backups. The wizard orchestrates these same components; non-interactive flags (`--all/--only/--skip/--dry-run/--force/--config-dir`) remain for scripted use.
