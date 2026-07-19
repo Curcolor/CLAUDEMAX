@@ -1,0 +1,14 @@
+name: conventional-commits
+version: 2.0.0
+kind: knowledge
+triggers:
+  - "commit"
+  - "commit message"
+  - "changelog"
+  - "PR title"
+  - "what should this commit be"
+commands: []
+scripts: []
+dependencies:
+  - architecture-principles
+schema: ./schema.json

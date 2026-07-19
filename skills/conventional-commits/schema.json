@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "conventional-commits",
+  "definitions": {
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "diff": {
+          "type": "string",
+          "description": "Staged diff or change summary (the skill runs git diff --staged --stat itself when omitted)"
+        },
+        "breaking": {
+          "type": "boolean",
+          "description": "Force the ! breaking-change marker and BREAKING CHANGE footer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string",
+          "description": "Full commit message: <type>(<scope>): <subject> (subject <=50 chars, imperative, no trailing period), optional body wrapped at 72, footers per Conventional Commits 1.0.0. Never includes Co-authored-by: Claude or AI attribution."
+        }
+      },
+      "required": ["message"]
+    }
+  }
+}

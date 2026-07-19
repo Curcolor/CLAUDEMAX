@@ -113,5 +113,8 @@ Pick what's already established in this repo (run `git log --oneline -50` to ins
 
 ## See also
 
-- [[solid]] — `refactor:` commits often pair with applying SOLID principles.
-- [[design-patterns]] — naming a pattern in the body explains the *why* concisely.
+- [[architecture-principles]] — `refactor:` commits often pair with applying SOLID principles, and naming a pattern in the body explains the *why* concisely.
+
+---
+
+Config: skill.yaml · Schema: schema.json
