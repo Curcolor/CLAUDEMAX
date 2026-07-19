@@ -1,0 +1,19 @@
+name: ui-ux-pro-max
+version: 2.0.0
+kind: tool
+triggers:
+  - "UI / UX / design / mockup"
+  - "landing page / dashboard / e-commerce / SaaS"
+  - "button / modal / navbar / card / form / chart"
+  - "glassmorphism / brutalism / dark mode / responsive"
+  - "color palette / typography / accessibility / animation"
+  - "transition / motion / framer-motion / gsap"
+  - "brand guidelines / brand identity"
+commands: []
+scripts:
+  - scripts/core.py
+  - scripts/design_system.py
+  - scripts/search.py
+  - data/_sync_all.py
+dependencies: []
+schema: ./schema.json

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ui-ux-pro-max",
+  "definitions": {
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "enum": ["plan", "build", "review", "fix", "improve"],
+          "description": "What to do with the UI"
+        },
+        "target": {
+          "type": "string",
+          "description": "Component, page, or app under work (e.g. 'pricing page', 'navbar')"
+        },
+        "stack": {
+          "type": "string",
+          "description": "Tech stack, e.g. react, next, vue, svelte, swiftui, react-native, flutter, tailwind, shadcn, html-css"
+        },
+        "style": {
+          "type": "string",
+          "description": "Visual style, e.g. glassmorphism, brutalism, minimalism, dark-mode"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "design_or_code": {
+          "type": "string",
+          "description": "Design guidance or implementation code for the requested stack, honoring style, accessibility, and brand rules"
+        }
+      },
+      "required": ["design_or_code"]
+    }
+  }
+}
