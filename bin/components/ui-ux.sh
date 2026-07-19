@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# UI/UX bundle:
-#   1. Copy the first-party ui-ux-pro-max skill from this repo into $CLAUDE_CONFIG_DIR/skills/ui-ux-pro-max/
-#   2. Register 21st.dev's magic MCP with Claude Code
-#   3. npm install framer-motion gsap into cwd (gated by package.json presence + --no-npm)
+# Paquete UI/UX:
+#   1. Copia la skill propia (first-party) ui-ux-pro-max de este repo a $CLAUDE_CONFIG_DIR/skills/ui-ux-pro-max/
+#   2. Registra el MCP magic de 21st.dev con Claude Code
+#   3. npm install framer-motion gsap en el cwd (condicionado a la presencia de package.json + --no-npm)
 
 ac_component_ui_ux() {
-    ac_step "UI/UX — ui-ux-pro-max skill + 21st.dev magic MCP + framer-motion/gsap"
+    ac_step "UI/UX — skill ui-ux-pro-max + MCP magic de 21st.dev + framer-motion/gsap"
 
     ac_uiux_install_skill
     ac_uiux_install_magic_mcp
@@ -15,10 +15,10 @@ ac_component_ui_ux() {
 ac_uiux_install_skill() {
     local src="$AC_REPO_DIR/skills/ui-ux-pro-max"
     local dst="$CLAUDE_CONFIG_DIR/skills/ui-ux-pro-max"
-    ac_info "Installing ui-ux-pro-max skill (first-party) into $dst"
+    ac_info "Instalando skill ui-ux-pro-max (propia) en $dst"
 
     if [ ! -d "$src" ]; then
-        ac_warn "Source skill missing: $src — skipping."
+        ac_warn "Falta la skill de origen: $src — se omite."
         return 0
     fi
     if [ "${DRY_RUN:-0}" = "1" ]; then
@@ -32,7 +32,7 @@ ac_uiux_install_skill() {
 
 ac_uiux_install_magic_mcp() {
     if [ "$AC_HAS_CLAUDE" != "1" ]; then
-        ac_warn "claude CLI not on PATH — skipping 21st.dev magic MCP registration."
+        ac_warn "El CLI claude no está en el PATH — se omite el registro del MCP magic de 21st.dev."
         return 0
     fi
 
@@ -40,23 +40,23 @@ ac_uiux_install_magic_mcp() {
         if [ "${FORCE:-0}" = "1" ]; then
             ac_run claude mcp remove magic || true
         else
-            ac_info "magic MCP already registered; skipping. Use --force to re-add."
+            ac_info "El MCP magic ya está registrado; se omite. Usa --force para re-agregarlo."
             return 0
         fi
     fi
 
-    ac_info "Registering 21st.dev magic MCP (npx @21st-dev/magic@latest, user scope)"
+    ac_info "Registrando el MCP magic de 21st.dev (npx @21st-dev/magic@latest, alcance de usuario)"
     if ac_run claude mcp add -s user magic -- npx -y @21st-dev/magic@latest; then
-        ac_info "magic MCP registered (available in every project)."
+        ac_info "MCP magic registrado (disponible en todos los proyectos)."
     else
-        ac_warn "claude mcp add failed for magic — try manually:"
+        ac_warn "claude mcp add falló para magic — intenta manualmente:"
         ac_warn "  claude mcp add -s user magic -- npx -y @21st-dev/magic@latest"
     fi
 }
 
 ac_uiux_install_npm_deps() {
     if [ "${NO_NPM:-0}" = "1" ]; then
-        ac_info "--no-npm set; skipping framer-motion / gsap install."
+        ac_info "--no-npm activado; se omite la instalación de framer-motion / gsap."
         return 0
     fi
 
@@ -64,19 +64,19 @@ ac_uiux_install_npm_deps() {
 
     if [ ! -f "$cwd/package.json" ]; then
         if [ "${WITH_NPM:-0}" = "1" ]; then
-            ac_info "No package.json in $cwd; --with-npm forces 'npm init -y'."
-            ac_run npm init -y >/dev/null || { ac_warn "npm init failed — skipping."; return 0; }
+            ac_info "No hay package.json en $cwd; --with-npm fuerza 'npm init -y'."
+            ac_run npm init -y >/dev/null || { ac_warn "npm init falló — se omite."; return 0; }
         else
-            ac_warn "No package.json in $cwd — skipping framer-motion / gsap install."
-            ac_warn "  Run from your project root, or pass --with-npm to create one."
+            ac_warn "No hay package.json en $cwd — se omite la instalación de framer-motion / gsap."
+            ac_warn "  Ejecuta desde la raíz de tu proyecto, o pasa --with-npm para crear uno."
             return 0
         fi
     fi
 
-    ac_info "Installing framer-motion + gsap into $cwd"
+    ac_info "Instalando framer-motion + gsap en $cwd"
     if ac_run npm install --save framer-motion gsap; then
-        ac_info "framer-motion + gsap installed."
+        ac_info "framer-motion + gsap instalados."
     else
-        ac_warn "npm install failed — install manually: npm i framer-motion gsap"
+        ac_warn "npm install falló — instala manualmente: npm i framer-motion gsap"
     fi
 }

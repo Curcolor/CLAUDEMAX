@@ -1,31 +1,31 @@
 #!/usr/bin/env bash
-# ABSOLUTE-CLAUDE — one-shot installer for the token-saving + UI/UX stack.
+# ABSOLUTE-CLAUDE — instalador de un solo paso para el stack de ahorro de tokens + UI/UX.
 #
-# Components: RTK, Caveman, Figma MCP, UI/UX bundle (ui-ux-pro-max skill
-# + 21st.dev magic MCP + framer-motion/gsap npm).
+# Componentes: RTK, Caveman, Figma MCP, paquete UI/UX (skill ui-ux-pro-max
+# + MCP magic de 21st.dev + framer-motion/gsap vía npm).
 #
-# Usage:
-#   bash install.sh                    # install everything
-#   bash install.sh --only rtk         # one component
-#   bash install.sh --skip ui-ux       # skip one
-#   bash install.sh --dry-run          # print only
-#   bash install.sh --uninstall        # tear down
+# Uso:
+#   bash install.sh                    # instala todo
+#   bash install.sh --only rtk         # un solo componente
+#   bash install.sh --skip ui-ux       # omite uno
+#   bash install.sh --dry-run          # solo imprime
+#   bash install.sh --uninstall        # desinstala
 #
-# See README.md / INSTALL.md for full flag docs.
+# Ver README.md / INSTALL.md para la documentación completa de flags.
 
 set -euo pipefail
 
-# --- Resolve repo dir so this script works both as `bash install.sh` and as a curl pipe.
-# When piped through curl|bash, BASH_SOURCE[0] is empty; we fall back to a temp clone.
+# --- Resuelve el directorio del repo para que este script funcione tanto como `bash install.sh` como en un pipe de curl.
+# Cuando se ejecuta vía curl|bash, BASH_SOURCE[0] está vacío; usamos un clon temporal como respaldo.
 if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]:-}" ]; then
     AC_REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 else
-    # Piped install path: clone the repo to a temp dir and re-exec from there.
+    # Ruta de instalación por pipe: clona el repo a un directorio temporal y re-ejecuta desde ahí.
     if [ -z "${AC_BOOTSTRAPPED:-}" ]; then
         TMP="$(mktemp -d)"
-        echo "[INFO]  Piped install detected; cloning ABSOLUTE-CLAUDE to $TMP ..."
+        echo "[INFO]  Instalación por pipe detectada; clonando ABSOLUTE-CLAUDE en $TMP ..."
         git clone --depth 1 https://github.com/Curcolor/CLAUDEMAX "$TMP/ABSOLUTE-CLAUDE" 2>/dev/null \
-            || { echo "[ERR] Could not clone ABSOLUTE-CLAUDE. Clone manually and run bash install.sh."; exit 1; }
+            || { echo "[ERR] No se pudo clonar ABSOLUTE-CLAUDE. Clónalo manualmente y ejecuta bash install.sh."; exit 1; }
         export AC_BOOTSTRAPPED=1
         exec bash "$TMP/ABSOLUTE-CLAUDE/install.sh" "$@"
     fi
@@ -33,7 +33,7 @@ else
 fi
 export AC_REPO_DIR
 
-# --- Source helpers
+# --- Carga los helpers (source)
 # shellcheck source=bin/lib/log.sh
 . "$AC_REPO_DIR/bin/lib/log.sh"
 # shellcheck source=bin/lib/detect.sh
@@ -43,7 +43,7 @@ export AC_REPO_DIR
 # shellcheck source=bin/lib/jsonc.sh
 . "$AC_REPO_DIR/bin/lib/jsonc.sh"
 
-# --- Parse flags
+# --- Parseo de flags
 DRY_RUN=0
 FORCE=0
 NO_NPM=0
@@ -57,34 +57,34 @@ ALL_COMPONENTS=(rtk caveman figma ui-ux dev-skills rag)
 
 usage() {
     cat <<EOF
-ABSOLUTE-CLAUDE — install token-saving + UI/UX stack for Claude Code.
+ABSOLUTE-CLAUDE — instala el stack de ahorro de tokens + UI/UX para Claude Code.
 
-Usage: bash install.sh [flags]
+Uso: bash install.sh [flags]
 
 Flags:
-  --all                Install every component (default).
-  --only <id>          Install only this component. Repeatable.
+  --all                Instala todos los componentes (por defecto).
+  --only <id>          Instala solo este componente. Repetible.
                        ids: ${ALL_COMPONENTS[*]}
-  --skip <id>          Skip a component. Repeatable.
-  --no-npm             Skip 'npm install framer-motion gsap'.
-  --with-npm           Force the npm step (npm init -y if no package.json).
-  --dry-run            Print every command, change nothing.
-  --force              Re-run components even if already installed.
-  --config-dir <path>  Override CLAUDE_CONFIG_DIR (default \$HOME/.claude).
-  --uninstall          Run uninstall.sh.
-  --no-color           Disable ANSI colors.
-  -h | --help          This help.
+  --skip <id>          Omite un componente. Repetible.
+  --no-npm             Omite 'npm install framer-motion gsap'.
+  --with-npm           Fuerza el paso de npm (npm init -y si no hay package.json).
+  --dry-run            Imprime cada comando, no cambia nada.
+  --force              Reejecuta componentes aunque ya estén instalados.
+  --config-dir <path>  Sobrescribe CLAUDE_CONFIG_DIR (por defecto \$HOME/.claude).
+  --uninstall          Ejecuta uninstall.sh.
+  --no-color           Desactiva los colores ANSI.
+  -h | --help          Esta ayuda.
 
-Examples:
+Ejemplos:
   bash install.sh
   bash install.sh --only rtk --only caveman
   bash install.sh --skip ui-ux --no-npm
   bash install.sh --dry-run --all
 
-  RAG env flags (component 'rag'):
-    RAG_ROOT=<path>            workspace root (required for rag)
+  Flags de entorno para RAG (componente 'rag'):
+    RAG_ROOT=<path>            raíz del workspace (requerido para rag)
     VAULT_MODE=create|import|connect   RAG_MODE=create|import|connect
-    VAULT_SRC / VAULT_REMOTE / RAG_DUMP / RAG_REMOTE_URL per mode
+    VAULT_SRC / VAULT_REMOTE / RAG_DUMP / RAG_REMOTE_URL según el modo
 EOF
 }
 
@@ -101,13 +101,13 @@ while [ $# -gt 0 ]; do
         --uninstall)       UNINSTALL=1; shift ;;
         --no-color)        export ABSOLUTE_NO_COLOR=1; shift ;;
         -h|--help)         usage; exit 0 ;;
-        *)                 ac_error "Unknown flag: $1"; usage; exit 1 ;;
+        *)                 ac_error "Flag desconocido: $1"; usage; exit 1 ;;
     esac
 done
 
 export DRY_RUN FORCE NO_NPM WITH_NPM AC_CONFIG_DIR_OVERRIDE
 
-# Re-source log.sh now that ABSOLUTE_NO_COLOR may be set.
+# Vuelve a cargar log.sh ahora que ABSOLUTE_NO_COLOR pudo haberse establecido.
 # shellcheck source=bin/lib/log.sh
 . "$AC_REPO_DIR/bin/lib/log.sh"
 
@@ -115,12 +115,12 @@ if [ "$UNINSTALL" = "1" ]; then
     exec bash "$AC_REPO_DIR/uninstall.sh" ${DRY_RUN:+--dry-run}
 fi
 
-# Default to --all if no --only flags
+# Usa --all por defecto si no hay flags --only
 if [ ${#ONLY[@]} -eq 0 ]; then
     ONLY=("${ALL_COMPONENTS[@]}")
 fi
 
-# Apply --skip
+# Aplica --skip
 FINAL_LIST=()
 for c in "${ONLY[@]}"; do
     skip=0
@@ -137,20 +137,20 @@ cat <<'BANNER'
 / _ \| _ \__ \ (_) | |_| |_| | | | | _|  | (__| |__ / _ \| |_| | |) | _|
 /_/ \_\___/___/\___/|____\___/  |_| |___|  \___|____/_/ \_\___/|___/|___|
 
-  One install. Every token-saver + UI/UX skill.
+  Una sola instalación. Todos los ahorradores de tokens + skills de UI/UX.
 
 BANNER
 
-ac_step "Preflight"
+ac_step "Verificación previa"
 ac_detect_all
 ac_require_tools
 ac_resolve_config_dir
 ac_summary
-ac_info "Components: ${FINAL_LIST[*]}"
-ac_info "Claude config dir: $CLAUDE_CONFIG_DIR"
-[ "$DRY_RUN" = "1" ] && ac_warn "DRY-RUN — no changes will be made."
+ac_info "Componentes: ${FINAL_LIST[*]}"
+ac_info "Directorio de configuración de Claude: $CLAUDE_CONFIG_DIR"
+[ "$DRY_RUN" = "1" ] && ac_warn "DRY-RUN — no se harán cambios."
 
-# --- Load components on demand
+# --- Carga los componentes bajo demanda
 component_run() {
     local id="$1"
     case "$id" in
@@ -179,50 +179,50 @@ component_run() {
             ac_component_rag
             ;;
         *)
-            ac_warn "Unknown component: $id (valid: ${ALL_COMPONENTS[*]})"
+            ac_warn "Componente desconocido: $id (válidos: ${ALL_COMPONENTS[*]})"
             ;;
     esac
 }
 
 for c in "${FINAL_LIST[@]}"; do
-    component_run "$c" || ac_warn "Component '$c' had errors — continuing."
+    component_run "$c" || ac_warn "El componente '$c' tuvo errores — continuando."
 done
 
-# --- Verify summary
-ac_step "Verify"
+# --- Resumen de verificación
+ac_step "Verificar"
 
 if ac_have rtk; then
     ac_info "rtk: $(rtk --version 2>/dev/null | head -n1)"
 else
-    ac_warn "rtk: not on PATH"
+    ac_warn "rtk: no está en el PATH"
 fi
 
 if [ "$AC_HAS_CLAUDE" = "1" ]; then
     ac_info "claude mcp list:"
-    claude mcp list 2>/dev/null | sed 's/^/    /' || ac_warn "  claude mcp list failed"
+    claude mcp list 2>/dev/null | sed 's/^/    /' || ac_warn "  claude mcp list falló"
 fi
 
 if [ -f "$CLAUDE_CONFIG_DIR/.caveman-active" ]; then
     ac_info "caveman: $(cat "$CLAUDE_CONFIG_DIR/.caveman-active")"
 fi
 
-ac_info "Installed skills under $CLAUDE_CONFIG_DIR/skills/:"
+ac_info "Skills instaladas en $CLAUDE_CONFIG_DIR/skills/:"
 ls -1 "$CLAUDE_CONFIG_DIR/skills/" 2>/dev/null | sed 's/^/    /' || true
 
 DONE_MSG=$(cat <<EOF
 
-${AC_GREEN}Done.${AC_NC} Next steps:
+${AC_GREEN}Listo.${AC_NC} Próximos pasos:
 
-  1. Restart Claude Code so hooks/skills load.
-  2. Finish Figma OAuth: open Claude Code → /mcp → select figma → browser.
-  3. Try the commands:
-       /caveman           — terse mode (Caveman)
-       /ui-ux-pro-max     — (skill name may differ; see your skill picker)
-       /superpowers       — meta-skill bundle (obra/superpowers)
+  1. Reinicia Claude Code para que carguen los hooks/skills.
+  2. Completa el OAuth de Figma: abre Claude Code → /mcp → selecciona figma → navegador.
+  3. Prueba los comandos:
+       /caveman           — modo terso (Caveman)
+       /ui-ux-pro-max     — (el nombre de la skill puede variar; revisa tu selector de skills)
+       /superpowers       — paquete de meta-skills (obra/superpowers)
        /architecture-principles /conventional-commits
-       /mcp → rag            — semantic search over your V.A.U.L.T (rag_query)
+       /mcp → rag            — búsqueda semántica sobre tu V.A.U.L.T (rag_query)
 
-  See README.md for full docs. To remove everything: bash uninstall.sh
+  Ver README.md para la documentación completa. Para eliminar todo: bash uninstall.sh
 EOF
 )
 printf '%b\n' "$DONE_MSG"

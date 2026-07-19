@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# JSONC-tolerant merge for Claude Code's settings.json. Source-only.
-# Uses node -e with a tiny inline script — no external deps.
+# Merge tolerante a JSONC para el settings.json de Claude Code. Solo para source.
+# Usa node -e con un pequeño script inline — sin dependencias externas.
 #
 # ac_merge_hook <settings.json> <event> <hook-command> [matcher]
-#   Adds {event:[{hooks:[{type:"command",command:"<cmd>"}]}]} if not already present.
-#   If [matcher] is provided, the group gets a "matcher" field (e.g. "Bash" for PreToolUse).
-#   Writes a .bak before mutating.
+#   Agrega {event:[{hooks:[{type:"command",command:"<cmd>"}]}]} si no está ya presente.
+#   Si se provee [matcher], el grupo obtiene un campo "matcher" (ej. "Bash" para PreToolUse).
+#   Escribe un .bak antes de mutar.
 #
 # ac_remove_hook <settings.json> <substring>
-#   Removes any hook whose command string contains <substring>.
+#   Elimina cualquier hook cuyo string de comando contenga <substring>.
 
 ac_merge_hook() {
     local file="$1" event="$2" cmd="$3" matcher="${4:-}"
@@ -22,14 +22,14 @@ ac_merge_hook() {
         const cmd = process.env.HOOK_CMD;
         const matcher = process.env.HOOK_MATCHER || "";
         let raw = fs.readFileSync(file, "utf8");
-        // Strip // and /* */ comments + trailing commas before parsing (JSONC-tolerant).
+        // Elimina comentarios // y /* */ + comas finales antes de parsear (tolerante a JSONC).
         const stripped = raw
             .replace(/\/\*[\s\S]*?\*\//g, "")
             .replace(/(^|[^:])\/\/[^\n]*/g, "$1")
             .replace(/,(\s*[}\]])/g, "$1");
         let cfg = {};
         try { cfg = JSON.parse(stripped || "{}"); } catch (e) {
-            console.error("[ERR] settings.json unparseable even after JSONC strip: " + e.message);
+            console.error("[ERR] settings.json no se pudo parsear incluso tras limpiar JSONC: " + e.message);
             process.exit(2);
         }
         cfg.hooks = cfg.hooks || {};
@@ -64,7 +64,7 @@ ac_remove_hook() {
             .replace(/,(\s*[}\]])/g, "$1");
         let cfg;
         try { cfg = JSON.parse(stripped || "{}"); } catch (e) {
-            console.error("[WARN] settings.json unparseable; skipping removal.");
+            console.error("[WARN] settings.json no se pudo parsear; se omite la eliminación.");
             process.exit(0);
         }
         if (!cfg.hooks) { process.exit(0); }

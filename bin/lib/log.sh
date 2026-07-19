@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Logging helpers. Modeled on install-RTK.sh:11-28.
-# Source-only; don't execute.
+# Helpers de logging. Basado en install-RTK.sh:11-28.
+# Solo para source; no ejecutar.
 
 if [ "${NO_COLOR:-0}" = "1" ] || [ -n "${ABSOLUTE_NO_COLOR:-}" ]; then
     AC_RED=""
@@ -29,7 +29,7 @@ ac_die() {
     exit 1
 }
 
-# Run a command, or just print it if DRY_RUN=1.
+# Ejecuta un comando, o solo lo imprime si DRY_RUN=1.
 ac_run() {
     if [ "${DRY_RUN:-0}" = "1" ]; then
         printf "${AC_DIM}\$ %s${AC_NC}\n" "$*"

@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Install engineering-discipline skills:
-#   - superpowers             (cloned from obra/superpowers — upstream meta-skill)
-#   - architecture-principles (first-party)
-#   - conventional-commits    (first-party)
+# Instala skills de disciplina de ingeniería:
+#   - superpowers             (clonado de obra/superpowers — meta-skill upstream)
+#   - architecture-principles (propia/first-party)
+#   - conventional-commits    (propia/first-party)
 #
-# All go under $CLAUDE_CONFIG_DIR/skills/. First-party skills are copied;
-# superpowers is git-cloned so upstream updates flow on re-run.
+# Todas van bajo $CLAUDE_CONFIG_DIR/skills/. Las skills propias se copian;
+# superpowers se clona con git para que las actualizaciones upstream lleguen al re-ejecutar.
 
 SUPERPOWERS_REPO="https://github.com/obra/superpowers"
 
 FIRST_PARTY_SKILLS=(architecture-principles conventional-commits)
 
 ac_component_dev_skills() {
-    ac_step "Engineering skills — superpowers + architecture-principles + conventional-commits"
+    ac_step "Skills de ingeniería — superpowers + architecture-principles + conventional-commits"
 
     ac_devskills_install_first_party
     ac_devskills_install_superpowers
@@ -24,11 +24,11 @@ ac_devskills_install_first_party() {
         local dst="$CLAUDE_CONFIG_DIR/skills/$s"
 
         if [ ! -d "$src" ]; then
-            ac_warn "Source skill missing: $src — skipping."
+            ac_warn "Falta la skill de origen: $src — se omite."
             continue
         fi
 
-        ac_info "Installing skill: $s → $dst"
+        ac_info "Instalando skill: $s → $dst"
         if [ "${DRY_RUN:-0}" = "1" ]; then
             ac_dim "\$ cp -r $src $dst"
             continue
@@ -42,7 +42,7 @@ ac_devskills_install_first_party() {
 
 ac_devskills_install_superpowers() {
     local dst="$CLAUDE_CONFIG_DIR/skills/superpowers"
-    ac_info "Installing superpowers skill (clone from $SUPERPOWERS_REPO)"
+    ac_info "Instalando skill superpowers (clonando desde $SUPERPOWERS_REPO)"
 
     if [ "${DRY_RUN:-0}" = "1" ]; then
         if [ -d "$dst/.git" ]; then
@@ -55,18 +55,18 @@ ac_devskills_install_superpowers() {
 
     if [ -d "$dst/.git" ]; then
         if [ "${FORCE:-0}" = "1" ]; then
-            ac_info "  --force: removing existing clone and re-cloning"
+            ac_info "  --force: eliminando el clon existente y re-clonando"
             rm -rf "$dst"
             git clone --depth 1 "$SUPERPOWERS_REPO" "$dst" \
-                || { ac_warn "git clone failed — skipping superpowers."; return 0; }
+                || { ac_warn "git clone falló — se omite superpowers."; return 0; }
         else
-            ac_info "  existing clone found; running git pull --ff-only"
+            ac_info "  se encontró un clon existente; ejecutando git pull --ff-only"
             git -C "$dst" pull --ff-only \
-                || ac_warn "  git pull failed; existing clone left in place."
+                || ac_warn "  git pull falló; se deja el clon existente intacto."
         fi
     else
         mkdir -p "$CLAUDE_CONFIG_DIR/skills"
         git clone --depth 1 "$SUPERPOWERS_REPO" "$dst" \
-            || { ac_warn "git clone failed — skipping superpowers."; return 0; }
+            || { ac_warn "git clone falló — se omite superpowers."; return 0; }
     fi
 }

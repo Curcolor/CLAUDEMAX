@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
-# Install RTK (token-saving shell-command proxy) and wire its Claude Code PreToolUse hook.
+# Instala RTK (proxy de comandos de shell que ahorra tokens) y conecta su hook PreToolUse de Claude Code.
 #
-# - macOS/Linux: upstream curl-pipe installer (https://github.com/rtk-ai/rtk)
-# - Windows (Git Bash / MSYS / Cygwin): download the official Windows zip and extract rtk.exe
-#   to $HOME/.local/bin. The upstream installer rejects MINGW64 so we handle Windows ourselves.
+# - macOS/Linux: instalador upstream vía curl-pipe (https://github.com/rtk-ai/rtk)
+# - Windows (Git Bash / MSYS / Cygwin): descarga el zip oficial de Windows y extrae rtk.exe
+#   a $HOME/.local/bin. El instalador upstream rechaza MINGW64, así que manejamos Windows nosotros mismos.
 #
-# In all cases we patch ~/.claude/settings.json directly (matcher: "Bash" / cmd: "rtk hook claude")
-# instead of relying on `rtk init -g`'s interactive y/N prompt.
+# En todos los casos parcheamos ~/.claude/settings.json directamente (matcher: "Bash" / cmd: "rtk hook claude")
+# en lugar de depender del prompt interactivo y/N de `rtk init -g`.
 
 RTK_WINDOWS_ZIP_URL="https://github.com/rtk-ai/rtk/releases/latest/download/rtk-x86_64-pc-windows-msvc.zip"
 
 ac_component_rtk() {
-    ac_step "RTK — token-saving proxy for shell commands"
+    ac_step "RTK — proxy de ahorro de tokens para comandos de shell"
 
     local rtk_already_installed=0
     if ac_have rtk && [ "${FORCE:-0}" != "1" ]; then
-        ac_info "rtk already installed ($(rtk --version 2>/dev/null | head -n1)); skipping binary install. Use --force to reinstall."
+        ac_info "rtk ya está instalado ($(rtk --version 2>/dev/null | head -n1)); se omite la instalación del binario. Usa --force para reinstalar."
         rtk_already_installed=1
     fi
 
@@ -24,13 +24,13 @@ ac_component_rtk() {
             windows) ac_rtk_install_windows ;;
             macos|linux) ac_rtk_install_unix ;;
             *)
-                ac_warn "Unknown OS '$AC_OS' — attempting unix-style install."
+                ac_warn "SO desconocido '$AC_OS' — intentando instalación estilo unix."
                 ac_rtk_install_unix
                 ;;
         esac
     fi
 
-    # Make sure ~/.local/bin is on PATH for the rest of this script (post-install detection).
+    # Asegura que ~/.local/bin esté en el PATH para el resto de este script (detección post-instalación).
     if ! ac_have rtk; then
         if [ -x "$HOME/.local/bin/rtk" ] || [ -x "$HOME/.local/bin/rtk.exe" ]; then
             export PATH="$HOME/.local/bin:$PATH"
@@ -38,20 +38,20 @@ ac_component_rtk() {
     fi
 
     if ! ac_have rtk; then
-        ac_warn "rtk binary not on PATH after install. Hook will be wired but won't fire until PATH includes \$HOME/.local/bin."
+        ac_warn "El binario de rtk no está en el PATH tras la instalación. El hook quedará conectado pero no se disparará hasta que el PATH incluya \$HOME/.local/bin."
     else
-        ac_info "rtk version: $(rtk --version 2>/dev/null | head -n1)"
+        ac_info "Versión de rtk: $(rtk --version 2>/dev/null | head -n1)"
     fi
 
-    # Run `rtk init -g` so it creates RTK.md / updates CLAUDE.md (those parts are non-interactive).
-    # We ignore its settings.json prompt and patch the file ourselves below.
+    # Ejecuta `rtk init -g` para que cree RTK.md / actualice CLAUDE.md (esas partes son no interactivas).
+    # Ignoramos su prompt de settings.json y parcheamos el archivo nosotros mismos más abajo.
     if ac_have rtk; then
         if [ "${DRY_RUN:-0}" = "1" ]; then
-            ac_dim "\$ rtk init -g  (creates RTK.md + updates CLAUDE.md; settings.json is patched separately)"
+            ac_dim "\$ rtk init -g  (crea RTK.md + actualiza CLAUDE.md; settings.json se parchea por separado)"
         else
-            # `</dev/null` ensures non-interactive mode regardless of upstream prompt behavior.
+            # `</dev/null` asegura modo no interactivo sin importar el comportamiento del prompt upstream.
             rtk init -g </dev/null >/dev/null 2>&1 \
-                || ac_warn "rtk init -g returned non-zero — RTK.md / CLAUDE.md may not be wired."
+                || ac_warn "rtk init -g devolvió un código distinto de cero — RTK.md / CLAUDE.md pueden no estar conectados."
         fi
     fi
 
@@ -59,18 +59,18 @@ ac_component_rtk() {
 }
 
 ac_rtk_install_unix() {
-    ac_info "Installing rtk via upstream curl|sh ..."
+    ac_info "Instalando rtk vía curl|sh upstream ..."
     if [ "${DRY_RUN:-0}" = "1" ]; then
         ac_dim "\$ curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh"
         return 0
     fi
     curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh \
-        || ac_warn "rtk upstream install script failed — continuing without rtk."
+        || ac_warn "El script de instalación upstream de rtk falló — continuando sin rtk."
 }
 
 ac_rtk_install_windows() {
     if [ "${AC_ARCH:-unknown}" != "x86_64" ]; then
-        ac_warn "Windows arch '$AC_ARCH' has no published rtk binary (only x86_64). Skipping rtk."
+        ac_warn "La arquitectura de Windows '$AC_ARCH' no tiene binario de rtk publicado (solo x86_64). Se omite rtk."
         return 0
     fi
 
@@ -79,7 +79,7 @@ ac_rtk_install_windows() {
     local tmp_zip
     tmp_zip="$(mktemp -t rtk-win.XXXXXX.zip 2>/dev/null || mktemp)"
 
-    ac_info "Installing rtk (Windows x86_64) from $RTK_WINDOWS_ZIP_URL"
+    ac_info "Instalando rtk (Windows x86_64) desde $RTK_WINDOWS_ZIP_URL"
     if [ "${DRY_RUN:-0}" = "1" ]; then
         ac_dim "\$ curl -fsSL -o $tmp_zip $RTK_WINDOWS_ZIP_URL"
         ac_dim "\$ <unzip>  $tmp_zip -> $dst_dir/rtk.exe"
@@ -88,13 +88,13 @@ ac_rtk_install_windows() {
 
     mkdir -p "$dst_dir"
     if ! curl -fsSL -o "$tmp_zip" "$RTK_WINDOWS_ZIP_URL"; then
-        ac_warn "Failed to download rtk Windows zip. Skipping rtk."
+        ac_warn "Falló la descarga del zip de rtk para Windows. Se omite rtk."
         rm -f "$tmp_zip"
         return 0
     fi
 
     if ! ac_rtk_extract_zip "$tmp_zip" "$dst_dir"; then
-        ac_warn "Failed to extract rtk zip. Skipping rtk."
+        ac_warn "Falló la extracción del zip de rtk. Se omite rtk."
         rm -f "$tmp_zip"
         return 0
     fi
@@ -102,13 +102,13 @@ ac_rtk_install_windows() {
 
     if [ -x "$dst_bin" ] || [ -f "$dst_bin" ]; then
         chmod +x "$dst_bin" 2>/dev/null || true
-        ac_info "Installed $dst_bin"
+        ac_info "Instalado $dst_bin"
     else
-        ac_warn "Expected $dst_bin after extraction but it's missing."
+        ac_warn "Se esperaba $dst_bin tras la extracción pero no está."
     fi
 }
 
-# Try unzip → PowerShell → python in that order. Whichever exists wins.
+# Intenta unzip → PowerShell → python en ese orden. Gana el primero que exista.
 ac_rtk_extract_zip() {
     local zip="$1" dst="$2"
 
@@ -129,11 +129,11 @@ ac_rtk_extract_zip() {
         python3 -m zipfile -e "$zip" "$dst" && return 0
     fi
 
-    ac_warn "Need one of: unzip, powershell.exe, python — none found."
+    ac_warn "Se necesita uno de: unzip, powershell.exe, python — no se encontró ninguno."
     return 1
 }
 
-# Patch ~/.claude/settings.json with the PreToolUse/Bash hook. Idempotent.
+# Parchea ~/.claude/settings.json con el hook PreToolUse/Bash. Idempotente.
 ac_rtk_wire_hook() {
     local settings="$CLAUDE_CONFIG_DIR/settings.json"
     if [ "${DRY_RUN:-0}" = "1" ]; then
@@ -141,5 +141,5 @@ ac_rtk_wire_hook() {
         return 0
     fi
     ac_merge_hook "$settings" "PreToolUse" "rtk hook claude" "Bash"
-    ac_info "Registered PreToolUse/Bash hook → 'rtk hook claude' in $settings"
+    ac_info "Hook PreToolUse/Bash registrado → 'rtk hook claude' en $settings"
 }

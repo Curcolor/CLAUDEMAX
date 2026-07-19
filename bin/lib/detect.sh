@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Tool detection. Source-only.
-# Exports: AC_HAS_CLAUDE, AC_HAS_OPENCODE, AC_HAS_NODE, AC_HAS_NPM, AC_HAS_GIT, AC_HAS_CURL,
+# Detección de herramientas. Solo para source.
+# Exporta: AC_HAS_CLAUDE, AC_HAS_OPENCODE, AC_HAS_NODE, AC_HAS_NPM, AC_HAS_GIT, AC_HAS_CURL,
 #          AC_NODE_MAJOR, AC_OS, AC_ARCH.
 
 ac_have() { command -v "$1" >/dev/null 2>&1; }
@@ -37,7 +37,7 @@ ac_detect_all() {
     export AC_HAS_CURL AC_HAS_GIT AC_HAS_NODE AC_HAS_NPM AC_HAS_CLAUDE AC_HAS_OPENCODE AC_NODE_MAJOR
 }
 
-# Verify required tools. Collects all failures before exiting so the user sees them at once.
+# Verifica las herramientas requeridas. Recolecta todos los fallos antes de salir para que el usuario los vea de una vez.
 ac_require_tools() {
     local missing=()
     [ "$AC_HAS_CURL" = "1" ] || missing+=("curl")
@@ -50,14 +50,14 @@ ac_require_tools() {
     fi
 
     if [ ${#missing[@]} -gt 0 ]; then
-        ac_error "Missing required tools: ${missing[*]}"
-        ac_error "Install them and re-run."
+        ac_error "Faltan herramientas requeridas: ${missing[*]}"
+        ac_error "Instálalas y vuelve a ejecutar."
         exit 1
     fi
 
     if [ "$AC_HAS_CLAUDE" != "1" ]; then
-        ac_warn "Claude Code CLI ('claude') not on PATH — MCP registration steps will be skipped."
-        ac_warn "Install from https://claude.com/claude-code then re-run with --force."
+        ac_warn "El CLI de Claude Code ('claude') no está en el PATH — se omitirán los pasos de registro de MCP."
+        ac_warn "Instálalo desde https://claude.com/claude-code y vuelve a ejecutar con --force."
     fi
 }
 

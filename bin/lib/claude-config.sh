@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Resolve $CLAUDE_CONFIG_DIR. Source-only.
-# Honors --config-dir flag if AC_CONFIG_DIR_OVERRIDE was set by install.sh.
+# Resuelve $CLAUDE_CONFIG_DIR. Solo para source.
+# Respeta el flag --config-dir si install.sh estableció AC_CONFIG_DIR_OVERRIDE.
 
 ac_resolve_config_dir() {
     if [ -n "${AC_CONFIG_DIR_OVERRIDE:-}" ]; then
@@ -10,7 +10,7 @@ ac_resolve_config_dir() {
     else
         CLAUDE_CONFIG_DIR="$HOME/.claude"
     fi
-    # Expand a leading ~ if present.
+    # Expande un ~ inicial si está presente.
     case "$CLAUDE_CONFIG_DIR" in
         "~/"*) CLAUDE_CONFIG_DIR="$HOME/${CLAUDE_CONFIG_DIR#~/}" ;;
         "~")   CLAUDE_CONFIG_DIR="$HOME" ;;
