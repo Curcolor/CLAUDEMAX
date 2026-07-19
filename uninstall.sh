@@ -74,9 +74,9 @@ fi
 ac_step "skill repo-map"
 ac_run rm -rf "$CLAUDE_CONFIG_DIR/skills/repo-map"
 
-# --- dev-skills (superpowers + SOLID + design-patterns + conventional-commits + architecture-patterns)
-ac_step "Skills de ingeniería (superpowers + architecture-principles + conventional-commits + nombres legados)"
-for s in superpowers solid design-patterns conventional-commits architecture-patterns architecture-principles; do
+# --- dev-skills (superpowers + SOLID + design-patterns + conventional-commits + architecture-patterns + skill-mcp-builder)
+ac_step "Skills de ingeniería (superpowers + architecture-principles + conventional-commits + skill-mcp-builder + nombres legados)"
+for s in superpowers solid design-patterns conventional-commits architecture-patterns architecture-principles skill-mcp-builder; do
     ac_run rm -rf "$CLAUDE_CONFIG_DIR/skills/$s"
 done
 

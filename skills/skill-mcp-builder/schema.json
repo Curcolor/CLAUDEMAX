@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "skill-mcp-builder",
+  "definitions": {
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "objetivo": {
+          "type": "string",
+          "description": "Qué skill o servidor MCP se quiere crear y para qué"
+        },
+        "tipo": {
+          "type": "string",
+          "enum": ["skill", "mcp", "ambos"],
+          "description": "Qué artefacto construir"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "artefactos": {
+          "type": "string",
+          "description": "Skill 2.0 completa (3 archivos, validador verde) y/o servidor MCP registrado y conectado"
+        }
+      },
+      "required": ["artefactos"]
+    }
+  }
+}

@@ -1,0 +1,14 @@
+name: skill-mcp-builder
+version: 2.0.0
+kind: knowledge
+triggers:
+  - "crear skill / create skill"
+  - "nueva skill / new skill"
+  - "skill 2.0"
+  - "crear mcp / build mcp server"
+  - "mcp server"
+  - "builder"
+commands: []
+scripts: []
+dependencies: []
+schema: ./schema.json
