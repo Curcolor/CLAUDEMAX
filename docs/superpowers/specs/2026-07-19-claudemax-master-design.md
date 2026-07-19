@@ -97,7 +97,7 @@ Live in WORKSPACE root `.claude/` rules (propagated to projects by the init ritu
 - **3-attempt loop breaker:** after 3 failed fix attempts on the same error, STOP; summarize context for the user and wait for manual input instead of burning tokens.
 - **Git commits:** always strip any "Co-authored-by: Claude" footer from generated commits (rule + optional commit-msg hook for enforcement).
 - **Token-saver / skill search:** whenever a new language, framework, or tactic enters the conversation (C#, .NET, WinUI 3, XAML, Python, …), pause and ask: "Would you like me to search/create a specific Skill 2.0 for this technology, or should we proceed without it to save tokens?" — including a brief warning about the trade-offs of skipping the skill.
-- **Model policy:** (already applied, see A).
+- **Model policy:** subagent-driven Agent spawns use Sonnet 5; code reviews stay in-session on the current model (Fable 5 / Opus 4.8). Already applied to the user's `~/.claude/CLAUDE.md`, but the canonical copy MUST ship inside the CLAUDEMAX repo (rules templates installed by the wizard into the root `.claude/` and propagated to projects) — same for every rule in this section. The repo, not any personal config, is the source of truth.
 - Legacy memory tooling (Context7 / Claude-Mem) must not be reinstalled; the RAG brain is the single source of context retention.
 
 ## Interactive installer (setup wizard)
