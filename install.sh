@@ -53,7 +53,7 @@ ONLY=()
 SKIP=()
 AC_CONFIG_DIR_OVERRIDE=""
 
-ALL_COMPONENTS=(rtk caveman figma ui-ux dev-skills rag)
+ALL_COMPONENTS=(rtk caveman figma ui-ux dev-skills rag graphify)
 
 usage() {
     cat <<EOF
@@ -178,6 +178,10 @@ component_run() {
             . "$AC_REPO_DIR/bin/components/rag.sh"
             ac_component_rag
             ;;
+        graphify)
+            . "$AC_REPO_DIR/bin/components/graphify.sh"
+            ac_component_graphify
+            ;;
         *)
             ac_warn "Componente desconocido: $id (válidos: ${ALL_COMPONENTS[*]})"
             ;;
@@ -221,6 +225,7 @@ ${AC_GREEN}Listo.${AC_NC} Próximos pasos:
        /superpowers       — paquete de meta-skills (obra/superpowers)
        /architecture-principles /conventional-commits
        /mcp → rag            — búsqueda semántica sobre tu V.A.U.L.T (rag_query)
+       /understand           — grafo de conocimiento del proyecto (Graphify)
 
   Ver README.md para la documentación completa. Para eliminar todo: bash uninstall.sh
 EOF
