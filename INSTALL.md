@@ -20,12 +20,14 @@ CLAUDEMAX/
 │       ├── rtk.sh              # encadena la instalación de rtk + `rtk init --global`
 │       ├── caveman.sh          # `npx -y github:JuliusBrussee/caveman -- --all`
 │       ├── figma-mcp.sh        # `claude mcp add --transport http figma ...`
-│       ├── ui-ux.sh            # copia skills/ui-ux-pro-max + registra el MCP magic + npm i
-│       ├── dev-skills.sh       # clon de superpowers + 3 skills propias de ingeniería
-│       ├── rag.sh              # vault V.A.U.L.T + stack R.A.G (compose/schema/CLI/MCP) + registro MCP
+│       ├── ui-ux.sh            # copia skills/ui-ux-pro-max + registra el MCP magic + npm i + hook ui-audit.mjs
+│       ├── dev-skills.sh       # clon de superpowers + 4 skills propias (incluida no-ai-slop)
+│       ├── rag.sh              # vault V.A.U.L.T + stack R.A.G (compose/schema/CLI/MCP) + backend Kaggle opcional + registro MCP
 │       ├── graphify.sh         # plugin Understand-Anything vía marketplace de Claude Code
 │       ├── cyber-neo.sh        # clon de la skill de seguridad (commit fijado)
 │       └── parsers.sh          # markitdown (+MCP) / opendataloader-pdf / whisper-ctranslate2
+├── hooks/
+│   └── ui-audit.mjs         # hook PostToolUse/Edit|Write: ~15 reglas deterministas anti-patrones de UI
 ├── skills/
 │   ├── architecture-principles/
 │   │   ├── SKILL.md
@@ -39,6 +41,10 @@ CLAUDEMAX/
 │   │   ├── SKILL.md
 │   │   ├── skill.yaml
 │   │   └── schema.json
+│   ├── no-ai-slop/
+│   │   ├── SKILL.md         # fork propio traducido de petergyang/no-ai-slop (MIT)
+│   │   ├── skill.yaml
+│   │   └── schema.json
 │   ├── ui-ux-pro-max/
 │   │   ├── SKILL.md
 │   │   ├── skill.yaml
@@ -48,15 +54,21 @@ CLAUDEMAX/
 │   └── validate-skills.mjs  # verificador del contrato Skills 2.0 — ejecutar tras cualquier edición de skill
 └── templates/
     ├── vault/                   # semilla del vault de Obsidian V.A.U.L.T (se copia a <RAG_ROOT>/V.A.U.L.T)
-    │   ├── .obsidian/graph.json
-    │   ├── 00-Inbox/, Projects/, Journal/
-    │   └── README.md
+    │   ├── .obsidian/graph.json # un grupo de color por categoría + ejemplos de subcolor
+    │   ├── 00-Inbox/            # capturas sin clasificar (los parsers escriben aquí)
+    │   ├── Codigo/, Proyectos/, Organizacion/, Investigacion/, Aprendizaje/, Journal/
+    │   ├── _plantilla.md        # nota vacía con el frontmatter de taxonomía listo para copiar
+    │   └── README.md            # taxonomía de las 6 categorías
     └── rag/                     # semilla del stack R.A.G (se copia a <RAG_ROOT>/R.A.G)
         ├── docker-compose.yml   # pgvector/pgvector:pg17, puerto 5433
-        ├── schema.sql           # tabla chunks + índice hnsw
+        ├── schema.sql           # tabla chunks (+ categoria/proyecto/tags) + índices + hnsw
         ├── .env.example, package.json, .gitignore
-        ├── rag.mjs              # CLI: init/ingest/query/reindex/status
-        └── mcp-server.mjs       # wrapper MCP stdio (rag_query/rag_status)
+        ├── rag.mjs              # CLI: init/ingest/query/reindex/status; taxonomía + backends conmutables
+        ├── kaggle-embed.mjs     # backend de embeddings por lotes vía Kaggle (importado dinámicamente)
+        ├── kaggle/              # plantillas del kernel que corre en Kaggle
+        │   ├── kernel-metadata.json   # enable_gpu/enable_internet, dataset_sources
+        │   └── embed_kernel.py        # BAAI/bge-m3 vía FlagEmbedding, corre en el T4 gratuito
+        └── mcp-server.mjs       # wrapper MCP stdio (rag_query/rag_status, con categoria/proyecto)
 ```
 
 ## Dónde queda cada cosa en tu máquina
@@ -66,8 +78,9 @@ CLAUDEMAX/
 | `$HOME/.local/bin/rtk` | Instalador de RTK (upstream) | Sí |
 | `$CLAUDE_CONFIG_DIR/settings.json` (entradas de hooks) | Caveman, rtk init | Las entradas de Caveman las quita Caveman; las de rtk las quitamos nosotros |
 | `$CLAUDE_CONFIG_DIR/skills/ui-ux-pro-max/` | ui-ux.sh (`cp -R` desde este repo) | Sí |
+| `$CLAUDE_CONFIG_DIR/hooks/ui-audit.mjs` + entrada `PostToolUse`/`Edit\|Write` en `settings.json` | ui-ux.sh (`cp` + `ac_merge_hook`) | Sí — `rm -f` del archivo y `ac_remove_hook` de la entrada en `settings.json` |
 | `$CLAUDE_CONFIG_DIR/skills/superpowers/` | dev-skills.sh (`git clone`) | Sí |
-| `$CLAUDE_CONFIG_DIR/skills/{architecture-principles,conventional-commits,skill-mcp-builder}/` | dev-skills.sh (`cp -R` desde este repo) | Sí |
+| `$CLAUDE_CONFIG_DIR/skills/{architecture-principles,conventional-commits,skill-mcp-builder,no-ai-slop}/` | dev-skills.sh (`cp -R` desde este repo) | Sí |
 | `$CLAUDE_CONFIG_DIR/skills/cyber-neo/` | cyber-neo.sh (`git clone` + checkout del commit fijado) | Sí |
 | Plugin `understand-anything` + marketplace `Egonex-AI/Understand-Anything` | graphify.sh (`claude plugin ...`) | **No** — quítalo con `/plugin uninstall understand-anything` en una sesión |
 | Registro MCP de Claude: `markitdown` | parsers.sh (`claude mcp add -s user`) | Sí |
@@ -77,6 +90,7 @@ CLAUDEMAX/
 | Registro MCP de Claude: `figma`, `magic`, `caveman-shrink` | figma-mcp.sh, ui-ux.sh, Caveman | Sí para figma + magic; Caveman gestiona el suyo |
 | `<cwd>/package.json`, `<cwd>/node_modules/` | `npm install` de ui-ux.sh | **No** — no tocamos las dependencias de tu proyecto al desinstalar |
 | `<RAG_ROOT>/V.A.U.L.T`, `<RAG_ROOT>/R.A.G`, registro MCP de Claude: `rag`, volumen Docker `ragdata` | rag.sh (`cp -R` de templates, `docker compose up`, `claude mcp add`) | Solo el registro MCP + el contenedor `claudemax-ragdb` — las carpetas y el volumen `ragdata` sobreviven a la desinstalación |
+| `$HOME/.kaggle/kaggle.json` | rag.sh (`ac_rag_kaggle_setup`, solo si `KAGGLE_USERNAME`/`KAGGLE_KEY` están en el entorno) | **No** — es una credencial de tu cuenta de Kaggle, no un artefacto de CLAUDEMAX; bórrala a mano si quieres |
 
 `uninstall.sh` también elimina, best-effort, un puñado de rutas heredadas de instalaciones antiguas de CLAUDEMAX (antes ABSOLUTE-CLAUDE) (`skills/repo-map/`, `skills/dcp-lite/`, `hooks/dcp-lite-dedup.mjs`, `state/dcp-lite-*.json`, y los nombres de skill pre-2.0 `solid`, `design-patterns`, `architecture-patterns`) para que actualizar en el sitio no deje nada atrás. Ninguno de esos componentes lo instala el `install.sh` actual.
 
@@ -88,9 +102,9 @@ CLAUDEMAX/
    - El hook PreToolUse/Bash (`rtk hook claude`) se escribe directamente en `~/.claude/settings.json` mediante nuestro merger JSONC — no dependemos del prompt interactivo y/N de `rtk init -g`, que por defecto responde `N` en shells no interactivos.
 2. **caveman** — cablea hooks, statusline, MCP `caveman-shrink`. Idempotente. El MCP `caveman-shrink` se registra a nivel de proyecto (lo gestiona el propio instalador de Caveman).
 3. **figma** — necesita el CLI `claude`; se registra a nivel de **usuario** (`claude mcp add -s user`) para que funcione en todos los proyectos.
-4. **ui-ux** — también necesita `claude` para el MCP magic (también registrado a nivel de **usuario**); muta el cwd vía `npm install` (condicionado).
-5. **dev-skills** — copia simple de archivos para `architecture-principles` / `conventional-commits` / `skill-mcp-builder`; `git clone`/`git pull` para `superpowers`. Sin dependencia de orden con los demás.
-6. **rag** — opt-in (necesita `RAG_ROOT` definido, si no avisa y se omite): copia `templates/vault` → `<RAG_ROOT>/V.A.U.L.T` y `templates/rag` → `<RAG_ROOT>/R.A.G`, auto-instala Docker y Ollama vía winget si faltan, levanta el stack Docker Compose `ragdb` + `bge-m3`, hace `npm install` de las dependencias del CLI/MCP, y registra el MCP `rag` a nivel de **usuario**.
+4. **ui-ux** — también necesita `claude` para el MCP magic (también registrado a nivel de **usuario**); muta el cwd vía `npm install` (condicionado). Además de copiar la skill, ahora también copia `hooks/ui-audit.mjs` a `$CLAUDE_CONFIG_DIR/hooks/` y lo registra como `PostToolUse`/`Edit|Write` en `settings.json` (auditoría determinista de anti-patrones de UI; desactivable con `CLAUDEMAX_UI_AUDIT=0`).
+5. **dev-skills** — copia simple de archivos para `architecture-principles` / `conventional-commits` / `skill-mcp-builder` / `no-ai-slop`; `git clone`/`git pull` para `superpowers`. Sin dependencia de orden con los demás.
+6. **rag** — opt-in (necesita `RAG_ROOT` definido, si no avisa y se omite): copia `templates/vault` (con la taxonomía de 6 categorías) → `<RAG_ROOT>/V.A.U.L.T` y `templates/rag` (incluidas las plantillas de Kaggle en `kaggle/`) → `<RAG_ROOT>/R.A.G`, auto-instala Docker y Ollama vía winget si faltan, levanta el stack Docker Compose `ragdb` + `bge-m3`, hace `npm install` de las dependencias del CLI/MCP, configura el backend opcional de Kaggle si `KAGGLE_USERNAME`/`KAGGLE_KEY` están en el entorno, y registra el MCP `rag` a nivel de **usuario**.
 7. **graphify** — añade el marketplace e instala el plugin Understand-Anything. Va antes de `parsers` a propósito: `claude plugin install` reescribe la configuración de plugins, así que conviene que los registros MCP posteriores queden escritos después.
 8. **cyber-neo** — `git clone` + `checkout` del commit fijado en `$CLAUDE_CONFIG_DIR/skills/cyber-neo`. Sin dependencia de orden.
 9. **parsers** — último: auto-instala Python y el JDK vía winget si faltan, luego `pip install` de los tres parsers, registra el MCP `markitdown` a nivel de **usuario**, y barre restos heredados de Context7 / Claude-Mem (entran en conflicto con el cerebro RAG).
@@ -173,6 +187,41 @@ Eso no es un fallo de la instalación — el resto de componentes se instalan ig
 ### "`opendataloader-pdf` no procesa nada"
 
 Su núcleo es Java: sin un JDK 11+ funcional el wrapper de Python no hace nada. Comprueba con `java -version`; si falla, mira el apartado de winget de arriba.
+
+### "El hook de UI me avisa demasiado"
+
+`hooks/ui-audit.mjs` corre tras cada `Edit`/`Write`/`MultiEdit` sobre un archivo `.css`/`.scss`/`.tsx`/`.jsx`/`.vue`/`.svelte`/`.html` y emite un `<system-reminder>` por hallazgo (máximo 6 por edición) — nunca bloquea la edición, solo avisa. Para silenciarlo sin desinstalar nada:
+
+```bash
+export CLAUDEMAX_UI_AUDIT=0
+```
+
+Para quitarlo del todo, desregistra la entrada `PostToolUse` que contiene `ui-audit.mjs` en `$CLAUDE_CONFIG_DIR/settings.json` (o corre `bash uninstall.sh`, que lo hace por ti con `ac_remove_hook`).
+
+### "Kaggle no arranca los kernels"
+
+Antes de nada, confirma la verificación telefónica: sin ella, Kaggle no habilita GPU ni Internet en los kernels aunque `kernel-metadata.json` pida `enable_gpu: true`. Se hace una sola vez en <https://www.kaggle.com/settings> → Phone Verification.
+
+Con eso resuelto:
+
+- Revisa la cuota semanal de GPU (~30 h/semana); si la agotaste, el kernel queda en cola hasta que se renueve.
+- `EMBED_BACKEND=kaggle`/`--backend kaggle` es **batch asíncrono** — el kernel tarda minutos, no es instantáneo. `kaggle-embed.mjs` hace poll con `kaggle kernels status` hasta `complete` (timeout configurable con `KAGGLE_POLL_TIMEOUT_MS`, por defecto 20 min).
+- Verifica el estado a mano en cualquier momento:
+
+```bash
+kaggle kernels status <tu_usuario>/claudemax-embed
+```
+
+- Si el CLI no está instalado o faltan credenciales, `rag.mjs` avisa con el comando exacto a ejecutar y cae a Ollama local en vez de fallar — la ingesta nunca se interrumpe por esto.
+- Confirma que `id`/`dataset_sources` en `R.A.G/kaggle/kernel-metadata.json` y `KAGGLE_KERNEL_SLUG` en `.env` usan tu usuario real de Kaggle (el instalador deja el placeholder `<TU_USUARIO_DE_KAGGLE>` si no lo reemplazaste).
+
+### "Quiero indexar sin saturar la CPU"
+
+Tres rutas, de menos a más esfuerzo de configuración:
+
+1. **`ollama` local** — usa la GPU/CPU de la propia máquina. Si no tiene GPU, cada `ingest` compite por CPU con lo demás que corras.
+2. **`remote`** — apunta `OLLAMA_URL` en `.env` a otra máquina de tu red con GPU (`OLLAMA_URL=http://192.168.1.50:11434`). Es la opción recomendada: mismo código que `ollama`, cero cómputo local, solo latencia de LAN.
+3. **`kaggle`** — para un re-indexado masivo puntual (`node rag.mjs reindex --backend kaggle`) usa una GPU T4 gratuita en la nube en vez de tu máquina. Es la opción con más fricción (credenciales, verificación telefónica, cuota semanal) y solo sirve para lotes, nunca para `query`.
 
 ### "`node skills/validate-skills.mjs` falla después de editar una skill"
 
