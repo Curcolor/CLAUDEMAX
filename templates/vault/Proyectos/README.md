@@ -1,9 +1,25 @@
-# Projects
+# Proyectos
 
-Una carpeta por proyecto: `Projects/<project-name>/`.
-Etiqueta las notas con tags anidados: `#<project-name>/<subtopic>` (ej. `#claudemax/rag`).
+Una carpeta por proyecto: `Proyectos/<nombre-proyecto>/`.
 
-Código de colores (Obsidian → Settings → Appearance → Graph, o edita .obsidian/graph.json):
-- Un color base por proyecto vía un grupo `path:Projects/<name>`.
-- Sub-colores por subtema vía grupos `tag:#<name>/<subtopic>`.
-Duplica las entradas de ejemplo en graph.json para cada proyecto nuevo.
+Cada nota lleva el frontmatter de la taxonomía (ver `../_plantilla.md`):
+
+```yaml
+---
+categoria: proyectos
+proyecto: <nombre-proyecto>
+tags: [proyectos/sprint-1]
+fecha: 2026-08-01
+---
+```
+
+`proyecto` es la clave transversal: notas en `Codigo/`, `Organizacion/`, etc.
+con el mismo `proyecto` quedan relacionadas en el RAG aunque vivan en carpetas
+distintas.
+
+Código de colores (Obsidian → Settings → Appearance → Graph, o edita
+`.obsidian/graph.json`):
+- Toda la carpeta comparte el color base de `categoria: proyectos`
+  (`#5CB85C` verde) vía el grupo `path:Proyectos`.
+- Sub-colores por subtema vía grupos `tag:#proyectos/<subtopic>`.
+Duplica las entradas de ejemplo en `graph.json` para cada subtema nuevo.
