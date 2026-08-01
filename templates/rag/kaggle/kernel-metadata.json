@@ -1,0 +1,14 @@
+{
+  "id": "<TU_USUARIO_DE_KAGGLE>/claudemax-embed",
+  "title": "claudemax-embed",
+  "code_file": "embed_kernel.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": ["<TU_USUARIO_DE_KAGGLE>/claudemax-chunks"],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}

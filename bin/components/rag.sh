@@ -142,10 +142,15 @@ ac_rag_stack() {
     ac_info "Stack RAG: $mode en $dst"
     ac_run mkdir -p "$dst"
     # Copia las plantillas sin sobrescribir un .env existente
-    for f in docker-compose.yml schema.sql .env.example package.json .gitignore rag.mjs mcp-server.mjs; do
+    for f in docker-compose.yml schema.sql .env.example package.json .gitignore rag.mjs mcp-server.mjs kaggle-embed.mjs; do
         ac_run cp "$AC_REPO_DIR/templates/rag/$f" "$dst/$f"
     done
+    # Backend Kaggle (Bloque 2, subproyecto F): plantillas del kernel que corre en la nube
+    ac_run mkdir -p "$dst/kaggle"
+    ac_run cp "$AC_REPO_DIR/templates/rag/kaggle/kernel-metadata.json" "$dst/kaggle/kernel-metadata.json"
+    ac_run cp "$AC_REPO_DIR/templates/rag/kaggle/embed_kernel.py" "$dst/kaggle/embed_kernel.py"
     [ -f "$dst/.env" ] || ac_run cp "$dst/.env.example" "$dst/.env"
+    ac_rag_kaggle_setup "$dst"
 
     [ "$mode" != "connect" ] && ac_rag_ensure_deps
 
@@ -205,6 +210,41 @@ ac_rag_stack() {
     else
         (cd "$dst" && npm install --no-fund --no-audit) || ac_warn "npm install falló en $dst — ejecútalo manualmente."
     fi
+}
+
+# Establece KEY=VALUE en un .env: sustituye la línea si ya existe, la añade si no
+# (un .env instalado antes de este cambio puede no tener aún las líneas KAGGLE_*).
+ac_rag_set_env_var() {
+    local file="$1" key="$2" value="$3"
+    if grep -q "^${key}=" "$file" 2>/dev/null; then
+        sed -i.bak "s|^${key}=.*|${key}=${value}|" "$file"
+        rm -f "${file}.bak"
+    else
+        printf '%s=%s\n' "$key" "$value" >> "$file"
+    fi
+}
+
+# Backend opcional de Kaggle (Bloque 2, subproyecto F): solo actúa si el entorno trae
+# KAGGLE_USERNAME/KAGGLE_KEY. Si no están, no hace nada — Kaggle es estrictamente opcional.
+ac_rag_kaggle_setup() {
+    local dst="$1"
+    if [ -z "${KAGGLE_USERNAME:-}" ] || [ -z "${KAGGLE_KEY:-}" ]; then
+        return 0
+    fi
+    ac_info "Kaggle: credenciales detectadas en el entorno — configurando el backend opcional de lotes por GPU"
+    if [ "${DRY_RUN:-0}" = "1" ]; then
+        ac_dim "\$ escribir KAGGLE_USERNAME/KAGGLE_KEY en $dst/.env"
+        ac_dim "\$ pip install kaggle"
+        ac_dim "\$ escribir \$HOME/.kaggle/kaggle.json (chmod 600)"
+    else
+        ac_rag_set_env_var "$dst/.env" KAGGLE_USERNAME "$KAGGLE_USERNAME"
+        ac_rag_set_env_var "$dst/.env" KAGGLE_KEY "$KAGGLE_KEY"
+        ac_run pip install kaggle || ac_warn "pip install kaggle falló — instálalo manualmente."
+        mkdir -p "$HOME/.kaggle"
+        printf '{"username":"%s","key":"%s"}\n' "$KAGGLE_USERNAME" "$KAGGLE_KEY" > "$HOME/.kaggle/kaggle.json"
+        chmod 600 "$HOME/.kaggle/kaggle.json" 2>/dev/null || true
+    fi
+    ac_warn "Kaggle requiere una verificación telefónica manual (una sola vez) en https://www.kaggle.com/settings -> Phone Verification, necesaria para habilitar GPU e Internet en los kernels."
 }
 
 ac_rag_register_mcp() {

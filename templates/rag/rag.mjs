@@ -2,9 +2,9 @@
 // CLI de RAG de CLAUDEMAX. Implementación única para ingest/query/status; el
 // wrapper MCP delega en este archivo. Config desde .env junto a este archivo (alternativa: variables de entorno).
 //   node rag.mjs init                 aplica schema.sql
-//   node rag.mjs ingest [path]        ruta por defecto: ../V.A.U.L.T
+//   node rag.mjs ingest [path] [--backend ollama|remote|kaggle]
 //   node rag.mjs query "<texto>" [--categoria C] [--proyecto P] [--topk N] [--json]
-//   node rag.mjs reindex [path]       trunca + ingesta completa
+//   node rag.mjs reindex [path] [--backend ollama|remote|kaggle]   trunca + ingesta completa
 //   node rag.mjs status
 
 import fs from "node:fs";
@@ -18,6 +18,7 @@ loadDotEnv(path.join(HERE, ".env"));
 const PG_URL = process.env.PG_URL || "postgres://rag:rag@localhost:5433/rag";
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
 const EMBED_MODEL = process.env.EMBED_MODEL || "bge-m3";
+const EMBED_BACKEND_DEFAULT = (process.env.EMBED_BACKEND || "ollama").trim().toLowerCase();
 const DIMS = 1024;
 
 function loadDotEnv(file) {
@@ -29,7 +30,14 @@ function loadDotEnv(file) {
     } catch {}
 }
 
-async function embed(texts) {
+// --- Backends de embeddings conmutables (Bloque 2, subproyecto F) ---------------------
+// `ollama` y `remote` comparten esta misma implementación: `remote` solo apunta OLLAMA_URL
+// a otra máquina de la LAN, sin código adicional. `kaggle` vive en un módulo aparte que se
+// importa dinámicamente — si ese archivo no existe o falla, rag.mjs sigue funcionando con
+// Ollama sin caerse.
+let avisoKaggleQueryEmitido = false;
+
+async function embedOllama(texts) {
     const res = await fetch(`${OLLAMA_URL}/api/embed`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -42,6 +50,33 @@ async function embed(texts) {
         throw new Error(`forma de embedding inesperada desde ${EMBED_MODEL}`);
     }
     return vecs;
+}
+
+// Despacha al backend efectivo. `backend` (viene de --backend) sobrescribe EMBED_BACKEND
+// del .env solo para esta corrida. Regla dura: una consulta (`forQuery: true`) nunca usa
+// kaggle — es un backend asíncrono por lotes y no puede responder en el bucle interactivo
+// de `query`, así que se avisa una vez por stderr y se cae a Ollama local.
+async function embed(texts, { backend, forQuery = false } = {}) {
+    let effective = (backend || EMBED_BACKEND_DEFAULT || "ollama").trim().toLowerCase();
+    if (effective === "kaggle" && forQuery) {
+        if (!avisoKaggleQueryEmitido) {
+            console.error("rag: aviso — EMBED_BACKEND=kaggle no sirve consultas en vivo; usando Ollama local para esta query.");
+            avisoKaggleQueryEmitido = true;
+        }
+        effective = "ollama";
+    }
+    if (effective === "kaggle") {
+        try {
+            const mod = await import("./kaggle-embed.mjs");
+            const vecs = await mod.embedKaggle(texts);
+            if (vecs) return vecs;
+        } catch (e) {
+            console.error(`rag: no se pudo usar el backend kaggle (${e.message}) — usando Ollama local.`);
+        }
+        return embedOllama(texts);
+    }
+    // "ollama" y "remote" son la misma llamada; remote solo cambia OLLAMA_URL en .env.
+    return embedOllama(texts);
 }
 
 function toVec(v) { return `[${v.join(",")}]`; }
@@ -226,7 +261,7 @@ async function cmdInit() {
     console.log("rag: schema aplicado");
 }
 
-async function cmdIngest(root) {
+async function cmdIngest(root, opts = {}) {
     root = path.resolve(root || path.join(HERE, "..", "V.A.U.L.T"));
     let added = 0, skipped = 0, sinCategoria = 0, grafosOmitidos = 0;
     const seen = new Set();
@@ -271,7 +306,7 @@ async function cmdIngest(root) {
                 if (rowCount) { skipped++; } else { fresh.push({ ...c, hash }); }
             }
             if (fresh.length) {
-                const vecs = await embed(fresh.map(c => c.content));
+                const vecs = await embed(fresh.map(c => c.content), { backend: opts.backend });
                 await db.query("DELETE FROM chunks WHERE source=$1", [file]);
                 for (let i = 0; i < fresh.length; i++) {
                     const c = fresh[i];
@@ -296,7 +331,8 @@ async function cmdIngest(root) {
 }
 
 async function cmdQuery(text, opts) {
-    const [vec] = await embed([text]);
+    // forQuery:true aplica la regla dura del Bloque 2: kaggle nunca sirve una consulta.
+    const [vec] = await embed([text], { backend: opts.backend, forQuery: true });
     const params = [toVec(vec)];
     // WHERE dinámico: cada filtro activo añade su placeholder numerado según la posición
     // real en `params` (no un número fijo), así son combinables en cualquier orden.
@@ -318,9 +354,9 @@ async function cmdQuery(text, opts) {
     if (!rows.length) console.log("rag: sin resultados");
 }
 
-async function cmdReindex(root) {
+async function cmdReindex(root, opts) {
     await withDb(db => db.query("TRUNCATE chunks"));
-    await cmdIngest(root);
+    await cmdIngest(root, opts);
 }
 
 async function cmdStatus() {
@@ -330,6 +366,9 @@ async function cmdStatus() {
         if (r.ok) ollama = (await r.json()).models?.some(m => m.name.startsWith(EMBED_MODEL))
             ? `activo (${EMBED_MODEL} presente)` : `activo (falta ${EMBED_MODEL} — ejecuta: ollama pull ${EMBED_MODEL})`;
     } catch {}
+    const backendInfo = EMBED_BACKEND_DEFAULT === "kaggle"
+        ? `kaggle (solo ingest/reindex por lotes — las consultas siempre usan ollama en ${OLLAMA_URL})`
+        : `${EMBED_BACKEND_DEFAULT} → ${OLLAMA_URL}`;
     try {
         await withDb(async db => {
             const tot = await db.query("SELECT count(*) FROM chunks");
@@ -337,6 +376,7 @@ async function cmdStatus() {
                 "SELECT coalesce(proyecto,'(ninguno)') p, count(*) c, max(mtime) m FROM chunks GROUP BY 1 ORDER BY 2 DESC");
             const perCat = await db.query(
                 "SELECT coalesce(categoria,'(sin categoría)') cat, count(*) c FROM chunks GROUP BY 1 ORDER BY 2 DESC");
+            console.log(`backend de embeddings: ${backendInfo}`);
             console.log(`db: activa — ${tot.rows[0].count} chunks | ollama: ${ollama}`);
             console.log("  por proyecto:");
             for (const r of per.rows) console.log(`    ${r.p}: ${r.c} chunks (nota más reciente ${r.m ? r.m.toISOString().slice(0, 10) : "-"})`);
@@ -344,6 +384,7 @@ async function cmdStatus() {
             for (const r of perCat.rows) console.log(`    ${r.cat}: ${r.c} chunks`);
         });
     } catch (e) {
+        console.log(`backend de embeddings: ${backendInfo}`);
         console.log(`db: CAÍDA (${e.message}) | ollama: ${ollama}`);
         process.exitCode = 1;
     }
@@ -351,21 +392,22 @@ async function cmdStatus() {
 
 const [cmd, ...rest] = process.argv.slice(2);
 const opts = { json: rest.includes("--json") };
-const FLAGS = ["--categoria", "--proyecto", "--topk"];
+const FLAGS = ["--categoria", "--proyecto", "--topk", "--backend"];
 const ci = rest.indexOf("--categoria"); if (ci >= 0) opts.categoria = rest[ci + 1];
 const oi = rest.indexOf("--proyecto"); if (oi >= 0) opts.proyecto = rest[oi + 1];
 const ki = rest.indexOf("--topk"); if (ki >= 0) opts.topk = Number(rest[ki + 1]);
+const bi = rest.indexOf("--backend"); if (bi >= 0) opts.backend = rest[bi + 1];
 const positional = rest.filter((a, i) =>
     !a.startsWith("--") && !FLAGS.includes(rest[i - 1]));
 
 try {
     if (cmd === "init") await cmdInit();
-    else if (cmd === "ingest") await cmdIngest(positional[0]);
+    else if (cmd === "ingest") await cmdIngest(positional[0], opts);
     else if (cmd === "query") await cmdQuery(positional[0], opts);
-    else if (cmd === "reindex") await cmdReindex(positional[0]);
+    else if (cmd === "reindex") await cmdReindex(positional[0], opts);
     else if (cmd === "status") await cmdStatus();
     else {
-        console.log("uso: rag.mjs init | ingest [path] | query \"<texto>\" [--categoria C] [--proyecto P] [--topk N] [--json] | reindex [path] | status");
+        console.log("uso: rag.mjs init | ingest [path] [--backend ollama|remote|kaggle] | query \"<texto>\" [--categoria C] [--proyecto P] [--topk N] [--json] | reindex [path] [--backend ollama|remote|kaggle] | status");
         process.exitCode = cmd ? 1 : 0;
     }
 } catch (e) {
