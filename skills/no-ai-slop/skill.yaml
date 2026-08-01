@@ -1,0 +1,20 @@
+name: no-ai-slop
+version: 2.0.0
+kind: knowledge
+triggers:
+  - "escribir / write"
+  - "redactar / draft prose"
+  - "editar borrador / edit draft"
+  - "edit prose"
+  - "README"
+  - "documentación / documentation"
+  - "artículo / article"
+  - "anti-slop"
+  - "ai slop / slop de IA"
+  - "suena a IA / sounds like AI"
+  - "voz humana / human voice"
+  - "detectar IA / detect AI writing"
+commands: []
+scripts: []
+dependencies: []
+schema: ./schema.json

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "no-ai-slop",
+  "definitions": {
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "texto": {
+          "type": "string",
+          "description": "El borrador de prosa destinada a humanos (documentación, README, artículo, mensaje, copy) a editar o auditar"
+        },
+        "tipo": {
+          "type": "string",
+          "enum": ["documentacion", "readme", "articulo", "mensaje"],
+          "description": "Formato del texto de entrada, para calibrar tono y audiencia. Omitir para que la skill lo infiera del contexto."
+        },
+        "modo": {
+          "type": "string",
+          "enum": ["editar", "detectar"],
+          "description": "editar (por defecto) reescribe el texto con el cambio mínimo efectivo; detectar audita sin reescribir y solo reporta patrones encontrados"
+        }
+      },
+      "required": ["texto"],
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "texto_editado": {
+          "type": "string",
+          "description": "El borrador reescrito preservando la voz, el punto y la estructura del autor (solo modo editar)"
+        },
+        "cambios": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Sección 'Qué cambió': lista breve de qué se modificó y por qué (solo modo editar)"
+        },
+        "patrones_detectados": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "patron": { "type": "string", "description": "Nombre del patrón de slop, de los 14 catalogados en SKILL.md" },
+              "cita": { "type": "string", "description": "Línea exacta del borrador donde aparece" },
+              "arreglo": { "type": "string", "description": "Corrección sugerida en pocas palabras, sin reescribir el borrador completo" }
+            },
+            "required": ["patron", "cita", "arreglo"]
+          },
+          "description": "Hallazgos del modo detectar: uno por cada patrón de slop encontrado, sin puntaje ni veredicto de autoría IA"
+        }
+      }
+    }
+  }
+}

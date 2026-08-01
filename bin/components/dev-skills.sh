@@ -4,16 +4,17 @@
 #   - architecture-principles (propia/first-party)
 #   - conventional-commits    (propia/first-party)
 #   - skill-mcp-builder       (propia/first-party — meta-skill: crear skills y MCPs)
+#   - no-ai-slop              (propia/first-party — fork traducido de petergyang/no-ai-slop, MIT)
 #
 # Todas van bajo $CLAUDE_CONFIG_DIR/skills/. Las skills propias se copian;
 # superpowers se clona con git para que las actualizaciones upstream lleguen al re-ejecutar.
 
 SUPERPOWERS_REPO="https://github.com/obra/superpowers"
 
-FIRST_PARTY_SKILLS=(architecture-principles conventional-commits skill-mcp-builder)
+FIRST_PARTY_SKILLS=(architecture-principles conventional-commits skill-mcp-builder no-ai-slop)
 
 ac_component_dev_skills() {
-    ac_step "Skills de ingeniería — superpowers + architecture-principles + conventional-commits + skill-mcp-builder"
+    ac_step "Skills de ingeniería — superpowers + architecture-principles + conventional-commits + skill-mcp-builder + no-ai-slop"
 
     ac_devskills_install_first_party
     ac_devskills_install_superpowers
