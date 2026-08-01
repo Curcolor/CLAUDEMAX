@@ -3,7 +3,7 @@
 // wrapper MCP delega en este archivo. Config desde .env junto a este archivo (alternativa: variables de entorno).
 //   node rag.mjs init                 aplica schema.sql
 //   node rag.mjs ingest [path]        ruta por defecto: ../V.A.U.L.T
-//   node rag.mjs query "<texto>" [--project P] [--categoria C] [--proyecto P] [--topk N] [--json]
+//   node rag.mjs query "<texto>" [--categoria C] [--proyecto P] [--topk N] [--json]
 //   node rag.mjs reindex [path]       trunca + ingesta completa
 //   node rag.mjs status
 
@@ -120,6 +120,48 @@ function chunkMarkdown(text) {
     return out;
 }
 
+// Aplana un grafo de conocimiento de Graphify/Understand-Anything (.ua/knowledge-graph.json
+// o .ua/domain-graph.json) a chunks de texto indexable, uno por nodo. El esquema real varía
+// entre versiones del plugin (se ha visto `name`/`filePath` y también `label`/`path`), así
+// que se detectan las claves que existan en vez de asumir un formato fijo. Si no hay un
+// array "nodes" reconocible, se avisa por stderr y se omite el archivo sin lanzar excepción.
+function flattenGraph(json, file) {
+    if (!json || typeof json !== "object" || !Array.isArray(json.nodes)) {
+        console.error(`rag: aviso — ${file} no tiene un array "nodes" reconocible; se omite`);
+        return [];
+    }
+    const edges = Array.isArray(json.edges) ? json.edges : [];
+    // Índice de aristas por nodo origen, para adjuntar "Relaciones:" al chunk de cada nodo.
+    const edgesPorNodo = new Map();
+    for (const e of edges) {
+        if (!e) continue;
+        const src = e.source ?? e.from ?? e.src;
+        if (src == null) continue;
+        if (!edgesPorNodo.has(src)) edgesPorNodo.set(src, []);
+        edgesPorNodo.get(src).push(e);
+    }
+    const out = [];
+    for (const node of json.nodes) {
+        if (!node) continue;
+        const id = node.id ?? node.name ?? node.label;
+        const label = node.label || node.name || (id != null ? String(id) : "(sin nombre)");
+        const tipo = node.type || node.kind || "";
+        const resumen = node.summary || node.description || "";
+        const ruta = node.path || node.filePath || node.file || "";
+        const relaciones = (edgesPorNodo.get(id) || []).map(e => {
+            const destino = e.target ?? e.to ?? e.dst ?? "?";
+            const tipoArista = e.type || e.label || "relacionado con";
+            return `${tipoArista} → ${destino}`;
+        });
+        const header = `${label}${tipo ? ` (${tipo})` : ""}${ruta ? ` — ${ruta}` : ""}`;
+        const lineas = [header];
+        if (resumen) lineas.push(resumen);
+        if (relaciones.length) lineas.push(`Relaciones: ${relaciones.join("; ")}`);
+        out.push({ heading: label, content: lineas.join("\n") });
+    }
+    return out;
+}
+
 // Categoría (Bloque 1, taxonomía) inferida de la primera carpeta bajo el root del vault.
 const CATEGORIA_POR_CARPETA = {
     Codigo: "codigo",
@@ -141,7 +183,7 @@ function categoriaOf(file, root, meta) {
 // meta.proyecto (frontmatter) manda sobre la inferencia por carpeta; es la clave transversal
 // que relaciona notas de distintas categorías. Se infiere de Proyectos/<nombre> o Codigo/<nombre>
 // (la subcarpeta es el nombre del proyecto); Journal/ usa el pseudo-proyecto "journal".
-function projectOf(file, root, meta) {
+function proyectoOf(file, root, meta) {
     if (meta && meta.proyecto) return meta.proyecto;
     const rel = path.relative(root, file).split(path.sep);
     for (const carpeta of ["Proyectos", "Codigo"]) {
@@ -153,12 +195,21 @@ function projectOf(file, root, meta) {
     return null;
 }
 
-function* walkMd(dir) {
+// Recorre el árbol de archivos indexables: notas .md del vault y grafos de Graphify
+// (.ua/knowledge-graph.json, .ua/domain-graph.json). Ignora carpetas ocultas salvo `.ua`,
+// que es donde Understand-Anything deja el grafo de cada repo.
+function* walkSources(dir) {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-        if (e.name.startsWith(".") || e.name === "node_modules") continue;
         const p = path.join(dir, e.name);
-        if (e.isDirectory()) yield* walkMd(p);
-        else if (e.name.endsWith(".md")) yield p;
+        if (e.isDirectory()) {
+            if (e.name === "node_modules") continue;
+            if (e.name.startsWith(".") && e.name !== ".ua") continue;
+            yield* walkSources(p);
+        } else if (e.name.endsWith(".md")) {
+            yield p;
+        } else if (e.name === "knowledge-graph.json" || e.name === "domain-graph.json") {
+            yield p;
+        }
     }
 }
 
@@ -177,19 +228,41 @@ async function cmdInit() {
 
 async function cmdIngest(root) {
     root = path.resolve(root || path.join(HERE, "..", "V.A.U.L.T"));
-    let added = 0, skipped = 0, sinCategoria = 0;
+    let added = 0, skipped = 0, sinCategoria = 0, grafosOmitidos = 0;
     const seen = new Set();
     await withDb(async db => {
-        for (const file of walkMd(root)) {
+        for (const file of walkSources(root)) {
             seen.add(file);
-            const raw = fs.readFileSync(file, "utf8");
-            const { meta, body } = parseFrontmatter(raw);
+            const base = path.basename(file);
+            const esGrafo = base === "knowledge-graph.json" || base === "domain-graph.json";
+
+            let meta, chunks;
+            if (esGrafo) {
+                let json;
+                try {
+                    json = JSON.parse(fs.readFileSync(file, "utf8"));
+                } catch (e) {
+                    console.error(`rag: aviso — ${file} no es JSON válido; se omite (${e.message})`);
+                    grafosOmitidos++;
+                    continue;
+                }
+                // proyecto = nombre de la carpeta del repo que contiene .ua/ (el padre de .ua/)
+                const repo = path.basename(path.dirname(path.dirname(file)));
+                meta = { categoria: "codigo", proyecto: repo, tags: [] };
+                chunks = flattenGraph(json, file);
+                if (!chunks.length) { grafosOmitidos++; continue; }
+            } else {
+                const raw = fs.readFileSync(file, "utf8");
+                const parsed = parseFrontmatter(raw);
+                meta = parsed.meta;
+                chunks = chunkMarkdown(parsed.body);
+            }
+
             const mtime = fs.statSync(file).mtime;
-            const project = projectOf(file, root, meta);
+            const proyecto = proyectoOf(file, root, meta);
             const categoria = categoriaOf(file, root, meta);
             const tags = Array.isArray(meta.tags) ? meta.tags : [];
             if (!categoria) sinCategoria++;
-            const chunks = chunkMarkdown(body);
             const fresh = [];
             for (const c of chunks) {
                 const hash = crypto.createHash("sha1").update(c.content).digest("hex");
@@ -203,9 +276,9 @@ async function cmdIngest(root) {
                 for (let i = 0; i < fresh.length; i++) {
                     const c = fresh[i];
                     await db.query(
-                        `INSERT INTO chunks (source, project, categoria, proyecto, tags, heading, content, content_hash, mtime, embedding)
-                         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-                        [file, project, categoria, project, tags, c.heading, c.content, c.hash, mtime, toVec(vecs[i])]);
+                        `INSERT INTO chunks (source, categoria, proyecto, tags, heading, content, content_hash, mtime, embedding)
+                         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+                        [file, categoria, proyecto, tags, c.heading, c.content, c.hash, mtime, toVec(vecs[i])]);
                     added++;
                 }
             }
@@ -219,6 +292,7 @@ async function cmdIngest(root) {
     });
     console.log(`rag: ingesta completa — ${added} chunks añadidos, ${skipped} sin cambios`);
     if (sinCategoria) console.log(`rag: aviso — ${sinCategoria} archivo(s) sin categoría (añade "categoria" al frontmatter o mueve la nota a una carpeta reconocida)`);
+    if (grafosOmitidos) console.log(`rag: aviso — ${grafosOmitidos} grafo(s) de Graphify omitido(s) (JSON inválido o sin "nodes")`);
 }
 
 async function cmdQuery(text, opts) {
@@ -227,13 +301,12 @@ async function cmdQuery(text, opts) {
     // WHERE dinámico: cada filtro activo añade su placeholder numerado según la posición
     // real en `params` (no un número fijo), así son combinables en cualquier orden.
     const conditions = [];
-    if (opts.project) { params.push(opts.project); conditions.push(`project = $${params.length}`); }
     if (opts.categoria) { params.push(opts.categoria); conditions.push(`categoria = $${params.length}`); }
     if (opts.proyecto) { params.push(opts.proyecto); conditions.push(`proyecto = $${params.length}`); }
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const topk = opts.topk || 5;
     const rows = await withDb(db => db.query(
-        `SELECT source, project, categoria, proyecto, heading, content, 1 - (embedding <=> $1) AS score
+        `SELECT source, categoria, proyecto, heading, content, 1 - (embedding <=> $1) AS score
          FROM chunks ${where} ORDER BY embedding <=> $1 LIMIT ${Number(topk)}`,
         params).then(r => r.rows));
     if (opts.json) { console.log(JSON.stringify(rows, null, 2)); return; }
@@ -261,7 +334,7 @@ async function cmdStatus() {
         await withDb(async db => {
             const tot = await db.query("SELECT count(*) FROM chunks");
             const per = await db.query(
-                "SELECT coalesce(project,'(ninguno)') p, count(*) c, max(mtime) m FROM chunks GROUP BY 1 ORDER BY 2 DESC");
+                "SELECT coalesce(proyecto,'(ninguno)') p, count(*) c, max(mtime) m FROM chunks GROUP BY 1 ORDER BY 2 DESC");
             const perCat = await db.query(
                 "SELECT coalesce(categoria,'(sin categoría)') cat, count(*) c FROM chunks GROUP BY 1 ORDER BY 2 DESC");
             console.log(`db: activa — ${tot.rows[0].count} chunks | ollama: ${ollama}`);
@@ -278,8 +351,7 @@ async function cmdStatus() {
 
 const [cmd, ...rest] = process.argv.slice(2);
 const opts = { json: rest.includes("--json") };
-const FLAGS = ["--project", "--categoria", "--proyecto", "--topk"];
-const pi = rest.indexOf("--project"); if (pi >= 0) opts.project = rest[pi + 1];
+const FLAGS = ["--categoria", "--proyecto", "--topk"];
 const ci = rest.indexOf("--categoria"); if (ci >= 0) opts.categoria = rest[ci + 1];
 const oi = rest.indexOf("--proyecto"); if (oi >= 0) opts.proyecto = rest[oi + 1];
 const ki = rest.indexOf("--topk"); if (ki >= 0) opts.topk = Number(rest[ki + 1]);
@@ -293,7 +365,7 @@ try {
     else if (cmd === "reindex") await cmdReindex(positional[0]);
     else if (cmd === "status") await cmdStatus();
     else {
-        console.log("uso: rag.mjs init | ingest [path] | query \"<texto>\" [--project P] [--categoria C] [--proyecto P] [--topk N] [--json] | reindex [path] | status");
+        console.log("uso: rag.mjs init | ingest [path] | query \"<texto>\" [--categoria C] [--proyecto P] [--topk N] [--json] | reindex [path] | status");
         process.exitCode = cmd ? 1 : 0;
     }
 } catch (e) {

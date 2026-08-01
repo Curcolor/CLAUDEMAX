@@ -31,9 +31,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
                 type: "object",
                 properties: {
                     query: { type: "string", description: "Pregunta en lenguaje natural (español o inglés)" },
-                    project: { type: "string", description: "Filtro opcional de proyecto (nombre de carpeta bajo Proyectos/ o Codigo/)" },
                     categoria: { type: "string", description: "Filtro opcional de categoría de la taxonomía. Valores válidos: codigo, proyectos, organizacion, investigacion, personal, aprendizaje" },
-                    proyecto: { type: "string", description: "Filtro opcional por el campo `proyecto` del frontmatter — clave transversal que relaciona notas de distintas categorías" },
+                    proyecto: { type: "string", description: "Filtro opcional por el campo `proyecto` del frontmatter — clave transversal que relaciona notas de distintas categorías (nombre de carpeta bajo Proyectos/ o Codigo/, o el repo indexado desde .ua/)" },
                     topk: { type: "number", description: "Máximo de resultados, por defecto 5" }
                 },
                 required: ["query"]
@@ -52,7 +51,6 @@ server.setRequestHandler(CallToolRequestSchema, async req => {
     let res;
     if (name === "rag_query") {
         const args = ["query", a.query, "--json"];
-        if (a.project) args.push("--project", a.project);
         if (a.categoria) args.push("--categoria", a.categoria);
         if (a.proyecto) args.push("--proyecto", a.proyecto);
         if (a.topk) args.push("--topk", String(a.topk));
