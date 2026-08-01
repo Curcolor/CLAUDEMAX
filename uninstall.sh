@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Desinstalador de ABSOLUTE-CLAUDE. Simétrico a install.sh.
+# Desinstalador de CLAUDEMAX. Simétrico a install.sh.
 #
 # Elimina:
 #   - binario de rtk en $HOME/.local/bin/rtk (NO elimina los hooks de Claude instalados por rtk
@@ -32,7 +32,7 @@ export DRY_RUN
 ac_detect_all
 ac_resolve_config_dir
 
-ac_step "Desinstalando componentes de ABSOLUTE-CLAUDE"
+ac_step "Desinstalando componentes de CLAUDEMAX"
 [ "$DRY_RUN" = "1" ] && ac_warn "DRY-RUN — no se harán cambios."
 
 # --- Caveman (delega)

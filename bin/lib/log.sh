@@ -2,7 +2,7 @@
 # Helpers de logging. Basado en install-RTK.sh:11-28.
 # Solo para source; no ejecutar.
 
-if [ "${NO_COLOR:-0}" = "1" ] || [ -n "${ABSOLUTE_NO_COLOR:-}" ]; then
+if [ "${NO_COLOR:-0}" = "1" ] || [ -n "${CLAUDEMAX_NO_COLOR:-}" ] || [ -n "${ABSOLUTE_NO_COLOR:-}" ]; then
     AC_RED=""
     AC_GREEN=""
     AC_YELLOW=""

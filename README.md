@@ -1,6 +1,6 @@
-# ABSOLUTE-CLAUDE
+# CLAUDEMAX
 
-Un solo comando bash. Todos los ahorradores de tokens y skills de UX/UI para Claude Code, cableados y listos. El OAuth de Figma es el único paso manual.
+Un solo comando bash. Todos los ahorradores de tokens, skills de UX/UI, el cerebro RAG y las herramientas de análisis para Claude Code, cableados y listos. El OAuth de Figma es el único paso manual.
 
 ```bash
 bash install.sh
@@ -17,8 +17,11 @@ bash install.sh
 | **21st.dev magic MCP** | Generador de componentes en vivo de [21st.dev](https://21st.dev). | `@21st-dev/magic` (npx) |
 | **Framer Motion + GSAP** | `npm install --save framer-motion gsap` en tu proyecto (se omite si no hay `package.json`). | [framer-motion](https://www.npmjs.com/package/framer-motion), [GSAP](https://gsap.com/docs/v3/) |
 | **skill superpowers** | Clonada en `~/.claude/skills/superpowers/`. Paquete de meta-skills. | [obra/superpowers](https://github.com/obra/superpowers) |
-| **Skills de disciplina de ingeniería** | Propias: `architecture-principles` (fusiona las antiguas skills `solid`, `design-patterns` y `architecture-patterns` en una sola skill SOLID → patrones GoF → arquitectura de sistemas) y `conventional-commits`. | este repo |
-| **rag** | Vault V.A.U.L.T + RAG con PGVector (Docker) + Ollama bge-m3 + MCP `rag` (rag_query/rag_status). | propia (este repo) |
+| **Skills de disciplina de ingeniería** | Propias: `architecture-principles` (fusiona las antiguas skills `solid`, `design-patterns` y `architecture-patterns` en una sola skill SOLID → patrones GoF → arquitectura de sistemas), `conventional-commits` y `skill-mcp-builder` (meta-skill para crear Skills 2.0 y servidores MCP). | este repo |
+| **rag** | Vault V.A.U.L.T + RAG con PGVector (Docker) + Ollama bge-m3 + MCP `rag` (rag_query/rag_status). Auto-instala Docker y Ollama vía winget si faltan. | propia (este repo) |
+| **graphify** | Plugin Understand-Anything: grafos de conocimiento interactivos del codebase. Comandos `/understand`, `/understand-dashboard`, `/understand-diff`, `/understand-domain`. Genera `.ua/knowledge-graph.json` por proyecto. | [Egonex-AI/Understand-Anything](https://github.com/Egonex-AI/Understand-Anything) |
+| **cyber-neo** | Skill de auditoría de seguridad: OWASP 2025 Top 10 y CWE Top 25, escaneo de dependencias, secretos, SAST y configuración. Solo lectura; reporte en `~/Desktop/`. Clonada con commit fijado. | [Hainrixz/cyber-neo](https://github.com/Hainrixz/cyber-neo) |
+| **parsers** | Ingesta de archivos para el RAG: **MarkItDown** (cualquier archivo → markdown, con MCP oficial `markitdown`), **opendataloader-pdf** (PDFs complejos) y **whisper-ctranslate2** (audio → texto, CPU). Auto-instala Python y el JDK vía winget si faltan. | [markitdown](https://github.com/microsoft/markitdown), [opendataloader-pdf](https://github.com/opendataloader-project/opendataloader-pdf), [whisper-ctranslate2](https://github.com/Softcatala/whisper-ctranslate2) |
 
 ## Instalación
 
@@ -37,7 +40,7 @@ Re-ejecutable. Idempotente. Pasa `--dry-run` para ver exactamente qué haría.
 | Flag | Efecto |
 |---|---|
 | `--all` | Instala todos los componentes (por defecto). |
-| `--only <id>` | Solo un componente. Repetible. ids: `rtk`, `caveman`, `figma`, `ui-ux`, `dev-skills`, `rag`. |
+| `--only <id>` | Solo un componente. Repetible. ids: `rtk`, `caveman`, `figma`, `ui-ux`, `dev-skills`, `rag`, `graphify`, `cyber-neo`, `parsers`. |
 | `--skip <id>` | Omite un componente. Repetible. |
 | `--no-npm` | Omite `npm install framer-motion gsap`. |
 | `--with-npm` | Fuerza el paso de npm aunque no haya `package.json` (ejecuta `npm init -y`). |
@@ -52,12 +55,36 @@ Re-ejecutable. Idempotente. Pasa `--dry-run` para ver exactamente qué haría.
 Solo quedan dos cosas, y una de ellas es simplemente reiniciar tu editor:
 
 1. **Reinicia Claude Code** — los hooks y skills se cargan al inicio de la sesión.
-2. **Completa el OAuth de Figma**: abre Claude Code, ejecuta `/mcp`, selecciona `figma`, completa el flujo en el navegador. ABSOLUTE-CLAUDE no guarda tokens de Figma. (Este es el único paso que no podemos automatizar — el OAuth requiere navegador.)
+2. **Completa el OAuth de Figma**: abre Claude Code, ejecuta `/mcp`, selecciona `figma`, completa el flujo en el navegador. CLAUDEMAX no guarda tokens de Figma. (Este es el único paso que no podemos automatizar — el OAuth requiere navegador.)
 3. Prueba los comandos:
    - `/caveman` — activa el modo terso.
    - `/superpowers` — paquete de meta-skills (obra/superpowers).
    - `architecture-principles`, `conventional-commits` — skills de disciplina de ingeniería. Invócalas por nombre o deja que sus triggers se disparen automáticamente durante una revisión/refactor/commit.
    - `ui-ux-pro-max` — inteligencia de diseño UI/UX. Se dispara automáticamente en prompts de diseño/construcción/revisión que toquen UI, o pídela por nombre.
+   - `/understand` — genera el grafo de conocimiento del proyecto actual (Graphify). `/understand-dashboard` lo abre en el navegador.
+   - `/cyber-neo <ruta>` — auditoría de seguridad OWASP/CWE del proyecto.
+   - `skill-mcp-builder` — para crear nuevas Skills 2.0 o servidores MCP.
+
+## Ingesta de cualquier archivo
+
+Los parsers convierten cualquier fuente a markdown en el Inbox del vault; después el RAG lo indexa:
+
+```bash
+# Documentos ofimáticos, HTML, imágenes, CSV, EPUB...
+markitdown informe.docx -o <root>/V.A.U.L.T/00-Inbox/informe.md
+
+# PDFs complejos (tablas, layout) — necesita JDK 11+
+opendataloader-pdf contrato.pdf --format markdown
+
+# Audio y video → transcripción (motor faster-whisper, funciona en CPU)
+whisper-ctranslate2 reunion.mp3 --model base --language es \
+  --output_dir <root>/V.A.U.L.T/00-Inbox
+
+# Indexa todo el vault en PGVector
+node <root>/R.A.G/rag.mjs ingest
+```
+
+MarkItDown también queda registrado como MCP (`markitdown`), así que puedes pedirle a Claude que convierta un archivo o URL sin salir de la sesión.
 
 ## Inicio rápido de RAG
 
@@ -108,9 +135,12 @@ Sin telemetría. El instalador no hace llamadas de analítica. Sí delega en:
 
 - El script de instalación de `rtk-ai/rtk` (descarga el binario de rtk desde los releases de GitHub).
 - `npx -y github:JuliusBrussee/caveman` (el instalador de Caveman descarga desde GitHub y npm).
-- `claude mcp add` (CLI de Anthropic) para los registros MCP de Figma y 21st.dev magic.
-- `git clone` para la skill superpowers (`obra/superpowers`). Las demás skills propias (`architecture-principles`, `conventional-commits`, `ui-ux-pro-max`) se copian directo desde este repo — sin llamadas de red.
+- `claude mcp add` (CLI de Anthropic) para los registros MCP de Figma, 21st.dev magic, `rag` y `markitdown`.
+- `claude plugin marketplace add` / `claude plugin install` para el plugin Understand-Anything.
+- `git clone` para la skill superpowers (`obra/superpowers`) y para `cyber-neo` (con commit fijado). Las demás skills propias (`architecture-principles`, `conventional-commits`, `skill-mcp-builder`, `ui-ux-pro-max`) se copian directo desde este repo — sin llamadas de red.
 - `npm install framer-motion gsap` en tu cwd (solo si existe un `package.json` o se pasa `--with-npm`).
+- `winget install` para dependencias de sistema que falten: Docker Desktop, Ollama, Python 3.12 y Temurin JDK 21.
+- `pip install` para los parsers (`markitdown[all]`, `markitdown-mcp`, `opendataloader-pdf`, `whisper-ctranslate2`) y `ollama pull bge-m3` para el modelo de embeddings (todo local; los embeddings nunca salen de tu máquina).
 
 Consulta `bin/components/*.sh` para ver cada línea de comando.
 

@@ -5,7 +5,7 @@ Para la versión corta, ve [README.md](README.md). Este documento cubre la estru
 ## Estructura
 
 ```
-ABSOLUTE-CLAUDE/
+CLAUDEMAX/
 ├── install.sh                  # punto de entrada
 ├── uninstall.sh                # desmontaje simétrico
 ├── README.md                   # versión corta
@@ -21,14 +21,21 @@ ABSOLUTE-CLAUDE/
 │       ├── caveman.sh          # `npx -y github:JuliusBrussee/caveman -- --all`
 │       ├── figma-mcp.sh        # `claude mcp add --transport http figma ...`
 │       ├── ui-ux.sh            # copia skills/ui-ux-pro-max + registra el MCP magic + npm i
-│       ├── dev-skills.sh       # clon de superpowers + 2 skills propias de ingeniería
-│       └── rag.sh              # vault V.A.U.L.T + stack R.A.G (compose/schema/CLI/MCP) + registro MCP
+│       ├── dev-skills.sh       # clon de superpowers + 3 skills propias de ingeniería
+│       ├── rag.sh              # vault V.A.U.L.T + stack R.A.G (compose/schema/CLI/MCP) + registro MCP
+│       ├── graphify.sh         # plugin Understand-Anything vía marketplace de Claude Code
+│       ├── cyber-neo.sh        # clon de la skill de seguridad (commit fijado)
+│       └── parsers.sh          # markitdown (+MCP) / opendataloader-pdf / whisper-ctranslate2
 ├── skills/
 │   ├── architecture-principles/
 │   │   ├── SKILL.md
 │   │   ├── skill.yaml
 │   │   └── schema.json
 │   ├── conventional-commits/
+│   │   ├── SKILL.md
+│   │   ├── skill.yaml
+│   │   └── schema.json
+│   ├── skill-mcp-builder/
 │   │   ├── SKILL.md
 │   │   ├── skill.yaml
 │   │   └── schema.json
@@ -60,13 +67,18 @@ ABSOLUTE-CLAUDE/
 | `$CLAUDE_CONFIG_DIR/settings.json` (entradas de hooks) | Caveman, rtk init | Las entradas de Caveman las quita Caveman; las de rtk las quitamos nosotros |
 | `$CLAUDE_CONFIG_DIR/skills/ui-ux-pro-max/` | ui-ux.sh (`cp -R` desde este repo) | Sí |
 | `$CLAUDE_CONFIG_DIR/skills/superpowers/` | dev-skills.sh (`git clone`) | Sí |
-| `$CLAUDE_CONFIG_DIR/skills/{architecture-principles,conventional-commits}/` | dev-skills.sh (`cp -R` desde este repo) | Sí |
+| `$CLAUDE_CONFIG_DIR/skills/{architecture-principles,conventional-commits,skill-mcp-builder}/` | dev-skills.sh (`cp -R` desde este repo) | Sí |
+| `$CLAUDE_CONFIG_DIR/skills/cyber-neo/` | cyber-neo.sh (`git clone` + checkout del commit fijado) | Sí |
+| Plugin `understand-anything` + marketplace `Egonex-AI/Understand-Anything` | graphify.sh (`claude plugin ...`) | **No** — quítalo con `/plugin uninstall understand-anything` en una sesión |
+| Registro MCP de Claude: `markitdown` | parsers.sh (`claude mcp add -s user`) | Sí |
+| Paquetes pip `markitdown[all]`, `markitdown-mcp`, `opendataloader-pdf`, `whisper-ctranslate2` | parsers.sh (`pip install`) | **No** — quítalos con `pip uninstall` si quieres |
+| Python 3.12, Temurin JDK 21, Docker Desktop, Ollama | parsers.sh / rag.sh (`winget install`, solo si faltaban) | **No** — son dependencias de sistema; desinstálalas a mano |
 | `$CLAUDE_CONFIG_DIR/.caveman-active` | Caveman | Lo gestiona Caveman |
 | Registro MCP de Claude: `figma`, `magic`, `caveman-shrink` | figma-mcp.sh, ui-ux.sh, Caveman | Sí para figma + magic; Caveman gestiona el suyo |
 | `<cwd>/package.json`, `<cwd>/node_modules/` | `npm install` de ui-ux.sh | **No** — no tocamos las dependencias de tu proyecto al desinstalar |
 | `<RAG_ROOT>/V.A.U.L.T`, `<RAG_ROOT>/R.A.G`, registro MCP de Claude: `rag`, volumen Docker `ragdata` | rag.sh (`cp -R` de templates, `docker compose up`, `claude mcp add`) | Solo el registro MCP + el contenedor `claudemax-ragdb` — las carpetas y el volumen `ragdata` sobreviven a la desinstalación |
 
-`uninstall.sh` también elimina, best-effort, un puñado de rutas heredadas de instalaciones antiguas de ABSOLUTE-CLAUDE (`skills/repo-map/`, `skills/dcp-lite/`, `hooks/dcp-lite-dedup.mjs`, `state/dcp-lite-*.json`, y los nombres de skill pre-2.0 `solid`, `design-patterns`, `architecture-patterns`) para que actualizar en el sitio no deje nada atrás. Ninguno de esos componentes lo instala el `install.sh` actual.
+`uninstall.sh` también elimina, best-effort, un puñado de rutas heredadas de instalaciones antiguas de CLAUDEMAX (antes ABSOLUTE-CLAUDE) (`skills/repo-map/`, `skills/dcp-lite/`, `hooks/dcp-lite-dedup.mjs`, `state/dcp-lite-*.json`, y los nombres de skill pre-2.0 `solid`, `design-patterns`, `architecture-patterns`) para que actualizar en el sitio no deje nada atrás. Ninguno de esos componentes lo instala el `install.sh` actual.
 
 ## Orden de instalación de componentes (y por qué)
 
@@ -77,8 +89,11 @@ ABSOLUTE-CLAUDE/
 2. **caveman** — cablea hooks, statusline, MCP `caveman-shrink`. Idempotente. El MCP `caveman-shrink` se registra a nivel de proyecto (lo gestiona el propio instalador de Caveman).
 3. **figma** — necesita el CLI `claude`; se registra a nivel de **usuario** (`claude mcp add -s user`) para que funcione en todos los proyectos.
 4. **ui-ux** — también necesita `claude` para el MCP magic (también registrado a nivel de **usuario**); muta el cwd vía `npm install` (condicionado).
-5. **dev-skills** — copia simple de archivos para `architecture-principles` / `conventional-commits`; `git clone`/`git pull` para `superpowers`. Sin dependencia de orden con los demás.
-6. **rag** — opt-in (necesita `RAG_ROOT` definido, si no avisa y se omite): copia `templates/vault` → `<RAG_ROOT>/V.A.U.L.T` y `templates/rag` → `<RAG_ROOT>/R.A.G`, levanta el stack Docker Compose `ragdb` + `bge-m3` vía Ollama, hace `npm install` de las dependencias del CLI/MCP, y registra el MCP `rag` a nivel de **usuario**. Sin dependencia de orden con los demás.
+5. **dev-skills** — copia simple de archivos para `architecture-principles` / `conventional-commits` / `skill-mcp-builder`; `git clone`/`git pull` para `superpowers`. Sin dependencia de orden con los demás.
+6. **rag** — opt-in (necesita `RAG_ROOT` definido, si no avisa y se omite): copia `templates/vault` → `<RAG_ROOT>/V.A.U.L.T` y `templates/rag` → `<RAG_ROOT>/R.A.G`, auto-instala Docker y Ollama vía winget si faltan, levanta el stack Docker Compose `ragdb` + `bge-m3`, hace `npm install` de las dependencias del CLI/MCP, y registra el MCP `rag` a nivel de **usuario**.
+7. **graphify** — añade el marketplace e instala el plugin Understand-Anything. Va antes de `parsers` a propósito: `claude plugin install` reescribe la configuración de plugins, así que conviene que los registros MCP posteriores queden escritos después.
+8. **cyber-neo** — `git clone` + `checkout` del commit fijado en `$CLAUDE_CONFIG_DIR/skills/cyber-neo`. Sin dependencia de orden.
+9. **parsers** — último: auto-instala Python y el JDK vía winget si faltan, luego `pip install` de los tres parsers, registra el MCP `markitdown` a nivel de **usuario**, y barre restos heredados de Context7 / Claude-Mem (entran en conflicto con el cerebro RAG).
 
 ## Interacciones entre flags
 
@@ -132,6 +147,32 @@ Si `--force` está activo, `dev-skills.sh` borra y re-clona. Sin `--force`, hace
 ### "Docker no está corriendo / falta ollama"
 
 El componente `rag` avisa y omite esos pasos en vez de hacer fallar la instalación (los pasos de compose/schema necesitan Docker; la descarga de `bge-m3` necesita `ollama` en el PATH). Arranca Docker Desktop / instala Ollama, y vuelve a correr `bash install.sh --only rag` — es idempotente y retoma donde se quedó.
+
+### "winget falló al instalar Python / el JDK"
+
+Los componentes `parsers` y `rag` avisan y siguen adelante en vez de romper la instalación. Instala a mano lo que falte:
+
+```bash
+winget install -e --id Python.Python.3.12
+winget install -e --id EclipseAdoptium.Temurin.21.JDK
+```
+
+Después **abre una shell nueva** (winget actualiza el PATH, pero la sesión actual no lo ve) y vuelve a correr `bash install.sh --only parsers`. Si `python` sigue sin aparecer en Git Bash pero `py -3` sí funciona, el componente usa `py -3` automáticamente.
+
+### "El plugin de Graphify no se instaló solo"
+
+Algunas versiones del CLI `claude` no exponen `claude plugin` en modo no interactivo. El componente lo detecta e imprime los comandos a ejecutar dentro de una sesión de Claude Code:
+
+```
+/plugin marketplace add Egonex-AI/Understand-Anything
+/plugin install understand-anything
+```
+
+Eso no es un fallo de la instalación — el resto de componentes se instalan igual.
+
+### "`opendataloader-pdf` no procesa nada"
+
+Su núcleo es Java: sin un JDK 11+ funcional el wrapper de Python no hace nada. Comprueba con `java -version`; si falla, mira el apartado de winget de arriba.
 
 ### "`node skills/validate-skills.mjs` falla después de editar una skill"
 

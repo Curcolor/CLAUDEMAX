@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ABSOLUTE-CLAUDE — instalador de un solo paso para el stack de ahorro de tokens + UI/UX.
+# CLAUDEMAX — instalador de un solo paso para el stack de ahorro de tokens + UI/UX.
 #
 # Componentes: RTK, Caveman, Figma MCP, paquete UI/UX (skill ui-ux-pro-max
 # + MCP magic de 21st.dev + framer-motion/gsap vía npm).
@@ -23,11 +23,11 @@ else
     # Ruta de instalación por pipe: clona el repo a un directorio temporal y re-ejecuta desde ahí.
     if [ -z "${AC_BOOTSTRAPPED:-}" ]; then
         TMP="$(mktemp -d)"
-        echo "[INFO]  Instalación por pipe detectada; clonando ABSOLUTE-CLAUDE en $TMP ..."
-        git clone --depth 1 https://github.com/Curcolor/CLAUDEMAX "$TMP/ABSOLUTE-CLAUDE" 2>/dev/null \
-            || { echo "[ERR] No se pudo clonar ABSOLUTE-CLAUDE. Clónalo manualmente y ejecuta bash install.sh."; exit 1; }
+        echo "[INFO]  Instalación por pipe detectada; clonando CLAUDEMAX en $TMP ..."
+        git clone --depth 1 https://github.com/Curcolor/CLAUDEMAX "$TMP/CLAUDEMAX" 2>/dev/null \
+            || { echo "[ERR] No se pudo clonar CLAUDEMAX. Clónalo manualmente y ejecuta bash install.sh."; exit 1; }
         export AC_BOOTSTRAPPED=1
-        exec bash "$TMP/ABSOLUTE-CLAUDE/install.sh" "$@"
+        exec bash "$TMP/CLAUDEMAX/install.sh" "$@"
     fi
     AC_REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 fi
@@ -57,7 +57,7 @@ ALL_COMPONENTS=(rtk caveman figma ui-ux dev-skills rag graphify cyber-neo parser
 
 usage() {
     cat <<EOF
-ABSOLUTE-CLAUDE — instala el stack de ahorro de tokens + UI/UX para Claude Code.
+CLAUDEMAX — instala el stack de ahorro de tokens + UI/UX para Claude Code.
 
 Uso: bash install.sh [flags]
 
@@ -99,7 +99,7 @@ while [ $# -gt 0 ]; do
         --force)           FORCE=1; shift ;;
         --config-dir)      AC_CONFIG_DIR_OVERRIDE="$2"; shift 2 ;;
         --uninstall)       UNINSTALL=1; shift ;;
-        --no-color)        export ABSOLUTE_NO_COLOR=1; shift ;;
+        --no-color)        export CLAUDEMAX_NO_COLOR=1; shift ;;
         -h|--help)         usage; exit 0 ;;
         *)                 ac_error "Flag desconocido: $1"; usage; exit 1 ;;
     esac
@@ -107,7 +107,7 @@ done
 
 export DRY_RUN FORCE NO_NPM WITH_NPM AC_CONFIG_DIR_OVERRIDE
 
-# Vuelve a cargar log.sh ahora que ABSOLUTE_NO_COLOR pudo haberse establecido.
+# Vuelve a cargar log.sh ahora que CLAUDEMAX_NO_COLOR pudo haberse establecido.
 # shellcheck source=bin/lib/log.sh
 . "$AC_REPO_DIR/bin/lib/log.sh"
 
@@ -132,12 +132,12 @@ done
 
 cat <<'BANNER'
 
-  _   ___ ___  ___  _   _   _ _____ ___    ___ _      _   _   _ ___  ___
- /_\ | _ ) __|/ _ \| | | | | |_   _| __|  / __| |    /_\ | | | |   \| __|
-/ _ \| _ \__ \ (_) | |_| |_| | | | | _|  | (__| |__ / _ \| |_| | |) | _|
-/_/ \_\___/___/\___/|____\___/  |_| |___|  \___|____/_/ \_\___/|___/|___|
+  ___ _      _   _   _ ___  ___ __  __  _   __  __
+ / __| |    /_\ | | | |   \| __|  \/  | /_\  \ \/ /
+| (__| |__ / _ \ |_| | |) | _|| |\/| |/ _ \  >  <
+ \___|____/_/ \_\___/|___/|___|_|  |_/_/ \_\/_/\_\
 
-  Una sola instalación. Todos los ahorradores de tokens + skills de UI/UX.
+  Una sola instalación. Ahorro de tokens + UI/UX + cerebro RAG + análisis.
 
 BANNER
 

@@ -42,7 +42,7 @@ ac_print_figma_oauth_hint() {
     1. Abre Claude Code.
     2. Ejecuta: /mcp
     3. Selecciona "figma" y sigue el flujo de OAuth en el navegador.
-    4. Listo. ABSOLUTE-CLAUDE no almacena ningún token de Figma.
+    4. Listo. CLAUDEMAX no almacena ningún token de Figma.
 
 EOF
 }
