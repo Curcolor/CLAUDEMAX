@@ -9,7 +9,7 @@
 #   - skill dcp-lite + hook PostToolUse + archivos de estado
 #   - skill repo-map
 #   - registros de los MCP Figma + magic en Claude Code
-#   - directorio de la skill ui-ux-pro-max
+#   - directorio de la skill ui-ux-pro-max + hook PostToolUse de auditoría de UI (ui-audit.mjs)
 #
 # NO elimina:
 #   - archivos por-repo que el --with-init de Caveman pudo haber escrito
@@ -80,11 +80,20 @@ for s in superpowers solid design-patterns conventional-commits architecture-pat
     ac_run rm -rf "$CLAUDE_CONFIG_DIR/skills/$s"
 done
 
-# --- ui-ux skill + magic MCP
-ac_step "UI/UX (skill + magic MCP)"
+# --- ui-ux skill + magic MCP + hook de auditoría de UI
+ac_step "UI/UX (skill + magic MCP + hook de auditoría)"
 ac_run rm -rf "$CLAUDE_CONFIG_DIR/skills/ui-ux-pro-max"
 if [ "$AC_HAS_CLAUDE" = "1" ]; then
     ac_run claude mcp remove magic 2>/dev/null || true
+fi
+ac_run rm -f "$CLAUDE_CONFIG_DIR/hooks/ui-audit.mjs"
+if [ -f "$CLAUDE_CONFIG_DIR/settings.json" ]; then
+    if [ "$DRY_RUN" = "1" ]; then
+        ac_dim "\$ eliminar entradas de hook que contengan 'ui-audit.mjs' de $CLAUDE_CONFIG_DIR/settings.json"
+    else
+        ac_remove_hook "$CLAUDE_CONFIG_DIR/settings.json" "ui-audit.mjs"
+        ac_info "Hook de auditoría de UI eliminado de settings.json (respaldo: $CLAUDE_CONFIG_DIR/settings.json.bak)"
+    fi
 fi
 
 # --- Cyber Neo (clon git aparte; no forma parte del loop de skills de ingeniería)

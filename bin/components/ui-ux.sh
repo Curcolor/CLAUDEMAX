@@ -3,13 +3,16 @@
 #   1. Copia la skill propia (first-party) ui-ux-pro-max de este repo a $CLAUDE_CONFIG_DIR/skills/ui-ux-pro-max/
 #   2. Registra el MCP magic de 21st.dev con Claude Code
 #   3. npm install framer-motion gsap en el cwd (condicionado a la presencia de package.json + --no-npm)
+#   4. Copia hooks/ui-audit.mjs a $CLAUDE_CONFIG_DIR/hooks/ y lo registra como PostToolUse/Edit|Write
+#      (auditoría determinística de anti-patrones de UI; ver Bloque 4 del subproyecto F)
 
 ac_component_ui_ux() {
-    ac_step "UI/UX — skill ui-ux-pro-max + MCP magic de 21st.dev + framer-motion/gsap"
+    ac_step "UI/UX — skill ui-ux-pro-max + MCP magic de 21st.dev + framer-motion/gsap + hook de auditoría"
 
     ac_uiux_install_skill
     ac_uiux_install_magic_mcp
     ac_uiux_install_npm_deps
+    ac_uiux_install_audit_hook
 }
 
 ac_uiux_install_skill() {
@@ -79,4 +82,34 @@ ac_uiux_install_npm_deps() {
     else
         ac_warn "npm install falló — instala manualmente: npm i framer-motion gsap"
     fi
+}
+
+# Copia el hook de auditoría de UI y lo registra como PostToolUse/Edit|Write en settings.json.
+# El hook mismo (hooks/ui-audit.mjs) es Node sin dependencias: lee el evento por stdin,
+# aplica ~15 reglas regex de bajo falso-positivo y emite <system-reminder> por hallazgo.
+# Nunca bloquea la edición. Variable de escape: CLAUDEMAX_UI_AUDIT=0.
+ac_uiux_install_audit_hook() {
+    local hook_src="$AC_REPO_DIR/hooks/ui-audit.mjs"
+    local hook_dst="$CLAUDE_CONFIG_DIR/hooks/ui-audit.mjs"
+    local settings="$CLAUDE_CONFIG_DIR/settings.json"
+
+    if [ ! -f "$hook_src" ]; then
+        ac_warn "Falta el hook de origen: $hook_src — se omite la auditoría de UI."
+        return 0
+    fi
+
+    ac_info "Instalando hook de auditoría de UI en $hook_dst"
+    if [ "${DRY_RUN:-0}" = "1" ]; then
+        ac_dim "\$ cp $hook_src $hook_dst"
+        ac_dim "\$ ac_merge_hook $settings PostToolUse 'node $hook_dst' 'Edit|Write'"
+        return 0
+    fi
+
+    mkdir -p "$CLAUDE_CONFIG_DIR/hooks"
+    cp -f "$hook_src" "$hook_dst"
+    chmod +x "$hook_dst" 2>/dev/null || true
+
+    ac_merge_hook "$settings" "PostToolUse" "node $hook_dst" "Edit|Write"
+    ac_info "Hook PostToolUse/Edit|Write registrado → 'node $hook_dst' en $settings"
+    ac_dim "  (desactivar sin desinstalar: CLAUDEMAX_UI_AUDIT=0)"
 }

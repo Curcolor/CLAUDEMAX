@@ -752,6 +752,14 @@ Deriva los valores de las palabras de vibe del brief, no del hábito — un brie
 - Eyebrows con número de sección ("00 / Index", "Step 1 / 2 / 3") y affordances de "Scroll to explore".
 - Glows neón sobresaturados o negro puro `#000000`.
 - Verbos de marketing de relleno ("elevate", "unleash", "seamless", "revolutionize").
+- **Gradient text** como recurso decorativo por defecto: `background-clip: text` con un gradiente detrás aplicado a headlines/logos sin que la marca lo pida. Delata IA porque es el "default seguro" de los generadores cuando no hay dirección de marca real. Usa color sólido con buen contraste; reserva el gradiente para un acento puntual (fondo, borde, ícono) ya justificado por el sistema.
+- **Plantilla hero-metric**: tres números grandes ("10k+", "99.9%", "24/7") en fila bajo el hero, sin fuente ni verificación real detrás. Delata IA porque rellena prueba social inventada en vez de esperar datos reales. Si no hay métricas reales que citar, omite la sección entera — no la simules.
+- **Tarjetas del mismo tamaño usadas como andamio de layout** (relacionado con "tres cards de feature" de arriba, pero más amplio: cualquier rejilla de N contenedores idénticos, no solo tres en fila). Se usa para evitar decidir qué contenido pesa más. Delata IA porque evade la jerarquía en vez de resolverla. Decide qué elemento es el más importante y dale más espacio/peso visual; deja que el contenido determine el tamaño de la tarjeta, no al revés.
+- **Hard-offset shadow** (`box-shadow: Npx Npx 0 color`, sin blur) fuera de un sistema deliberadamente neobrutalista. Delata IA porque copia el look sin adoptar el resto del lenguaje visual (bordes gruesos, paleta plana, tipografía display). Si el resto del diseño no es neobrutalista, usa una sombra con blur y opacidad baja en su lugar.
+- **Monospace como disfraz de "técnico"**: fuente monoespaciada aplicada a titulares, body copy o navegación para sugerir "producto de desarrollador" sin que el contenido sea código. Delata IA porque confunde estética con función. Reserva monospace para `code`/`pre`/valores literales; el resto del contenido usa la tipografía del sistema.
+- **Claro/oscuro elegido por categoría de producto** ("es fintech, va en oscuro"; "es para niños, va en claro") en vez de por la escena de uso real (¿de noche? ¿en exteriores con sol? ¿en una oficina?). Delata IA porque aplica un estereotipo de categoría en vez de razonar sobre el contexto de uso. Pregunta o infiere la escena real antes de fijar el modo por defecto.
+
+*(Los seis puntos anteriores están adaptados de los anti-patrones de `pbakaus/impeccable`, Apache-2.0.)*
 
 ### Para rediseños específicamente
 Audita la superficie existente antes de tocarla; preserva por defecto lo que sea load-bearing (URLs/slugs, labels de nav, assets de marca existentes); señala cualquier cosa eliminada en vez de descartarla silenciosamente.
