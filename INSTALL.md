@@ -96,7 +96,7 @@ CLAUDEMAX/
 | `$CLAUDE_CONFIG_DIR/skills/superpowers/` | dev-skills.sh (`git clone`) | Sí |
 | `$CLAUDE_CONFIG_DIR/skills/{architecture-principles,conventional-commits,skill-mcp-builder,no-ai-slop,rituales}/` | dev-skills.sh (`cp -R` desde este repo) | Sí |
 | `$CLAUDE_CONFIG_DIR/skills/cyber-neo/` | cyber-neo.sh (`git clone` + checkout del commit fijado) | Sí |
-| Plugin `understand-anything` + marketplace `Egonex-AI/Understand-Anything` | graphify.sh (`claude plugin ...`) | **No** — quítalo con `/plugin uninstall understand-anything` en una sesión |
+| Plugin `understand-anything` (en `$CLAUDE_CONFIG_DIR/plugins/cache/`) + marketplace `Egonex-AI/Understand-Anything` | graphify.sh (`claude plugin marketplace add` + `claude plugin install`) | Sí — `claude plugin uninstall understand-anything -s user` + `marketplace remove`. Si el CLI falla, hazlo en sesión con `/plugin uninstall understand-anything` |
 | Registro MCP de Claude: `markitdown` | parsers.sh (`claude mcp add -s user`) | Sí |
 | Paquetes pip `markitdown[all]`, `markitdown-mcp`, `opendataloader-pdf`, `whisper-ctranslate2` | parsers.sh (`pip install`) | **No** — quítalos con `pip uninstall` si quieres |
 | Python 3.12, Temurin JDK 21, Docker Desktop, Ollama | parsers.sh / rag.sh (`winget install`, solo si faltaban) | **No** — son dependencias de sistema; desinstálalas a mano |

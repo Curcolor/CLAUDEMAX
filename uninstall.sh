@@ -113,6 +113,16 @@ ac_run rm -f "$CLAUDE_CONFIG_DIR/state/loop-breaker.json"
 ac_run rm -f "$CLAUDE_CONFIG_DIR/state/skill-suggest.json"
 ac_dim "  (se conservan: las reglas de <RAG_ROOT>/.claude/ — puedes haberlas editado)"
 
+# --- Graphify (plugin Understand-Anything + su marketplace)
+ac_step "Graphify (plugin Understand-Anything)"
+if [ "$AC_HAS_CLAUDE" = "1" ]; then
+    ac_run claude plugin uninstall understand-anything -s user 2>/dev/null \
+        || ac_warn "No se pudo desinstalar el plugin automáticamente — hazlo en sesión: /plugin uninstall understand-anything"
+    ac_run claude plugin marketplace remove understand-anything 2>/dev/null || true
+else
+    ac_warn "El CLI claude no está en el PATH — desinstala el plugin en sesión: /plugin uninstall understand-anything"
+fi
+
 # --- Cyber Neo (clon git aparte; no forma parte del loop de skills de ingeniería)
 ac_step "Cyber Neo"
 ac_run rm -rf "$CLAUDE_CONFIG_DIR/skills/cyber-neo"
