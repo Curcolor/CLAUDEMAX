@@ -28,20 +28,36 @@ import { spawnSync } from "node:child_process";
 //   2. %ProgramFiles%\Git\bin\bash.exe (instalación estándar de Git for Windows, todos los usuarios)
 //   3. %LOCALAPPDATA%\Programs\Git\bin\bash.exe (instalación de Git for Windows solo-usuario)
 // En macOS/Linux el paso 1 casi siempre basta (bash del sistema).
-export function localizarBash() {
-    const enPath = spawnSync("bash", ["--version"], { stdio: "ignore", windowsHide: true });
-    if (!enPath.error) return "bash";
+// Comprueba que un bash sea utilizable para el instalador. En Windows descarta el
+// bash de WSL: monta el disco en /mnt/c en vez de /c, así que las rutas que le
+// pasamos (RAG_ROOT, AC_REPO_DIR) no resolverían. Git Bash reporta OSTYPE=msys;
+// WSL reporta linux-gnu.
+function bashUtilizable(bin) {
+    const r = spawnSync(bin, ["-c", "echo $OSTYPE"], {
+        encoding: "utf8", windowsHide: true, timeout: 10000
+    });
+    if (r.error || r.status !== 0) return false;
+    const tipo = (r.stdout || "").trim();
+    if (process.platform === "win32" && !/^msys|^cygwin/.test(tipo)) return false;
+    return true;
+}
 
+export function localizarBash() {
+    // En Windows se prueban primero las rutas conocidas de Git for Windows: el PATH
+    // puede tener antes el bash de WSL, que no nos sirve (ver bashUtilizable).
     const candidatos = [];
-    if (process.env.ProgramFiles) {
-        candidatos.push(path.join(process.env.ProgramFiles, "Git", "bin", "bash.exe"));
-    }
-    if (process.env.LOCALAPPDATA) {
-        candidatos.push(path.join(process.env.LOCALAPPDATA, "Programs", "Git", "bin", "bash.exe"));
+    if (process.platform === "win32") {
+        for (const base of [process.env.ProgramFiles, process.env["ProgramFiles(x86)"], process.env.LOCALAPPDATA]) {
+            if (!base) continue;
+            candidatos.push(path.join(base, "Git", "bin", "bash.exe"));
+            candidatos.push(path.join(base, "Programs", "Git", "bin", "bash.exe"));
+        }
     }
     for (const candidato of candidatos) {
-        if (fs.existsSync(candidato)) return candidato;
+        if (fs.existsSync(candidato) && bashUtilizable(candidato)) return candidato;
     }
+    // Último recurso: el bash del PATH, siempre que pase la comprobación.
+    if (bashUtilizable("bash")) return "bash";
     return null;
 }
 
