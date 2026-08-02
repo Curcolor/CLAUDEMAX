@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "rituales",
+  "definitions": {
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "ritual": {
+          "type": "string",
+          "enum": ["init-proyecto", "fin-dia", "fin-ciclo"],
+          "description": "Qué ritual manual ejecutar (el inicio de sesión es automático y no entra aquí)"
+        },
+        "proyecto": {
+          "type": "string",
+          "description": "Nombre del proyecto — usado por init-proyecto y fin-ciclo"
+        },
+        "resumen": {
+          "type": "string",
+          "description": "Texto libre del resumen del día — usado por fin-dia"
+        },
+        "ciclo": {
+          "type": "string",
+          "description": "Nombre del ciclo/sprint que se cierra — usado por fin-ciclo"
+        }
+      },
+      "required": ["ritual"],
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "resultado": {
+          "type": "string",
+          "description": "Resumen de lo que hizo el ritual: archivos creados o respetados, si reindexó, y recordatorios pendientes"
+        }
+      },
+      "required": ["resultado"]
+    }
+  }
+}

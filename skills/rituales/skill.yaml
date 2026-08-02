@@ -1,0 +1,16 @@
+name: rituales
+version: 2.0.0
+kind: tool
+triggers:
+  - "fin del día / end of day"
+  - "terminamos por hoy"
+  - "cierre de ciclo"
+  - "fin de sprint / end of sprint"
+  - "context dump"
+  - "nuevo proyecto / new project"
+  - "init project / init proyecto"
+  - "ritual / ritual de ciclo de vida"
+commands: []
+scripts: []
+dependencies: []
+schema: ./schema.json
