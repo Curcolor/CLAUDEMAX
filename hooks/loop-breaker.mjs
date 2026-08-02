@@ -7,7 +7,10 @@
 // git-footer-guard.mjs.
 //
 // Estado por sesión en $CLAUDE_CONFIG_DIR/state/loop-breaker.json (fallback $HOME/.claude si
-// CLAUDE_CONFIG_DIR no está definido — mismo criterio que bin/lib/claude-config.sh). Lee el
+// CLAUDE_CONFIG_DIR no está definido — mismo criterio que bin/lib/claude-config.sh). "Por
+// sesión" es literal: el estado guarda el session_id del evento y, si en una invocación
+// posterior llega uno distinto, las firmas de la sesión anterior se descartan antes de seguir
+// contando — así una sesión nueva no hereda fallos de una conversación ya cerrada. Lee el
 // evento del hook por stdin (JSON), tolerante a variantes de nombres de campo entre versiones
 // de Claude Code, igual que hooks/ui-audit.mjs.
 //
@@ -64,10 +67,25 @@ function loadState() {
         const raw = fs.readFileSync(statePath(), "utf8");
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === "object" && parsed.signatures && Array.isArray(parsed.order)) {
+            if (typeof parsed.sessionId !== "string") parsed.sessionId = null;
             return parsed;
         }
     } catch { /* sin estado previo o corrupto: empezamos de cero, no es un error del hook */ }
-    return { signatures: {}, order: [] };
+    return { sessionId: null, signatures: {}, order: [] };
+}
+
+// Estado "por sesión" (spec E2): si el evento trae session_id y no coincide con el que quedó
+// guardado, la sesión cambió — se descartan las firmas de la sesión anterior en vez de seguir
+// acumulando fallos de una conversación que ya terminó. Sin session_id en el evento, se sigue
+// usando el estado tal cual (mejor conservar memoria que perderla por un campo ausente).
+function resetIfNewSession(state, sessionId) {
+    if (typeof sessionId === "string" && sessionId && state.sessionId !== sessionId) {
+        state.sessionId = sessionId;
+        state.signatures = {};
+        state.order = [];
+        return true;
+    }
+    return false;
 }
 
 function saveState(state) {
@@ -191,11 +209,12 @@ async function main() {
     const outcome = classifyOutcome(evt);
     if (outcome.failed === null) { process.exit(0); return; }
 
+    const sessionId = pick(evt, ["session_id", "sessionId"]);
     const state = loadState();
+    let changed = resetIfNewSession(state, sessionId);
 
     if (outcome.failed === false) {
         // Éxito: reinicia el contador de todas las firmas activas de esta herramienta.
-        let changed = false;
         for (const sig of Object.keys(state.signatures)) {
             if (state.signatures[sig].tool === tool) {
                 delete state.signatures[sig];
