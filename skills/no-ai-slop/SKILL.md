@@ -1,6 +1,6 @@
 ---
 name: no-ai-slop
-description: "Edita y audita PROSA DESTINADA A HUMANOS (documentación, README, artículos, mensajes, copy) para quitarle patrones que \"suenan a IA\" preservando la voz personal del autor. NO se aplica a respuestas de sesión de Claude Code — para comprimir esas usa la skill `caveman`, que persigue el objetivo opuesto (compresión extrema, no voz humana). Trigger con \"escribir\", \"redactar\", \"write\", \"edit prose\", \"editar borrador\", \"edit draft\", \"README\", \"documentación\", \"documentation\", \"artículo\", \"article\", \"anti-slop\", \"ai slop\", \"suena a IA\", \"sounds like AI\", \"voz humana\", \"human voice\", \"detectar IA\", \"detect AI writing\", o al pulir cualquier texto que vaya a leer un humano fuera de esta sesión."
+description: "Edita y audita PROSA DESTINADA A HUMANOS (documentación, README, artículos, mensajes, copy) para quitarle patrones que \"suenan a IA\" preservando la voz personal del autor. NO se aplica a respuestas de sesión de Claude Code — solo a texto que un humano leerá fuera de esta sesión. Trigger con \"escribir\", \"redactar\", \"write\", \"edit prose\", \"editar borrador\", \"edit draft\", \"README\", \"documentación\", \"documentation\", \"artículo\", \"article\", \"anti-slop\", \"ai slop\", \"suena a IA\", \"sounds like AI\", \"voz humana\", \"human voice\", \"detectar IA\", \"detect AI writing\", o al pulir cualquier texto que vaya a leer un humano fuera de esta sesión."
 ---
 
 # No AI Slop (Anti-Slop de Prosa)
@@ -9,7 +9,7 @@ Fork propio, traducido y adaptado, de [`petergyang/no-ai-slop`](https://github.c
 
 ## Alcance: prosa para humanos, no respuestas de sesión
 
-Esta skill opera sobre texto que un humano va a leer **fuera** de esta sesión interactiva: documentación (`README.md`, `docs/*.md`, `CHANGELOG`), artículos técnicos o de blog, mensajes (email, Slack, PRs, issues), copy de producto/marketing, notas de release. **No se aplica a las respuestas que el modelo da dentro de la conversación de Claude Code** — ese es el terreno de la skill `caveman` (`caveman:caveman`), cuyo objetivo es exactamente el opuesto: comprimir al máximo el texto para ahorrar tokens de sesión, no preservar una voz humana natural. Si estás a punto de responder al usuario en el chat, esta skill no aplica. Si estás editando un archivo que un humano leerá después — sí aplica.
+Esta skill opera sobre texto que un humano va a leer **fuera** de esta sesión interactiva: documentación (`README.md`, `docs/*.md`, `CHANGELOG`), artículos técnicos o de blog, mensajes (email, Slack, PRs, issues), copy de producto/marketing, notas de release. **No se aplica a las respuestas que el modelo da dentro de la conversación de Claude Code** — esas no son prosa destinada a un lector humano fuera de sesión, así que quedan fuera de alcance. Si estás a punto de responder al usuario en el chat, esta skill no aplica. Si estás editando un archivo que un humano leerá después — sí aplica.
 
 ## Dos trabajos
 
@@ -118,9 +118,9 @@ Córtalas cuando retrasan el punto. Conserva una frase ocasional cuando es parte
 - ¿El resultado final incluye el borrador completo editado y una sección breve **Qué cambió**?
 - Para solicitudes de detección, ¿la respuesta nombra cada patrón con una línea citada y un arreglo breve, sin reescribir, puntuar ni afirmar autoría de IA?
 
-## Convivencia con `caveman`
+## Dónde termina el alcance de esta skill
 
-`caveman` y `no-ai-slop` tienen objetivos opuestos y no compiten por el mismo texto. `caveman` comprime respuestas de sesión al extremo para ahorrar tokens — sacrifica prosa natural a propósito. `no-ai-slop` edita prosa que un humano leerá fuera de la sesión y preserva activamente la voz natural del autor. Si dudas cuál invocar: ¿quién lee esto, y cuándo? Sesión de Claude Code en vivo → `caveman`. Archivo, mensaje o documento que alguien abrirá después → `no-ai-slop`.
+`no-ai-slop` edita prosa que un humano leerá fuera de la sesión y preserva activamente la voz natural del autor — nunca las respuestas que el modelo da dentro de la conversación de Claude Code. Si dudas si aplica: ¿quién lee esto, y cuándo? Respuesta de sesión en vivo → fuera de alcance. Archivo, mensaje o documento que alguien abrirá después → `no-ai-slop`.
 
 ---
 

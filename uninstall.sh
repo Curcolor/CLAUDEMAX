@@ -4,7 +4,8 @@
 # Elimina:
 #   - binario de rtk en $HOME/.local/bin/rtk (NO elimina los hooks de Claude instalados por rtk
 #     — `rtk init --global` escribe en tu settings; los dejamos para que `rtk` los administre)
-#   - Caveman (delega a su propio --uninstall)
+#   - Caveman de instalaciones antiguas de CLAUDEMAX (delega a su propio --uninstall; ya no es un
+#     componente de install.sh, pero instalaciones previas pudieron haberlo dejado activo)
 #   - plugin DCP real (si opencode está presente)
 #   - skill dcp-lite + hook PostToolUse + archivos de estado
 #   - skill repo-map
@@ -12,7 +13,7 @@
 #   - directorio de la skill ui-ux-pro-max + hook PostToolUse de auditoría de UI (ui-audit.mjs)
 #
 # NO elimina:
-#   - archivos por-repo que el --with-init de Caveman pudo haber escrito
+#   - archivos por-repo que el --with-init de una instalación antigua de Caveman pudo haber escrito
 #   - framer-motion / gsap del node_modules de tu proyecto — desinstálalos tú mismo con npm si quieres
 
 set -euo pipefail
@@ -35,8 +36,8 @@ ac_resolve_config_dir
 ac_step "Desinstalando componentes de CLAUDEMAX"
 [ "$DRY_RUN" = "1" ] && ac_warn "DRY-RUN — no se harán cambios."
 
-# --- Caveman (delega)
-ac_step "Caveman"
+# --- Caveman (heredado — ya no es un componente de install.sh; limpia instalaciones antiguas que lo activaron)
+ac_step "Caveman (limpieza heredada, delega en su propio --uninstall)"
 if [ "$DRY_RUN" = "1" ]; then
     ac_dim "\$ npx -y github:JuliusBrussee/caveman -- --uninstall --non-interactive"
 else

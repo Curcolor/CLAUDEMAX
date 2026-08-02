@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # CLAUDEMAX — instalador de un solo paso para el stack de ahorro de tokens + UI/UX.
 #
-# Componentes: RTK, Caveman, Figma MCP, paquete UI/UX (skill ui-ux-pro-max
+# Componentes: RTK, Figma MCP, paquete UI/UX (skill ui-ux-pro-max
 # + MCP magic de 21st.dev + framer-motion/gsap vía npm).
 #
 # Uso:
@@ -53,7 +53,7 @@ ONLY=()
 SKIP=()
 AC_CONFIG_DIR_OVERRIDE=""
 
-ALL_COMPONENTS=(rtk caveman figma ui-ux dev-skills rag graphify cyber-neo parsers rules)
+ALL_COMPONENTS=(rtk figma ui-ux dev-skills rag graphify cyber-neo parsers rules)
 
 usage() {
     cat <<EOF
@@ -77,7 +77,7 @@ Flags:
 
 Ejemplos:
   bash install.sh
-  bash install.sh --only rtk --only caveman
+  bash install.sh --only rtk --only figma
   bash install.sh --skip ui-ux --no-npm
   bash install.sh --dry-run --all
 
@@ -158,10 +158,6 @@ component_run() {
             . "$AC_REPO_DIR/bin/components/rtk.sh"
             ac_component_rtk
             ;;
-        caveman)
-            . "$AC_REPO_DIR/bin/components/caveman.sh"
-            ac_component_caveman
-            ;;
         figma)
             . "$AC_REPO_DIR/bin/components/figma-mcp.sh"
             ac_component_figma
@@ -218,10 +214,6 @@ if [ "$AC_HAS_CLAUDE" = "1" ]; then
     claude mcp list 2>/dev/null | sed 's/^/    /' || ac_warn "  claude mcp list falló"
 fi
 
-if [ -f "$CLAUDE_CONFIG_DIR/.caveman-active" ]; then
-    ac_info "caveman: $(cat "$CLAUDE_CONFIG_DIR/.caveman-active")"
-fi
-
 ac_info "Skills instaladas en $CLAUDE_CONFIG_DIR/skills/:"
 ls -1 "$CLAUDE_CONFIG_DIR/skills/" 2>/dev/null | sed 's/^/    /' || true
 
@@ -232,7 +224,6 @@ ${AC_GREEN}Listo.${AC_NC} Próximos pasos:
   1. Reinicia Claude Code para que carguen los hooks/skills.
   2. Completa el OAuth de Figma: abre Claude Code → /mcp → selecciona figma → navegador.
   3. Prueba los comandos:
-       /caveman           — modo terso (Caveman)
        /ui-ux-pro-max     — (el nombre de la skill puede variar; revisa tu selector de skills)
        /superpowers       — paquete de meta-skills (obra/superpowers)
        /architecture-principles /conventional-commits

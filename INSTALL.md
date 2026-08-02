@@ -18,7 +18,6 @@ CLAUDEMAX/
 │   │   └── jsonc.sh            # merge/remove tolerante a JSONC para los hooks de settings.json
 │   └── components/
 │       ├── rtk.sh              # encadena la instalación de rtk + `rtk init --global`
-│       ├── caveman.sh          # `npx -y github:JuliusBrussee/caveman -- --all`
 │       ├── figma-mcp.sh        # `claude mcp add --transport http figma ...`
 │       ├── ui-ux.sh            # copia skills/ui-ux-pro-max + registra el MCP magic + npm i + hook ui-audit.mjs
 │       ├── dev-skills.sh       # clon de superpowers + 5 skills propias (incluidas no-ai-slop y rituales)
@@ -90,7 +89,7 @@ CLAUDEMAX/
 | Ruta | Escrita por | ¿La elimina `uninstall.sh`? |
 |---|---|---|
 | `$HOME/.local/bin/rtk` | Instalador de RTK (upstream) | Sí |
-| `$CLAUDE_CONFIG_DIR/settings.json` (entradas de hooks) | Caveman, rtk init | Las entradas de Caveman las quita Caveman; las de rtk las quitamos nosotros |
+| `$CLAUDE_CONFIG_DIR/settings.json` (entradas de hooks) | rtk init | Las quitamos nosotros |
 | `$CLAUDE_CONFIG_DIR/skills/ui-ux-pro-max/` | ui-ux.sh (`cp -R` desde este repo) | Sí |
 | `$CLAUDE_CONFIG_DIR/hooks/ui-audit.mjs` + entrada `PostToolUse`/`Edit\|Write` en `settings.json` | ui-ux.sh (`cp` + `ac_merge_hook`) | Sí — `rm -f` del archivo y `ac_remove_hook` de la entrada en `settings.json` |
 | `$CLAUDE_CONFIG_DIR/skills/superpowers/` | dev-skills.sh (`git clone`) | Sí |
@@ -100,8 +99,7 @@ CLAUDEMAX/
 | Registro MCP de Claude: `markitdown` | parsers.sh (`claude mcp add -s user`) | Sí |
 | Paquetes pip `markitdown[all]`, `markitdown-mcp`, `opendataloader-pdf`, `whisper-ctranslate2` | parsers.sh (`pip install`) | **No** — quítalos con `pip uninstall` si quieres |
 | Python 3.12, Temurin JDK 21, Docker Desktop, Ollama | parsers.sh / rag.sh (`winget install`, solo si faltaban) | **No** — son dependencias de sistema; desinstálalas a mano |
-| `$CLAUDE_CONFIG_DIR/.caveman-active` | Caveman | Lo gestiona Caveman |
-| Registro MCP de Claude: `figma`, `magic`, `caveman-shrink` | figma-mcp.sh, ui-ux.sh, Caveman | Sí para figma + magic; Caveman gestiona el suyo |
+| Registro MCP de Claude: `figma`, `magic` | figma-mcp.sh, ui-ux.sh | Sí |
 | `<cwd>/package.json`, `<cwd>/node_modules/` | `npm install` de ui-ux.sh | **No** — no tocamos las dependencias de tu proyecto al desinstalar |
 | `<RAG_ROOT>/V.A.U.L.T`, `<RAG_ROOT>/R.A.G`, registro MCP de Claude: `rag`, volumen Docker `ragdata` | rag.sh (`cp -R` de templates, `docker compose up`, `claude mcp add`) | Solo el registro MCP + el contenedor `claudemax-ragdb` — las carpetas y el volumen `ragdata` sobreviven a la desinstalación |
 | `$HOME/.kaggle/kaggle.json` | rag.sh (`ac_rag_kaggle_setup`, solo si `KAGGLE_USERNAME`/`KAGGLE_KEY` están en el entorno) | **No** — es una credencial de tu cuenta de Kaggle, no un artefacto de CLAUDEMAX; bórrala a mano si quieres |
@@ -109,7 +107,7 @@ CLAUDEMAX/
 | `<RAG_ROOT>/.claude/` (`CLAUDEMAX.md`, `CLAUDE.md`, `proyecto.md`) | rules.sh (`cp -f` de `templates/rules/`) | **No** — contiene reglas que pudiste editar a mano; sobrevive a la desinstalación igual que `V.A.U.L.T`/`R.A.G` |
 | `$CLAUDE_CONFIG_DIR/state/{loop-breaker,skill-suggest}.json` | loop-breaker.mjs / skill-suggest.mjs (estado por sesión, escritura propia) | Sí |
 
-`uninstall.sh` también elimina, best-effort, un puñado de rutas heredadas de instalaciones antiguas de CLAUDEMAX (antes ABSOLUTE-CLAUDE) (`skills/repo-map/`, `skills/dcp-lite/`, `hooks/dcp-lite-dedup.mjs`, `state/dcp-lite-*.json`, y los nombres de skill pre-2.0 `solid`, `design-patterns`, `architecture-patterns`) para que actualizar en el sitio no deje nada atrás. Ninguno de esos componentes lo instala el `install.sh` actual.
+`uninstall.sh` también elimina, best-effort, un puñado de rutas heredadas de instalaciones antiguas de CLAUDEMAX (antes ABSOLUTE-CLAUDE) (`skills/repo-map/`, `skills/dcp-lite/`, `hooks/dcp-lite-dedup.mjs`, `state/dcp-lite-*.json`, y los nombres de skill pre-2.0 `solid`, `design-patterns`, `architecture-patterns`) para que actualizar en el sitio no deje nada atrás. Ninguno de esos componentes lo instala el `install.sh` actual. Lo mismo aplica a Caveman: ya no es un componente de `install.sh`, pero `uninstall.sh` sigue delegando en su propio `--uninstall` para dejar limpias las instalaciones antiguas que lo tenían activo (hooks, statusline, `$CLAUDE_CONFIG_DIR/.caveman-active`, y el MCP de proyecto `caveman-shrink`, que gestiona el propio desinstalador de Caveman).
 
 ## Orden de instalación de componentes (y por qué)
 
@@ -117,22 +115,21 @@ CLAUDEMAX/
    - En macOS/Linux: ejecuta el instalador upstream `curl | sh`.
    - En Windows (MinGW/MSYS/Cygwin vía Git Bash): descarga `rtk-x86_64-pc-windows-msvc.zip` del último release de GitHub y extrae `rtk.exe` en `~/.local/bin/`. Prueba `unzip`, luego `powershell.exe Expand-Archive`, luego `python -m zipfile` hasta que uno funcione.
    - El hook PreToolUse/Bash (`rtk hook claude`) se escribe directamente en `~/.claude/settings.json` mediante nuestro merger JSONC — no dependemos del prompt interactivo y/N de `rtk init -g`, que por defecto responde `N` en shells no interactivos.
-2. **caveman** — cablea hooks, statusline, MCP `caveman-shrink`. Idempotente. El MCP `caveman-shrink` se registra a nivel de proyecto (lo gestiona el propio instalador de Caveman).
-3. **figma** — necesita el CLI `claude`; se registra a nivel de **usuario** (`claude mcp add -s user`) para que funcione en todos los proyectos.
-4. **ui-ux** — también necesita `claude` para el MCP magic (también registrado a nivel de **usuario**); muta el cwd vía `npm install` (condicionado). Además de copiar la skill, ahora también copia `hooks/ui-audit.mjs` a `$CLAUDE_CONFIG_DIR/hooks/` y lo registra como `PostToolUse`/`Edit|Write` en `settings.json` (auditoría determinista de anti-patrones de UI; desactivable con `CLAUDEMAX_UI_AUDIT=0`).
-5. **dev-skills** — copia simple de archivos para `architecture-principles` / `conventional-commits` / `skill-mcp-builder` / `no-ai-slop` / `rituales`; `git clone`/`git pull` para `superpowers`. Sin dependencia de orden con los demás.
-6. **rag** — opt-in (necesita `RAG_ROOT` definido, si no avisa y se omite): copia `templates/vault` (con la taxonomía de 6 categorías) → `<RAG_ROOT>/V.A.U.L.T` y `templates/rag` (incluidas las plantillas de Kaggle en `kaggle/`) → `<RAG_ROOT>/R.A.G`, auto-instala Docker y Ollama vía winget si faltan, levanta el stack Docker Compose `ragdb` + `bge-m3`, hace `npm install` de las dependencias del CLI/MCP, configura el backend opcional de Kaggle si `KAGGLE_USERNAME`/`KAGGLE_KEY` están en el entorno, y registra el MCP `rag` a nivel de **usuario**.
-7. **graphify** — añade el marketplace e instala el plugin Understand-Anything. Va antes de `parsers` a propósito: `claude plugin install` reescribe la configuración de plugins, así que conviene que los registros MCP posteriores queden escritos después.
-8. **cyber-neo** — `git clone` + `checkout` del commit fijado en `$CLAUDE_CONFIG_DIR/skills/cyber-neo`. Sin dependencia de orden.
-9. **parsers** — auto-instala Python y el JDK vía winget si faltan, luego `pip install` de los tres parsers, registra el MCP `markitdown` a nivel de **usuario**, y barre restos heredados de Context7 / Claude-Mem (entran en conflicto con el cerebro RAG).
-10. **rules** — **último** a propósito: copia `templates/rules/` a `<RAG_ROOT>/.claude/` (requiere `RAG_ROOT`, igual que `rag`; sin él instala solo los hooks y avisa) y registra los cuatro hooks de cumplimiento y contexto en `$CLAUDE_CONFIG_DIR/hooks/`. Va al final porque sus reglas y su hook `session-start` referencian rutas que crean los pasos anteriores (`<RAG_ROOT>/V.A.U.L.T`, `<RAG_ROOT>/R.A.G/rag.mjs`, las skills ya instaladas) — instalarlo antes correría el riesgo de documentar/consultar rutas que todavía no existen.
+2. **figma** — necesita el CLI `claude`; se registra a nivel de **usuario** (`claude mcp add -s user`) para que funcione en todos los proyectos.
+3. **ui-ux** — también necesita `claude` para el MCP magic (también registrado a nivel de **usuario**); muta el cwd vía `npm install` (condicionado). Además de copiar la skill, ahora también copia `hooks/ui-audit.mjs` a `$CLAUDE_CONFIG_DIR/hooks/` y lo registra como `PostToolUse`/`Edit|Write` en `settings.json` (auditoría determinista de anti-patrones de UI; desactivable con `CLAUDEMAX_UI_AUDIT=0`).
+4. **dev-skills** — copia simple de archivos para `architecture-principles` / `conventional-commits` / `skill-mcp-builder` / `no-ai-slop` / `rituales`; `git clone`/`git pull` para `superpowers`. Sin dependencia de orden con los demás.
+5. **rag** — opt-in (necesita `RAG_ROOT` definido, si no avisa y se omite): copia `templates/vault` (con la taxonomía de 6 categorías) → `<RAG_ROOT>/V.A.U.L.T` y `templates/rag` (incluidas las plantillas de Kaggle en `kaggle/`) → `<RAG_ROOT>/R.A.G`, auto-instala Docker y Ollama vía winget si faltan, levanta el stack Docker Compose `ragdb` + `bge-m3`, hace `npm install` de las dependencias del CLI/MCP, configura el backend opcional de Kaggle si `KAGGLE_USERNAME`/`KAGGLE_KEY` están en el entorno, y registra el MCP `rag` a nivel de **usuario**.
+6. **graphify** — añade el marketplace e instala el plugin Understand-Anything. Va antes de `parsers` a propósito: `claude plugin install` reescribe la configuración de plugins, así que conviene que los registros MCP posteriores queden escritos después.
+7. **cyber-neo** — `git clone` + `checkout` del commit fijado en `$CLAUDE_CONFIG_DIR/skills/cyber-neo`. Sin dependencia de orden.
+8. **parsers** — auto-instala Python y el JDK vía winget si faltan, luego `pip install` de los tres parsers, registra el MCP `markitdown` a nivel de **usuario**, y barre restos heredados de Context7 / Claude-Mem (entran en conflicto con el cerebro RAG).
+9. **rules** — **último** a propósito: copia `templates/rules/` a `<RAG_ROOT>/.claude/` (requiere `RAG_ROOT`, igual que `rag`; sin él instala solo los hooks y avisa) y registra los cuatro hooks de cumplimiento y contexto en `$CLAUDE_CONFIG_DIR/hooks/`. Va al final porque sus reglas y su hook `session-start` referencian rutas que crean los pasos anteriores (`<RAG_ROOT>/V.A.U.L.T`, `<RAG_ROOT>/R.A.G/rag.mjs`, las skills ya instaladas) — instalarlo antes correría el riesgo de documentar/consultar rutas que todavía no existen.
 
 ## Interacciones entre flags
 
-- `--dry-run` lo respeta cada componente **y** se propaga al propio `--dry-run` de Caveman. El instalador upstream de RTK no soporta dry-run; en su lugar imprimimos el comando curl y lo omitimos.
-- `--force` no reinstala todo en bloque — cada componente decide qué significa "force" para sí mismo (rtk: re-encadena el instalador; Caveman: pasa `--force`; Figma/magic: `mcp remove` y luego `mcp add`; copia de la skill ui-ux: `rm -rf` + `cp -R`; clon de superpowers: `rm -rf` y re-clona en vez de `git pull`).
-- `--no-npm` solo afecta al paso de framer-motion/gsap en `ui-ux`. **No** suprime los pasos basados en `npx` (`caveman`, MCP `magic`) — esos usan el registro de npm pero no mutan tu proyecto.
-- `--config-dir` se propaga a Caveman (vía el propio `--config-dir` de Caveman) y a dónde `dev-skills`/`ui-ux` copian los directorios de skills. RTK y los registros MCP de Figma/magic no aceptan un override de config-dir — usan los valores por defecto del CLI `claude`.
+- `--dry-run` lo respeta cada componente. El instalador upstream de RTK no soporta dry-run; en su lugar imprimimos el comando curl y lo omitimos.
+- `--force` no reinstala todo en bloque — cada componente decide qué significa "force" para sí mismo (rtk: re-encadena el instalador; Figma/magic: `mcp remove` y luego `mcp add`; copia de la skill ui-ux: `rm -rf` + `cp -R`; clon de superpowers: `rm -rf` y re-clona en vez de `git pull`).
+- `--no-npm` solo afecta al paso de framer-motion/gsap en `ui-ux`. **No** suprime el paso basado en `npx` (MCP `magic`) — usa el registro de npm pero no muta tu proyecto.
+- `--config-dir` se propaga a dónde `dev-skills`/`ui-ux` copian los directorios de skills (vía `CLAUDE_CONFIG_DIR`). RTK y los registros MCP de Figma/magic no aceptan un override de config-dir — usan los valores por defecto del CLI `claude`.
 
 ## Troubleshooting
 
