@@ -2,6 +2,10 @@ name: rituales
 version: 2.0.0
 kind: tool
 triggers:
+  - "fin de sesión / end of session"
+  - "cerramos la sesión"
+  - "retomar el hilo"
+  - "dónde quedamos"
   - "fin del día / end of day"
   - "terminamos por hoy"
   - "cierre de ciclo"

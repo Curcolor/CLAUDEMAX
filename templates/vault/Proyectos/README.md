@@ -17,6 +17,10 @@ fecha: 2026-08-01
 con el mismo `proyecto` quedan relacionadas en el RAG aunque vivan en carpetas
 distintas.
 
+Ejemplos de qué va aquí: planes, decisiones, sprints, specs. Qué NO va aquí: la
+parte legal/conceptual de la organización (eso es `Organizacion/`) ni la
+arquitectura o snippets de un repo (eso es `Codigo/`).
+
 Código de colores (Obsidian → Settings → Appearance → Graph, o edita
 `.obsidian/graph.json`):
 - Toda la carpeta comparte el color base de `categoria: proyectos`

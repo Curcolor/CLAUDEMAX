@@ -5,12 +5,13 @@
 //
 //   node ritual.mjs                                                       ayuda
 //   node ritual.mjs init-proyecto <ruta> [--proyecto n] [--descripcion t] [--vault r]
+//   node ritual.mjs fin-sesion [--resumen "texto"] [--proyecto n] [--siguiente "texto"] [--vault r]
 //   node ritual.mjs fin-dia [--resumen "texto"] [--vault ruta]
 //   node ritual.mjs fin-ciclo [--ciclo nombre] [--proyecto nombre] [--si] [--vault ruta]
 //
 // `pg` se importa dinámicamente y SOLO dentro de fin-ciclo con --si (para el resumen final
-// por categoría) — init-proyecto y fin-dia nunca tocan la base de datos, así que funcionan
-// con Docker apagado.
+// por categoría) — init-proyecto, fin-sesion y fin-dia nunca tocan la base de datos, así que
+// funcionan con Docker apagado.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -47,6 +48,40 @@ function horaHHMM() {
     const d = new Date();
     const pad = n => String(n).padStart(2, "0");
     return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Igual que horaHHMM pero sin ":" — para usar en nombres de archivo (fin-sesion).
+function horaHHMMCompacta() {
+    const d = new Date();
+    const pad = n => String(n).padStart(2, "0");
+    return `${pad(d.getHours())}${pad(d.getMinutes())}`;
+}
+
+// Detecta el proyecto actual con la misma convención que hooks/session-start.mjs: nombre de
+// la carpeta raíz del repo git (git rev-parse --show-toplevel), con fallback al cwd si no hay
+// repo o el binario git falla/no existe. --proyecto siempre gana sobre esta detección.
+function detectarProyectoActual() {
+    let top = "";
+    try {
+        const res = spawnSync("git", ["rev-parse", "--show-toplevel"],
+            { encoding: "utf8", timeout: 1500, windowsHide: true });
+        if (res.status === 0 && res.stdout) top = res.stdout.trim();
+    } catch {}
+    const root = top || process.cwd();
+    return path.basename(root) || "proyecto";
+}
+
+// Busca una ruta libre "<dir>/<base>.md"; si ya existe (dos ejecuciones del mismo ritual en el
+// mismo minuto), prueba "<base>-2.md", "<base>-3.md"... en vez de sobrescribir la anterior.
+function rutaLibre(dir, base) {
+    let candidato = path.join(dir, `${base}.md`);
+    if (!fs.existsSync(candidato)) return candidato;
+    let n = 2;
+    while (fs.existsSync(candidato)) {
+        candidato = path.join(dir, `${base}-${n}.md`);
+        n++;
+    }
+    return candidato;
 }
 
 function sustituirMarcadores(texto, valores) {
@@ -164,6 +199,53 @@ function cmdInitProyecto(rutaArg, opts) {
     console.log(`ritual: init-proyecto completo para "${proyecto}".`);
 }
 
+// --- fin-sesion (ritual menor) --------------------------------------------------------------
+// Continuidad entre sesiones de Claude Code: qué se hizo y qué sigue. Escribe en 00-Inbox/
+// (categoria: personal, tag personal/sesion) — no en Journal/, que es la bitácora del día
+// completo (fin-dia). Ver skills/rituales para la diferencia completa entre ambos.
+
+function cmdFinSesion(opts) {
+    const vaultDir = resolveVault(opts.vault);
+    const fecha = hoyISO();
+    const hora = horaHHMM();
+    const inboxDir = path.join(vaultDir, "00-Inbox");
+    fs.mkdirSync(inboxDir, { recursive: true });
+
+    const proyecto = opts.proyecto || detectarProyectoActual();
+    const base = `${fecha}-${horaHHMMCompacta()}-${proyecto}`;
+    const archivo = rutaLibre(inboxDir, base);
+
+    const queSeHizo = opts.resumen ? opts.resumen : "_(sin resumen — completa esto a mano)_";
+
+    const partes = [
+        "---",
+        "categoria: personal",
+        `proyecto: ${proyecto}`,
+        "tags: [personal/sesion]",
+        `fecha: ${fecha}`,
+        "---",
+        "",
+        `# Sesión — ${proyecto} · ${hora}`,
+        "",
+        "## Qué se hizo",
+        "",
+        queSeHizo,
+        "",
+    ];
+    if (opts.siguiente) {
+        partes.push("## Siguiente paso", "", opts.siguiente, "");
+    }
+
+    fs.writeFileSync(archivo, partes.join("\n"), "utf8");
+
+    if (opts.resumen) {
+        console.log(`ritual: creado ${archivo}.`);
+    } else {
+        console.log(`ritual: creado ${archivo} con una plantilla vacía (sin --resumen) — complétala a mano.`);
+    }
+    console.log("ritual: fin-sesion NO reindexa el RAG ni reconstruye Graphify (igual que fin-dia — ver skills/rituales). El contenido se indexará en el próximo `rag.mjs ingest`.");
+}
+
 // --- fin-dia (ritual menor) -----------------------------------------------------------------
 
 function cmdFinDia(opts) {
@@ -183,7 +265,7 @@ function cmdFinDia(opts) {
             "---",
             "categoria: personal",
             "proyecto: journal",
-            "tags: []",
+            "tags: [personal/bitacora]",
             `fecha: ${fecha}`,
             "---",
             "",
@@ -322,6 +404,7 @@ function imprimirAyuda() {
 
 Uso:
   ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto] [--vault ruta]
+  ritual.mjs fin-sesion [--resumen "texto"] [--proyecto nombre] [--siguiente "texto"] [--vault ruta]
   ritual.mjs fin-dia [--resumen "texto"] [--vault ruta]
   ritual.mjs fin-ciclo [--ciclo nombre] [--proyecto nombre] [--si] [--vault ruta]
 
@@ -329,7 +412,7 @@ Ver skills/rituales para cuándo se dispara cada uno y qué hace (y qué NO hace
 }
 
 function parseArgs(rest) {
-    const valueFlags = ["--proyecto", "--descripcion", "--vault", "--resumen", "--ciclo"];
+    const valueFlags = ["--proyecto", "--descripcion", "--vault", "--resumen", "--ciclo", "--siguiente"];
     const opts = {};
     const positional = [];
     for (let i = 0; i < rest.length; i++) {
@@ -351,6 +434,8 @@ try {
         process.exitCode = 0;
     } else if (cmd === "init-proyecto") {
         cmdInitProyecto(positional[0], opts);
+    } else if (cmd === "fin-sesion") {
+        cmdFinSesion(opts);
     } else if (cmd === "fin-dia") {
         cmdFinDia(opts);
     } else if (cmd === "fin-ciclo") {

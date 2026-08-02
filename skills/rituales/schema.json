@@ -7,16 +7,20 @@
       "properties": {
         "ritual": {
           "type": "string",
-          "enum": ["init-proyecto", "fin-dia", "fin-ciclo"],
+          "enum": ["init-proyecto", "fin-sesion", "fin-dia", "fin-ciclo"],
           "description": "Qué ritual manual ejecutar (el inicio de sesión es automático y no entra aquí)"
         },
         "proyecto": {
           "type": "string",
-          "description": "Nombre del proyecto — usado por init-proyecto y fin-ciclo"
+          "description": "Nombre del proyecto — usado por init-proyecto, fin-sesion (opcional, si no se detecta solo) y fin-ciclo"
         },
         "resumen": {
           "type": "string",
-          "description": "Texto libre del resumen del día — usado por fin-dia"
+          "description": "Texto libre del resumen — usado por fin-sesion (qué se hizo en la sesión) y fin-dia (resumen del día)"
+        },
+        "siguiente": {
+          "type": "string",
+          "description": "Texto libre del siguiente paso a retomar — usado por fin-sesion"
         },
         "ciclo": {
           "type": "string",

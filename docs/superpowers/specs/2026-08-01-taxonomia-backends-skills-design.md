@@ -28,16 +28,22 @@ Cuatro bloques independientes que comparten una entrega:
 
 ### Las seis categorías
 
-| Categoría | Color | Decimal (Obsidian) | Contenido |
+| Categoría | Color | Decimal (Obsidian) | Significado |
 |---|---|---|---|
 | `codigo` | `#4A90D9` azul | 4886745 | Repos, arquitectura, snippets, grafos de Graphify |
 | `proyectos` | `#5CB85C` verde | 6076508 | Planes, decisiones, sprints, specs |
-| `organizacion` | `#9B59B6` morado | 10181046 | Empresa, marca, clientes, procesos |
-| `investigacion` | `#E8912D` naranja | 15241517 | PDFs parseados, papers, transcripciones |
-| `personal` | `#E05C6E` rojo suave | 14703726 | Journal diario, ideas del Inbox |
-| `aprendizaje` | `#17A2B8` turquesa | 1548984 | Apuntes de tecnologías, tutoriales, skills |
+| `organizacion` | `#9B59B6` morado | 10181046 | Parte legal y conceptual de la organización: miembros y roles, estatutos, contratos, marca, procesos internos, clientes |
+| `investigacion` | `#E8912D` naranja | 15241517 | Lo que se pregunta e investiga para decidir algo: estilos de diseño, comparativas de herramientas, papers, PDFs parseados, transcripciones |
+| `personal` (tag `personal/bitacora`, carpeta `Journal/`) | `#E05C6E` rojo suave | 14703726 | Bitácoras: registro cronológico del trabajo diario |
+| `personal` (tag `personal/sesion`, carpeta `00-Inbox/`) | `#E05C6E` rojo suave | 14703726 | Continuidad entre sesiones de Claude Code: qué se hizo, en qué punto se quedó, qué sigue (ritual `fin-sesion`, subproyecto D) |
+| `aprendizaje` | `#17A2B8` turquesa | 1548984 | Errores cometidos y su lección (postmortems), NO apuntes de tecnologías |
 
 Subcolores: cada tag anidado `#<categoria>/<subtema>` recibe una variante más clara del color base, añadida a `graph.json` por el usuario a medida que crea subtemas. La plantilla incluye un ejemplo por categoría.
+
+> Nota (2026-08-02): esta tabla documenta la semántica definitiva de cada categoría, refinada
+> tras la implementación inicial del subproyecto F — ver `templates/vault/README.md` como
+> fuente de verdad viva. Siguen siendo seis valores de `categoria` (`personal` cubre tanto
+> `Journal/` como `00-Inbox/`, diferenciados por tag).
 
 ### Marcado de notas
 
@@ -60,7 +66,8 @@ fuente: informe.pdf        # opcional; lo rellenan los parsers
 ```
 V.A.U.L.T/
 ├── .obsidian/graph.json     # seis grupos de color + ejemplos de subcolor
-├── 00-Inbox/                # capturas sin clasificar (los parsers escriben aquí)
+├── 00-Inbox/                # capturas sin clasificar de los parsers + continuidad entre
+│                            #   sesiones (ritual fin-sesion, subproyecto D)
 ├── Codigo/                  # una subcarpeta por repo
 ├── Proyectos/               # una subcarpeta por proyecto
 ├── Organizacion/            # una subcarpeta por empresa/cliente

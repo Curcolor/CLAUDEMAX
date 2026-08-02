@@ -198,6 +198,19 @@ function flattenGraph(json, file) {
 }
 
 // Categoría (Bloque 1, taxonomía) inferida de la primera carpeta bajo el root del vault.
+// Semántica completa de cada categoría/carpeta: templates/vault/README.md y el README.md
+// propio de cada carpeta (skills/rituales/SKILL.md la repite para quien escribe notas):
+//   Codigo         → repos, arquitectura, snippets, grafos de Graphify.
+//   Proyectos      → planes, decisiones, sprints, specs.
+//   Organizacion   → parte legal y conceptual de la organización (miembros, estatutos,
+//                    contratos, marca, procesos internos, clientes).
+//   Investigacion  → lo que se pregunta e investiga para decidir algo (comparativas,
+//                    estilos de diseño, papers, PDFs parseados, transcripciones).
+//   Aprendizaje    → errores cometidos y su lección (postmortems), NO apuntes de tecnologías.
+//   Journal        → categoria "personal", tag personal/bitacora: bitácoras del día completo.
+// 00-Inbox/ no está en este mapa porque su categoría ("personal", tag personal/sesion —
+// continuidad entre sesiones, la escribe el ritual fin-sesion) siempre llega vía frontmatter
+// explícito, nunca por inferencia de carpeta.
 const CATEGORIA_POR_CARPETA = {
     Codigo: "codigo",
     Proyectos: "proyectos",
@@ -208,7 +221,9 @@ const CATEGORIA_POR_CARPETA = {
 };
 
 // meta.categoria (frontmatter) manda; si falta, se infiere de la carpeta. 00-Inbox y
-// cualquier carpeta no reconocida quedan sin categoría (null).
+// cualquier carpeta no reconocida quedan sin categoría (null) si además falta el frontmatter
+// — en la práctica esto no pasa con notas de 00-Inbox porque el ritual fin-sesion siempre
+// escribe categoria: personal explícitamente.
 function categoriaOf(file, root, meta) {
     if (meta && meta.categoria) return meta.categoria;
     const rel = path.relative(root, file).split(path.sep);
@@ -217,7 +232,8 @@ function categoriaOf(file, root, meta) {
 
 // meta.proyecto (frontmatter) manda sobre la inferencia por carpeta; es la clave transversal
 // que relaciona notas de distintas categorías. Se infiere de Proyectos/<nombre> o Codigo/<nombre>
-// (la subcarpeta es el nombre del proyecto); Journal/ usa el pseudo-proyecto "journal".
+// (la subcarpeta es el nombre del proyecto); Journal/ usa el pseudo-proyecto "journal". Las
+// notas de 00-Inbox (ritual fin-sesion) traen su propio "proyecto" en el frontmatter.
 function proyectoOf(file, root, meta) {
     if (meta && meta.proyecto) return meta.proyecto;
     const rel = path.relative(root, file).split(path.sep);

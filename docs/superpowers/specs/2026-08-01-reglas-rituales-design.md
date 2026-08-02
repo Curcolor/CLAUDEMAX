@@ -9,7 +9,7 @@
 Cerrar los dos subproyectos que faltan, unidos en una sola entrega porque comparten infraestructura: las reglas de E viven en plantillas que el ritual de inicialización de proyecto de D copia a cada repo nuevo.
 
 - **E — Reglas operativas:** las reglas de trabajo dejan de vivir solo en el `~/.claude/CLAUDE.md` personal del usuario y pasan a estar **empaquetadas en el repo**, instaladas por el instalador y propagadas a cada proyecto. Las que se pueden hacer cumplir de forma determinista se implementan como hooks.
-- **D — Rituales de ciclo de vida:** inicio de sesión, inicialización de proyecto, fin de día y fin de ciclo.
+- **D — Rituales de ciclo de vida:** inicio de sesión, inicialización de proyecto, fin de sesión, fin de día y fin de ciclo.
 
 Principio rector: **el repo es la fuente de verdad**. Ninguna regla depende de la configuración personal de una máquina.
 
@@ -75,6 +75,7 @@ Script nuevo `templates/rag/ritual.mjs` (vive junto a `rag.mjs` porque reutiliza
 
 ```bash
 node ritual.mjs init-proyecto <ruta> [--categoria codigo] [--proyecto nombre]
+node ritual.mjs fin-sesion [--resumen "texto"] [--proyecto nombre] [--siguiente "texto"]
 node ritual.mjs fin-dia [--resumen "texto"]
 node ritual.mjs fin-ciclo [--ciclo "sprint-12"]
 ```
@@ -87,9 +88,27 @@ node ritual.mjs fin-ciclo [--ciclo "sprint-12"]
 - Crea la nota del proyecto en el vault: `V.A.U.L.T/Proyectos/<nombre>/00-indice.md` con el frontmatter de taxonomía relleno (`categoria: proyectos`, `proyecto: <nombre>`).
 - Nunca sobrescribe archivos existentes: si algo ya está, lo respeta y lo informa.
 
+### `fin-sesion` (ritual menor)
+
+> Añadido 2026-08-02, junto con el refinamiento de la semántica de categorías — ver
+> `2026-08-01-taxonomia-backends-skills-design.md`.
+
+- Escribe una nota nueva en `V.A.U.L.T/00-Inbox/YYYY-MM-DD-HHMM-<proyecto>.md` con
+  frontmatter (`categoria: personal`, tag `personal/sesion`, `proyecto: <detectado o pasado>`).
+- Detecta el proyecto igual que `hooks/session-start.mjs` (`git rev-parse --show-toplevel`,
+  fallback al cwd); `--proyecto` lo sobrescribe.
+- Contenido: título con proyecto y hora, sección "Qué se hizo" (`--resumen`), sección
+  "Siguiente paso" (`--siguiente`) si se pasa. Sin `--resumen`, escribe una plantilla vacía
+  lista para rellenar a mano en vez de fallar.
+- Dos ejecuciones en el mismo minuto no se pisan: la ruta se resuelve con sufijo `-2`, `-3`...
+  si el nombre base ya existe.
+- **No** dispara reindexado del RAG ni reconstrucción de Graphify, igual que `fin-dia`.
+- Es el ritual de continuidad *entre sesiones*; `fin-dia` es la bitácora del *día completo*
+  — no son intercambiables.
+
 ### `fin-dia` (ritual menor)
 
-- Escribe/actualiza `V.A.U.L.T/Journal/YYYY-MM-DD.md` con frontmatter (`categoria: personal`, `proyecto: <detectado o journal>`).
+- Escribe/actualiza `V.A.U.L.T/Journal/YYYY-MM-DD.md` con frontmatter (`categoria: personal`, tag `personal/bitacora`, `proyecto: <detectado o journal>`).
 - Contenido: cabecera del día, y si se pasa `--resumen`, lo añade como sección. Si el archivo ya existe, **añade** una entrada con la hora en vez de sobrescribir.
 - **No** dispara reindexado del RAG ni reconstrucción de Graphify — es la diferencia deliberada con el ritual mayor, para ahorrar cómputo.
 - Recuerda al final que el contenido se indexará en el próximo `ingest`.
@@ -104,7 +123,7 @@ node ritual.mjs fin-ciclo [--ciclo "sprint-12"]
 
 ### Skill `skills/rituales/`
 
-Skill 2.0 (`kind: tool`) que documenta los cuatro rituales, cuándo se disparan y los comandos exactos. Es lo que el modelo lee cuando el usuario dice "terminamos por hoy" o "cerramos el sprint". Triggers bilingües: "fin del día", "terminamos por hoy", "end of day", "cierre de ciclo", "fin de sprint", "context dump", "nuevo proyecto", "init project".
+Skill 2.0 (`kind: tool`) que documenta los cinco rituales, cuándo se disparan y los comandos exactos. Es lo que el modelo lee cuando el usuario dice "terminamos por hoy" o "cerramos el sprint". Triggers bilingües: "fin de sesión", "cerramos la sesión", "end of session", "retomar el hilo", "dónde quedamos", "fin del día", "terminamos por hoy", "end of day", "cierre de ciclo", "fin de sprint", "context dump", "nuevo proyecto", "init project".
 
 ## Bloque E3/D3 — Componente del instalador
 
@@ -130,7 +149,7 @@ La skill `rituales` se instala por `dev-skills.sh` como una skill propia más; e
 4. **loop-breaker**: tres eventos con el mismo error → el tercero emite el aviso; un error distinto no lo dispara; un éxito intermedio reinicia el contador.
 5. **skill-suggest**: prompt con "vamos a hacer esto en WinUI 3" → un aviso; el mismo prompt otra vez en la misma sesión → nada; prompt sin tecnología nueva → nada.
 6. **session-start**: en un repo con `.ua/knowledge-graph.json` → emite el resumen del grafo; sin base de datos levantada → no falla ni tarda; con `CLAUDEMAX_SESSION_CONTEXT=0` → no emite nada.
-7. **ritual.mjs**: `init-proyecto` sobre una carpeta temporal crea `.claude/` y la nota del vault sin pisar nada; `fin-dia` dos veces el mismo día añade dos entradas al mismo archivo; `fin-ciclo` sin `--si` no reindexa.
+7. **ritual.mjs**: `init-proyecto` sobre una carpeta temporal crea `.claude/` y la nota del vault sin pisar nada; `fin-sesion` sin argumentos escribe una plantilla vacía y dos ejecuciones seguidas no se pisan (sufijo `-2`); `fin-dia` dos veces el mismo día añade dos entradas al mismo archivo; `fin-ciclo` sin `--si` no reindexa.
 
 ## Fuera de alcance
 

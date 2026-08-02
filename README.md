@@ -17,8 +17,8 @@ bash install.sh
 | **21st.dev magic MCP** | Generador de componentes en vivo de [21st.dev](https://21st.dev). | `@21st-dev/magic` (npx) |
 | **Framer Motion + GSAP** | `npm install --save framer-motion gsap` en tu proyecto (se omite si no hay `package.json`). | [framer-motion](https://www.npmjs.com/package/framer-motion), [GSAP](https://gsap.com/docs/v3/) |
 | **skill superpowers** | Clonada en `~/.claude/skills/superpowers/`. Paquete de meta-skills. | [obra/superpowers](https://github.com/obra/superpowers) |
-| **Skills de disciplina de ingeniería** | Propias: `architecture-principles` (fusiona las antiguas skills `solid`, `design-patterns` y `architecture-patterns` en una sola skill SOLID → patrones GoF → arquitectura de sistemas), `conventional-commits`, `skill-mcp-builder` (meta-skill para crear Skills 2.0 y servidores MCP), `no-ai-slop` (anti-slop de *prosa* — documentación, README, artículos; fork propio traducido de `petergyang/no-ai-slop`, MIT. Complementa a `caveman`, que comprime respuestas de sesión: objetivos opuestos) y `rituales` (documenta los cuatro rituales de ciclo de vida de CLAUDEMAX — ver sección [Rituales](#rituales)). | este repo |
-| **rag** | Vault V.A.U.L.T con taxonomía de 6 categorías con color + RAG con PGVector (Docker) + Ollama bge-m3 + backend de embeddings conmutable (`ollama`/`remote`/`kaggle`) + MCP `rag` (`rag_query`/`rag_status`, con filtros `categoria`/`proyecto`). `rag.mjs ingest` también indexa los grafos de conocimiento de Graphify (`.ua/knowledge-graph.json`). También instala `ritual.mjs` junto a `rag.mjs` — los rituales manuales de ciclo de vida (`init-proyecto`/`fin-dia`/`fin-ciclo`, ver sección [Rituales](#rituales)). Auto-instala Docker y Ollama vía winget si faltan. | propia (este repo) |
+| **Skills de disciplina de ingeniería** | Propias: `architecture-principles` (fusiona las antiguas skills `solid`, `design-patterns` y `architecture-patterns` en una sola skill SOLID → patrones GoF → arquitectura de sistemas), `conventional-commits`, `skill-mcp-builder` (meta-skill para crear Skills 2.0 y servidores MCP), `no-ai-slop` (anti-slop de *prosa* — documentación, README, artículos; fork propio traducido de `petergyang/no-ai-slop`, MIT. Complementa a `caveman`, que comprime respuestas de sesión: objetivos opuestos) y `rituales` (documenta los cinco rituales de ciclo de vida de CLAUDEMAX — ver sección [Rituales](#rituales)). | este repo |
+| **rag** | Vault V.A.U.L.T con taxonomía de 6 categorías con color + RAG con PGVector (Docker) + Ollama bge-m3 + backend de embeddings conmutable (`ollama`/`remote`/`kaggle`) + MCP `rag` (`rag_query`/`rag_status`, con filtros `categoria`/`proyecto`). `rag.mjs ingest` también indexa los grafos de conocimiento de Graphify (`.ua/knowledge-graph.json`). También instala `ritual.mjs` junto a `rag.mjs` — los rituales manuales de ciclo de vida (`init-proyecto`/`fin-sesion`/`fin-dia`/`fin-ciclo`, ver sección [Rituales](#rituales)). Auto-instala Docker y Ollama vía winget si faltan. | propia (este repo) |
 | **graphify** | Plugin Understand-Anything: grafos de conocimiento interactivos del codebase. Se instala como **plugin** (no como skill suelta), así que vive en `~/.claude/plugins/cache/understand-anything/` y sus 9 skills aparecen con el prefijo `understand-anything:` — `/understand`, `/understand-dashboard`, `/understand-diff`, `/understand-domain`, `/understand-explain`, `/understand-chat`, `/understand-onboard`, `/understand-figma`, `/understand-knowledge`. Genera `.ua/knowledge-graph.json` por proyecto: ese JSON lo indexa el RAG (para el LLM) y el dashboard es la vista para ti. | [Egonex-AI/Understand-Anything](https://github.com/Egonex-AI/Understand-Anything) |
 | **cyber-neo** | Skill de auditoría de seguridad: OWASP 2025 Top 10 y CWE Top 25, escaneo de dependencias, secretos, SAST y configuración. Solo lectura; reporte en `~/Desktop/`. Clonada con commit fijado. | [Hainrixz/cyber-neo](https://github.com/Hainrixz/cyber-neo) |
 | **parsers** | Ingesta de archivos para el RAG: **MarkItDown** (cualquier archivo → markdown, con MCP oficial `markitdown`), **opendataloader-pdf** (PDFs complejos) y **whisper-ctranslate2** (audio → texto, CPU). Auto-instala Python y el JDK vía winget si faltan. | [markitdown](https://github.com/microsoft/markitdown), [opendataloader-pdf](https://github.com/opendataloader-project/opendataloader-pdf), [whisper-ctranslate2](https://github.com/Softcatala/whisper-ctranslate2) |
@@ -69,7 +69,7 @@ arranca la sesión; desactívalo con `CLAUDEMAX_SESSION_CONTEXT=0` si te resulta
    - `/cyber-neo <ruta>` — auditoría de seguridad OWASP/CWE del proyecto.
    - `skill-mcp-builder` — para crear nuevas Skills 2.0 o servidores MCP.
    - `no-ai-slop` — pide que audite o edite un borrador (README, artículo, mensaje) para quitarle "slop" de IA sin perder tu voz.
-   - `rituales` — documenta los cuatro rituales de ciclo de vida (ver sección [Rituales](#rituales)). Di "terminamos por hoy" o "cerramos el sprint" y deja que se dispare sola, o pídela por nombre.
+   - `rituales` — documenta los cinco rituales de ciclo de vida (ver sección [Rituales](#rituales)). Di "cerramos la sesión", "terminamos por hoy" o "cerramos el sprint" y deja que se dispare sola, o pídela por nombre.
    - Edita un `.tsx`/`.css`/`.vue`/`.html` — el hook `ui-audit.mjs` revisa el resultado y avisa por `system-reminder` si detecta anti-patrones de UI (gradient text de relleno, nombres placeholder, tarjetas idénticas, etc.). No bloquea nada; desactívalo con `CLAUDEMAX_UI_AUDIT=0` si te resulta ruidoso.
    - Intenta un `git commit` con un footer de atribución de IA — el hook `git-footer-guard.mjs` lo bloquea (ver sección [Reglas operativas](#reglas-operativas)).
 
@@ -127,16 +127,17 @@ fuente: informe.pdf        # opcional; lo rellenan los parsers
 ---
 ```
 
-| Categoría | Color | Carpeta | Contenido |
+| Categoría | Color | Carpeta | Significado |
 |---|---|---|---|
 | `codigo` | `#4A90D9` azul | `Codigo/` | Repos, arquitectura, snippets, grafos de Graphify |
 | `proyectos` | `#5CB85C` verde | `Proyectos/` | Planes, decisiones, sprints, specs |
-| `organizacion` | `#9B59B6` morado | `Organizacion/` | Empresa, marca, clientes, procesos |
-| `investigacion` | `#E8912D` naranja | `Investigacion/` | PDFs parseados, papers, transcripciones |
-| `personal` | `#E05C6E` rojo suave | `Journal/` | Journal diario, ideas del Inbox |
-| `aprendizaje` | `#17A2B8` turquesa | `Aprendizaje/` | Apuntes de tecnologías, tutoriales, skills |
+| `organizacion` | `#9B59B6` morado | `Organizacion/` | Parte legal y conceptual de la organización: miembros y roles, estatutos, contratos, marca, procesos internos, clientes |
+| `investigacion` | `#E8912D` naranja | `Investigacion/` | Lo que se pregunta e investiga para decidir algo: estilos de diseño, comparativas de herramientas, papers, PDFs parseados, transcripciones |
+| `personal` (tag `personal/bitacora`) | `#E05C6E` rojo suave | `Journal/` | Bitácoras: registro cronológico del trabajo diario |
+| `personal` (tag `personal/sesion`) | `#E05C6E` rojo suave | `00-Inbox/` | Lo último que se habló en cada sesión de Claude Code: continuidad de contexto entre sesiones (qué se hizo, en qué punto se quedó, qué sigue) |
+| `aprendizaje` | `#17A2B8` turquesa | `Aprendizaje/` | Errores cometidos y su lección (postmortems), NO apuntes de tecnologías |
 
-Si falta `categoria` en el frontmatter, `rag.mjs ingest` la infiere de la carpeta (`Codigo/` → `codigo`); si tampoco puede, la nota queda sin categoría y el ingestor avisa al terminar. `.obsidian/graph.json` trae un grupo de color por categoría para el grafo de Obsidian.
+Si falta `categoria` en el frontmatter, `rag.mjs ingest` la infiere de la carpeta (`Codigo/` → `codigo`); si tampoco puede, la nota queda sin categoría y el ingestor avisa al terminar. `.obsidian/graph.json` trae un grupo de color por categoría para el grafo de Obsidian. Cada carpeta trae su propio `README.md` con ejemplos concretos de qué nota va ahí y qué no.
 
 Filtra las consultas por categoría y/o proyecto (combinables):
 
@@ -199,15 +200,16 @@ variable de escape para desactivarlo sin desinstalar nada:
 
 ## Rituales
 
-Cuatro rituales cubren el ciclo de vida completo de una sesión o proyecto: uno automático y
-tres manuales que ejecuta `node R.A.G/ritual.mjs` (se instala junto a `rag.mjs`, mismo `.env`).
+Cinco rituales cubren el ciclo de vida completo de una sesión o proyecto: uno automático y
+cuatro manuales que ejecuta `node R.A.G/ritual.mjs` (se instala junto a `rag.mjs`, mismo `.env`).
 La skill `rituales` los documenta para que el modelo sepa cuándo invocarlos.
 
 | Ritual | Cuándo | Comando |
 |---|---|---|
 | **Inicio de sesión** (automático) | Cada arranque de sesión, sin pedirlo. | — (hook `session-start.mjs`) |
 | **Init de proyecto** | Repo/proyecto nuevo dentro del workspace. | `node R.A.G/ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto]` |
-| **Fin de día** (menor) | "Terminamos por hoy", al cerrar la jornada. | `node R.A.G/ritual.mjs fin-dia [--resumen "texto"]` |
+| **Fin de sesión** (menor) | Al cerrar una sesión de trabajo, para que la siguiente retome el hilo. | `node R.A.G/ritual.mjs fin-sesion [--resumen "texto"] [--siguiente "texto"]` |
+| **Fin de día** (menor) | "Terminamos por hoy", al cerrar la jornada completa. | `node R.A.G/ritual.mjs fin-dia [--resumen "texto"]` |
 | **Fin de ciclo** (mayor) | "Cierre de ciclo" / "fin de sprint". | `node R.A.G/ritual.mjs fin-ciclo [--ciclo nombre] [--proyecto nombre] --si` |
 
 `init-proyecto` crea `.claude/CLAUDEMAX.md` (la plantilla `templates/rules/proyecto.md` con sus
@@ -215,11 +217,15 @@ marcadores sustituidos) y `.claude/CLAUDE.md` en el repo destino, más la nota �
 `V.A.U.L.T/Proyectos/<nombre>/00-indice.md` con el frontmatter de taxonomía. Nunca sobrescribe
 nada que ya exista.
 
-La diferencia clave entre los dos rituales manuales de cierre:
+La diferencia clave entre los tres rituales manuales de cierre:
 
-- **`fin-dia`** es barato: solo añade una entrada horaria a `V.A.U.L.T/Journal/YYYY-MM-DD.md`.
-  Deliberadamente **no** reindexa el RAG ni regenera grafos de Graphify — puedes llamarlo varias
-  veces al día sin coste. El contenido se indexa en el siguiente `rag.mjs ingest`.
+- **`fin-sesion`** escribe en `V.A.U.L.T/00-Inbox/` (categoría `personal`, tag
+  `personal/sesion`): continuidad entre sesiones de Claude Code — qué se hizo y qué sigue.
+  Úsalo al cerrar *una sesión* de trabajo, no el día completo.
+- **`fin-dia`** es barato: solo añade una entrada horaria a `V.A.U.L.T/Journal/YYYY-MM-DD.md`
+  (categoría `personal`, tag `personal/bitacora`). Deliberadamente **no** reindexa el RAG ni
+  regenera grafos de Graphify — puedes llamarlo varias veces al día sin coste. Igual que
+  `fin-sesion`, el contenido se indexa en el siguiente `rag.mjs ingest`.
 - **`fin-ciclo`** es caro y exige confirmación: sin `--si` solo imprime el plan y no toca nada
   ni se conecta a la base de datos. Con `--si` escribe la nota de cierre, ejecuta
   `rag.mjs reindex` (respetando `EMBED_BACKEND`, sugiriendo `--backend kaggle` si hay

@@ -71,3 +71,17 @@ Toda nota nueva que escribas en `V.A.U.L.T/` lleva el frontmatter de categoría 
 en `V.A.U.L.T/_plantilla.md`: `categoria` (obligatoria, una de las seis oficiales) y
 `proyecto` (opcional, clave transversal que relaciona notas de distintas categorías). Sin
 ese frontmatter la nota queda mal clasificada en el grafo y en las búsquedas del RAG.
+Clasifica según qué es la nota, no según dónde ocurrió la conversación:
+
+- `00-Inbox/` (`personal`, tag `personal/sesion`): continuidad entre sesiones de Claude
+  Code — qué se hizo, en qué punto se quedó, qué sigue. La escribe el ritual `fin-sesion`.
+- `Journal/` (`personal`, tag `personal/bitacora`): bitácora cronológica del trabajo
+  diario. La escribe el ritual `fin-dia`.
+- `Aprendizaje/` (`aprendizaje`): errores cometidos y su lección — postmortems de qué
+  falló, por qué, y cómo evitarlo. NO son apuntes de tecnologías ni tutoriales.
+- `Investigacion/` (`investigacion`): lo que se pregunta e investiga para decidir algo —
+  comparativas de herramientas, estilos de diseño, papers, PDFs parseados, transcripciones.
+- `Organizacion/` (`organizacion`): parte legal y conceptual de la organización — miembros
+  y roles, estatutos, contratos, marca, procesos internos, clientes.
+- `Codigo/` (`codigo`): repos, arquitectura, snippets, grafos de Graphify.
+- `Proyectos/` (`proyectos`): planes, decisiones, sprints, specs.
