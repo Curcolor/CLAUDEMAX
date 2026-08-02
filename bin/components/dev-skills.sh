@@ -11,7 +11,7 @@
 
 SUPERPOWERS_REPO="https://github.com/obra/superpowers"
 
-FIRST_PARTY_SKILLS=(architecture-principles conventional-commits skill-mcp-builder no-ai-slop)
+FIRST_PARTY_SKILLS=(architecture-principles conventional-commits skill-mcp-builder no-ai-slop rituales)
 
 ac_component_dev_skills() {
     ac_step "Skills de ingeniería — superpowers + architecture-principles + conventional-commits + skill-mcp-builder + no-ai-slop"

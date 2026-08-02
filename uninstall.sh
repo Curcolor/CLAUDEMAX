@@ -76,7 +76,7 @@ ac_run rm -rf "$CLAUDE_CONFIG_DIR/skills/repo-map"
 
 # --- dev-skills (superpowers + SOLID + design-patterns + conventional-commits + architecture-patterns + skill-mcp-builder + no-ai-slop)
 ac_step "Skills de ingeniería (superpowers + architecture-principles + conventional-commits + skill-mcp-builder + no-ai-slop + nombres legados)"
-for s in superpowers solid design-patterns conventional-commits architecture-patterns architecture-principles skill-mcp-builder no-ai-slop; do
+for s in superpowers solid design-patterns conventional-commits architecture-patterns architecture-principles skill-mcp-builder no-ai-slop rituales; do
     ac_run rm -rf "$CLAUDE_CONFIG_DIR/skills/$s"
 done
 
@@ -95,6 +95,23 @@ if [ -f "$CLAUDE_CONFIG_DIR/settings.json" ]; then
         ac_info "Hook de auditoría de UI eliminado de settings.json (respaldo: $CLAUDE_CONFIG_DIR/settings.json.bak)"
     fi
 fi
+
+# --- Reglas y rituales: los cuatro hooks de cumplimiento y contexto.
+# Las reglas del workspace (<RAG_ROOT>/.claude/) NO se borran: el usuario pudo editarlas.
+ac_step "Reglas y rituales (hooks)"
+for h in git-footer-guard loop-breaker skill-suggest session-start; do
+    ac_run rm -f "$CLAUDE_CONFIG_DIR/hooks/$h.mjs"
+    if [ -f "$CLAUDE_CONFIG_DIR/settings.json" ]; then
+        if [ "$DRY_RUN" = "1" ]; then
+            ac_dim "\$ eliminar entradas de hook que contengan '$h.mjs' de $CLAUDE_CONFIG_DIR/settings.json"
+        else
+            ac_remove_hook "$CLAUDE_CONFIG_DIR/settings.json" "$h.mjs"
+        fi
+    fi
+done
+ac_run rm -f "$CLAUDE_CONFIG_DIR/state/loop-breaker.json"
+ac_run rm -f "$CLAUDE_CONFIG_DIR/state/skill-suggest.json"
+ac_dim "  (se conservan: las reglas de <RAG_ROOT>/.claude/ — puedes haberlas editado)"
 
 # --- Cyber Neo (clon git aparte; no forma parte del loop de skills de ingeniería)
 ac_step "Cyber Neo"

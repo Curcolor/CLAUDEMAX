@@ -142,7 +142,7 @@ ac_rag_stack() {
     ac_info "Stack RAG: $mode en $dst"
     ac_run mkdir -p "$dst"
     # Copia las plantillas sin sobrescribir un .env existente
-    for f in docker-compose.yml schema.sql .env.example package.json .gitignore rag.mjs mcp-server.mjs kaggle-embed.mjs; do
+    for f in docker-compose.yml schema.sql .env.example package.json .gitignore rag.mjs mcp-server.mjs kaggle-embed.mjs ritual.mjs; do
         ac_run cp "$AC_REPO_DIR/templates/rag/$f" "$dst/$f"
     done
     # Backend Kaggle (Bloque 2, subproyecto F): plantillas del kernel que corre en la nube

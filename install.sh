@@ -53,7 +53,7 @@ ONLY=()
 SKIP=()
 AC_CONFIG_DIR_OVERRIDE=""
 
-ALL_COMPONENTS=(rtk caveman figma ui-ux dev-skills rag graphify cyber-neo parsers)
+ALL_COMPONENTS=(rtk caveman figma ui-ux dev-skills rag graphify cyber-neo parsers rules)
 
 usage() {
     cat <<EOF
@@ -189,6 +189,10 @@ component_run() {
         parsers)
             . "$AC_REPO_DIR/bin/components/parsers.sh"
             ac_component_parsers
+            ;;
+        rules)
+            . "$AC_REPO_DIR/bin/components/rules.sh"
+            ac_component_rules
             ;;
         *)
             ac_warn "Componente desconocido: $id (válidos: ${ALL_COMPONENTS[*]})"
