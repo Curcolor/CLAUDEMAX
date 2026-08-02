@@ -17,11 +17,12 @@ bash install.sh
 | **21st.dev magic MCP** | Generador de componentes en vivo de [21st.dev](https://21st.dev). | `@21st-dev/magic` (npx) |
 | **Framer Motion + GSAP** | `npm install --save framer-motion gsap` en tu proyecto (se omite si no hay `package.json`). | [framer-motion](https://www.npmjs.com/package/framer-motion), [GSAP](https://gsap.com/docs/v3/) |
 | **skill superpowers** | Clonada en `~/.claude/skills/superpowers/`. Paquete de meta-skills. | [obra/superpowers](https://github.com/obra/superpowers) |
-| **Skills de disciplina de ingeniería** | Propias: `architecture-principles` (fusiona las antiguas skills `solid`, `design-patterns` y `architecture-patterns` en una sola skill SOLID → patrones GoF → arquitectura de sistemas), `conventional-commits`, `skill-mcp-builder` (meta-skill para crear Skills 2.0 y servidores MCP) y `no-ai-slop` (anti-slop de *prosa* — documentación, README, artículos; fork propio traducido de `petergyang/no-ai-slop`, MIT. Complementa a `caveman`, que comprime respuestas de sesión: objetivos opuestos). | este repo |
-| **rag** | Vault V.A.U.L.T con taxonomía de 6 categorías con color + RAG con PGVector (Docker) + Ollama bge-m3 + backend de embeddings conmutable (`ollama`/`remote`/`kaggle`) + MCP `rag` (`rag_query`/`rag_status`, con filtros `categoria`/`proyecto`). `rag.mjs ingest` también indexa los grafos de conocimiento de Graphify (`.ua/knowledge-graph.json`). Auto-instala Docker y Ollama vía winget si faltan. | propia (este repo) |
+| **Skills de disciplina de ingeniería** | Propias: `architecture-principles` (fusiona las antiguas skills `solid`, `design-patterns` y `architecture-patterns` en una sola skill SOLID → patrones GoF → arquitectura de sistemas), `conventional-commits`, `skill-mcp-builder` (meta-skill para crear Skills 2.0 y servidores MCP), `no-ai-slop` (anti-slop de *prosa* — documentación, README, artículos; fork propio traducido de `petergyang/no-ai-slop`, MIT. Complementa a `caveman`, que comprime respuestas de sesión: objetivos opuestos) y `rituales` (documenta los cuatro rituales de ciclo de vida de CLAUDEMAX — ver sección [Rituales](#rituales)). | este repo |
+| **rag** | Vault V.A.U.L.T con taxonomía de 6 categorías con color + RAG con PGVector (Docker) + Ollama bge-m3 + backend de embeddings conmutable (`ollama`/`remote`/`kaggle`) + MCP `rag` (`rag_query`/`rag_status`, con filtros `categoria`/`proyecto`). `rag.mjs ingest` también indexa los grafos de conocimiento de Graphify (`.ua/knowledge-graph.json`). También instala `ritual.mjs` junto a `rag.mjs` — los rituales manuales de ciclo de vida (`init-proyecto`/`fin-dia`/`fin-ciclo`, ver sección [Rituales](#rituales)). Auto-instala Docker y Ollama vía winget si faltan. | propia (este repo) |
 | **graphify** | Plugin Understand-Anything: grafos de conocimiento interactivos del codebase. Comandos `/understand`, `/understand-dashboard`, `/understand-diff`, `/understand-domain`. Genera `.ua/knowledge-graph.json` por proyecto. | [Egonex-AI/Understand-Anything](https://github.com/Egonex-AI/Understand-Anything) |
 | **cyber-neo** | Skill de auditoría de seguridad: OWASP 2025 Top 10 y CWE Top 25, escaneo de dependencias, secretos, SAST y configuración. Solo lectura; reporte en `~/Desktop/`. Clonada con commit fijado. | [Hainrixz/cyber-neo](https://github.com/Hainrixz/cyber-neo) |
 | **parsers** | Ingesta de archivos para el RAG: **MarkItDown** (cualquier archivo → markdown, con MCP oficial `markitdown`), **opendataloader-pdf** (PDFs complejos) y **whisper-ctranslate2** (audio → texto, CPU). Auto-instala Python y el JDK vía winget si faltan. | [markitdown](https://github.com/microsoft/markitdown), [opendataloader-pdf](https://github.com/opendataloader-project/opendataloader-pdf), [whisper-ctranslate2](https://github.com/Softcatala/whisper-ctranslate2) |
+| **rules** | Reglas operativas empaquetadas en el repo (`templates/rules/`) — no en la configuración personal de tu máquina — instaladas en `<RAG_ROOT>/.claude/`: `CLAUDEMAX.md` (las 7 reglas) y `proyecto.md` (plantilla por proyecto) se sobrescriben en cada instalación; `CLAUDE.md` nunca se pisa, solo se le añade `@CLAUDEMAX.md` si falta. Además instala y registra 4 hooks de cumplimiento y contexto: `git-footer-guard.mjs`, `loop-breaker.mjs`, `skill-suggest.mjs`, `session-start.mjs`. Ver sección [Reglas operativas](#reglas-operativas). Último componente en instalarse — sus reglas referencian rutas que crean los pasos anteriores. | propia (este repo) |
 
 ## Instalación
 
@@ -40,7 +41,7 @@ Re-ejecutable. Idempotente. Pasa `--dry-run` para ver exactamente qué haría.
 | Flag | Efecto |
 |---|---|
 | `--all` | Instala todos los componentes (por defecto). |
-| `--only <id>` | Solo un componente. Repetible. ids: `rtk`, `caveman`, `figma`, `ui-ux`, `dev-skills`, `rag`, `graphify`, `cyber-neo`, `parsers`. |
+| `--only <id>` | Solo un componente. Repetible. ids: `rtk`, `caveman`, `figma`, `ui-ux`, `dev-skills`, `rag`, `graphify`, `cyber-neo`, `parsers`, `rules`. |
 | `--skip <id>` | Omite un componente. Repetible. |
 | `--no-npm` | Omite `npm install framer-motion gsap`. |
 | `--with-npm` | Fuerza el paso de npm aunque no haya `package.json` (ejecuta `npm init -y`). |
@@ -52,7 +53,10 @@ Re-ejecutable. Idempotente. Pasa `--dry-run` para ver exactamente qué haría.
 
 ## Después de instalar
 
-Solo quedan dos cosas, y una de ellas es simplemente reiniciar tu editor:
+Solo quedan dos cosas, y una de ellas es simplemente reiniciar tu editor. La sesión ya se
+autocontextualiza sola — no hace falta pedir nada: el hook `session-start` (presupuesto ~5s)
+resume el grafo de Graphify del repo y consulta el RAG por el nombre del proyecto en cuanto
+arranca la sesión; desactívalo con `CLAUDEMAX_SESSION_CONTEXT=0` si te resulta ruidoso.
 
 1. **Reinicia Claude Code** — los hooks y skills se cargan al inicio de la sesión.
 2. **Completa el OAuth de Figma**: abre Claude Code, ejecuta `/mcp`, selecciona `figma`, completa el flujo en el navegador. CLAUDEMAX no guarda tokens de Figma. (Este es el único paso que no podemos automatizar — el OAuth requiere navegador.)
@@ -65,7 +69,9 @@ Solo quedan dos cosas, y una de ellas es simplemente reiniciar tu editor:
    - `/cyber-neo <ruta>` — auditoría de seguridad OWASP/CWE del proyecto.
    - `skill-mcp-builder` — para crear nuevas Skills 2.0 o servidores MCP.
    - `no-ai-slop` — pide que audite o edite un borrador (README, artículo, mensaje) para quitarle "slop" de IA sin perder tu voz.
+   - `rituales` — documenta los cuatro rituales de ciclo de vida (ver sección [Rituales](#rituales)). Di "terminamos por hoy" o "cerramos el sprint" y deja que se dispare sola, o pídela por nombre.
    - Edita un `.tsx`/`.css`/`.vue`/`.html` — el hook `ui-audit.mjs` revisa el resultado y avisa por `system-reminder` si detecta anti-patrones de UI (gradient text de relleno, nombres placeholder, tarjetas idénticas, etc.). No bloquea nada; desactívalo con `CLAUDEMAX_UI_AUDIT=0` si te resulta ruidoso.
+   - Intenta un `git commit` con un footer de atribución de IA — el hook `git-footer-guard.mjs` lo bloquea (ver sección [Reglas operativas](#reglas-operativas)).
 
 ## Ingesta de cualquier archivo
 
@@ -162,6 +168,64 @@ KAGGLE_USERNAME=<usuario> KAGGLE_KEY=<key> RAG_ROOT=<root> bash install.sh --onl
 
 El instalador escribe las credenciales en `.env` y en `~/.kaggle/kaggle.json`, y hace `pip install kaggle`; sin esas variables no toca nada de Kaggle — es estrictamente opcional. Antes de usarlo, completa a mano `KAGGLE_KERNEL_SLUG=<usuario>/claudemax-embed` en `.env` y el campo `id`/`dataset_sources` de `R.A.G/kaggle/kernel-metadata.json` con tu usuario real.
 
+## Reglas operativas
+
+Las reglas de trabajo no viven en la configuración personal de tu máquina — viven en el repo
+(`templates/rules/`) y el componente `rules` las instala en `<RAG_ROOT>/.claude/CLAUDEMAX.md`
+(y las propaga a cada proyecto vía el ritual `init-proyecto`, ver [Rituales](#rituales)). El
+repo es la fuente de verdad: si necesitas cambiar una regla, edítala en `templates/rules/` y
+reinstala — editar `<RAG_ROOT>/.claude/CLAUDEMAX.md` a mano se pierde en la siguiente instalación.
+
+| # | Regla | Cómo se hace cumplir |
+|---|---|---|
+| 1 | **Idioma:** todo el contenido en español (docs, comentarios, mensajes, commits). Skills en modo bilingüe. Identificadores de código y tipos de Conventional Commits en inglés. | Convención — sin hook. |
+| 2 | **Política de modelos:** los spawns de Agent para desarrollo dirigido por subagentes usan Sonnet 5 (`model: "sonnet"` explícito). Las revisiones de código nunca se delegan. | Convención — sin hook. |
+| 3 | **Cortacircuitos de 3 intentos:** tras 3 intentos fallidos con el mismo error, PARAR, resumir al usuario y esperar su respuesta. | `hooks/loop-breaker.mjs` (avisa, no bloquea) |
+| 4 | **Commits:** Conventional Commits, subject en español, y nunca un footer de atribución de IA (`Co-authored-by: Claude`, "Generated with Claude Code", 🤖...). | `hooks/git-footer-guard.mjs` (**bloquea** el commit) |
+| 5 | **Ahorro de tokens / búsqueda de skills:** tecnología nueva sin Skill 2.0 instalada → preguntar al usuario si crear/buscar una, mencionando el compromiso. | `hooks/skill-suggest.mjs` (avisa, no bloquea) |
+| 6 | **Memoria:** el cerebro RAG es la única fuente de retención de contexto entre sesiones. No reinstalar Context7 ni Claude-Mem. | Convención — sin hook. |
+| 7 | **Taxonomía:** toda nota que se escriba en el vault lleva el frontmatter de categoría (ver `V.A.U.L.T/_plantilla.md`). | Convención — sin hook. |
+
+Cuatro hooks Node sin dependencias hacen cumplir las reglas 3, 4 y 5 de forma determinista (y
+`session-start.mjs` da contexto automático, ver [Rituales](#rituales)). Cada uno tiene su propia
+variable de escape para desactivarlo sin desinstalar nada:
+
+| Hook | Evento | ¿Bloquea? | Variable de escape |
+|---|---|---|---|
+| `git-footer-guard.mjs` | `PreToolUse` / `Bash` | **Sí** — el único de los cuatro que bloquea | `CLAUDEMAX_GIT_GUARD=0` |
+| `loop-breaker.mjs` | `PostToolUse` | No, solo avisa (`system-reminder`) | `CLAUDEMAX_LOOP_BREAKER=0` |
+| `skill-suggest.mjs` | `UserPromptSubmit` | No, solo avisa (una vez por sesión y tecnología) | `CLAUDEMAX_SKILL_SUGGEST=0` |
+| `session-start.mjs` | `SessionStart` | No, solo aporta contexto | `CLAUDEMAX_SESSION_CONTEXT=0` |
+
+## Rituales
+
+Cuatro rituales cubren el ciclo de vida completo de una sesión o proyecto: uno automático y
+tres manuales que ejecuta `node R.A.G/ritual.mjs` (se instala junto a `rag.mjs`, mismo `.env`).
+La skill `rituales` los documenta para que el modelo sepa cuándo invocarlos.
+
+| Ritual | Cuándo | Comando |
+|---|---|---|
+| **Inicio de sesión** (automático) | Cada arranque de sesión, sin pedirlo. | — (hook `session-start.mjs`) |
+| **Init de proyecto** | Repo/proyecto nuevo dentro del workspace. | `node R.A.G/ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto]` |
+| **Fin de día** (menor) | "Terminamos por hoy", al cerrar la jornada. | `node R.A.G/ritual.mjs fin-dia [--resumen "texto"]` |
+| **Fin de ciclo** (mayor) | "Cierre de ciclo" / "fin de sprint". | `node R.A.G/ritual.mjs fin-ciclo [--ciclo nombre] [--proyecto nombre] --si` |
+
+`init-proyecto` crea `.claude/CLAUDEMAX.md` (la plantilla `templates/rules/proyecto.md` con sus
+marcadores sustituidos) y `.claude/CLAUDE.md` en el repo destino, más la nota índice
+`V.A.U.L.T/Proyectos/<nombre>/00-indice.md` con el frontmatter de taxonomía. Nunca sobrescribe
+nada que ya exista.
+
+La diferencia clave entre los dos rituales manuales de cierre:
+
+- **`fin-dia`** es barato: solo añade una entrada horaria a `V.A.U.L.T/Journal/YYYY-MM-DD.md`.
+  Deliberadamente **no** reindexa el RAG ni regenera grafos de Graphify — puedes llamarlo varias
+  veces al día sin coste. El contenido se indexa en el siguiente `rag.mjs ingest`.
+- **`fin-ciclo`** es caro y exige confirmación: sin `--si` solo imprime el plan y no toca nada
+  ni se conecta a la base de datos. Con `--si` escribe la nota de cierre, ejecuta
+  `rag.mjs reindex` (respetando `EMBED_BACKEND`, sugiriendo `--backend kaggle` si hay
+  credenciales y muchas notas), recuerda regenerar los grafos con `/understand`, e imprime un
+  resumen final de documentos indexados por categoría.
+
 ## Formato Skills 2.0
 
 Cada skill propia en `skills/<name>/` incluye tres archivos:
@@ -194,7 +258,7 @@ Sin telemetría. El instalador no hace llamadas de analítica. Sí delega en:
 - `npx -y github:JuliusBrussee/caveman` (el instalador de Caveman descarga desde GitHub y npm).
 - `claude mcp add` (CLI de Anthropic) para los registros MCP de Figma, 21st.dev magic, `rag` y `markitdown`.
 - `claude plugin marketplace add` / `claude plugin install` para el plugin Understand-Anything.
-- `git clone` para la skill superpowers (`obra/superpowers`) y para `cyber-neo` (con commit fijado). Las demás skills propias (`architecture-principles`, `conventional-commits`, `skill-mcp-builder`, `ui-ux-pro-max`, `no-ai-slop`) se copian directo desde este repo — sin llamadas de red.
+- `git clone` para la skill superpowers (`obra/superpowers`) y para `cyber-neo` (con commit fijado). Las demás skills propias (`architecture-principles`, `conventional-commits`, `skill-mcp-builder`, `ui-ux-pro-max`, `no-ai-slop`, `rituales`) y los cuatro hooks de `rules` se copian directo desde este repo — sin llamadas de red.
 - `npm install framer-motion gsap` en tu cwd (solo si existe un `package.json` o se pasa `--with-npm`).
 - `winget install` para dependencias de sistema que falten: Docker Desktop, Ollama, Python 3.12 y Temurin JDK 21.
 - `pip install` para los parsers (`markitdown[all]`, `markitdown-mcp`, `opendataloader-pdf`, `whisper-ctranslate2`) y `ollama pull bge-m3` para el modelo de embeddings (todo local; los embeddings nunca salen de tu máquina con los backends `ollama`/`remote`).
