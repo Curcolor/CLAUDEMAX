@@ -1,15 +1,15 @@
 #!/usr/bin/env node
-// Envoltura del wizard sobre la detección de dependencias y sobre install.sh.
+// Envoltura del wizard sobre la detección de dependencias y sobre bin/install.sh.
 //
 // Decisión de enfoque (pedida explícitamente por la especificación): para detectar
 // dependencias, este módulo NO reimplementa `command -v` binario por binario en Node.
 // En su lugar lanza UN SOLO proceso bash que:
 //   1. hace `source` de bin/lib/detect.sh y llama a ac_detect_all() — exactamente la misma
-//      función que usa install.sh, así que node/git/npm/claude/os nunca pueden divergir
+//      función que usa bin/install.sh, así que node/git/npm/claude/os nunca pueden divergir
 //      entre "lo que detecta el wizard" y "lo que detecta el instalador real";
 //   2. añade unos pocos `command -v` extra para las herramientas que detect.sh no cubre
 //      pero que el wizard sí necesita mostrar (docker + su daemon, ollama, python, java,
-//      winget) — necesarios porque detect.sh solo se preocupa de lo que install.sh exige
+//      winget) — necesarios porque detect.sh solo se preocupa de lo que bin/install.sh exige
 //      como mínimo (curl/git/node/npm/claude), no de las dependencias de los componentes;
 //   3 vuelca todo como líneas `CLAVE=valor` por stdout, fáciles de parsear.
 //
@@ -61,8 +61,8 @@ export function localizarBash() {
     return null;
 }
 
-// Extrae ALL_COMPONENTS de install.sh con una expresión regular — el wizard nunca
-// mantiene su propia copia de la lista de componentes (ver install.sh:56).
+// Extrae ALL_COMPONENTS de bin/install.sh con una expresión regular — el wizard nunca
+// mantiene su propia copia de la lista de componentes (ver bin/install.sh:57).
 export function leerComponentes(rutaInstallSh) {
     const contenido = fs.readFileSync(rutaInstallSh, "utf8");
     const m = contenido.match(/ALL_COMPONENTS=\(([^)]*)\)/);

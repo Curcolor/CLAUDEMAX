@@ -7,7 +7,7 @@ ac_component_figma() {
 
     if [ "$AC_HAS_CLAUDE" != "1" ]; then
         ac_warn "El CLI claude no está en el PATH — se omite el registro del MCP de Figma."
-        ac_warn "Instala Claude Code y vuelve a ejecutar: bash install.sh --only figma"
+        ac_warn "Instala Claude Code y vuelve a ejecutar: bash bin/install.sh --only figma"
         return 0
     fi
 

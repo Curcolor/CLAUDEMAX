@@ -2,8 +2,10 @@
 
 Un solo comando bash. Todos los ahorradores de tokens, skills de UX/UI, el cerebro RAG y las herramientas de análisis para Claude Code, cableados y listos. El OAuth de Figma es el único paso manual.
 
+En Windows, doble clic en `CLAUDEMAX-INSTALLER.cmd`. En macOS/Linux/WSL:
+
 ```bash
-bash install.sh
+bash bin/install.sh
 ```
 
 ## Qué incluye
@@ -39,7 +41,7 @@ si ya tienes Node instalado, invócalo directo:
 node bin/wizard/wizard.mjs
 ```
 
-Un asistente de 9 pasos que **orquesta** `install.sh` en vez de reimplementarlo: recoge tus
+Un asistente de 9 pasos que **orquesta** `bin/install.sh` en vez de reimplementarlo: recoge tus
 decisiones, te enseña la línea de comando exacta que va a ejecutar y solo entonces la lanza.
 
 1. Bienvenida.
@@ -49,26 +51,28 @@ decisiones, te enseña la línea de comando exacta que va a ejecutar y solo ento
 5. Vault: crear desde cero / importar uno existente / conectar a uno remoto.
 6. RAG: los mismos tres modos, más Kaggle opcional (usuario y clave, la clave sin eco en pantalla).
 7. Resumen auditable — la línea de comando completa con sus variables, antes de tocar nada.
-8. Ejecución — stdout/stderr real de `install.sh`, sin reformatear.
+8. Ejecución — stdout/stderr real de `bin/install.sh`, sin reformatear.
 9. Resumen final y próximos pasos.
 
-Flags propios del wizard (no confundir con los de `install.sh` de más abajo): `--dry-run`
+Flags propios del wizard (no confundir con los de `bin/install.sh` de más abajo): `--dry-run`
 (simula sin cambiar nada), `--defaults` (acepta todos los valores por defecto, para reinstalar
 rápido sin que pregunte nada — combinable con `--dry-run`), `--no-color` y `--uninstall` (ver
 [Desinstalación](#desinstalación)). Detalle completo en [INSTALL.md](INSTALL.md#wizard-interactivo).
 
-### Vía scripted: flags directos a `install.sh`
+### Vía scripted: flags directos a `bin/install.sh`
 
-Para automatización, CI, o si prefieres no pasar por el wizard — `install.sh` sigue funcionando
+Para automatización, CI, o si prefieres no pasar por el wizard — `bin/install.sh` sigue funcionando
 exactamente igual que siempre; el wizard de arriba solo le pasa flags y variables de entorno, no
-hay dos instaladores que mantener sincronizados:
+hay dos instaladores que mantener sincronizados. En Windows el punto de entrada normal es el
+doble clic en `CLAUDEMAX-INSTALLER.cmd`; esta vía scripted es para macOS/Linux/WSL (o Windows con
+Git Bash a mano):
 
 ```bash
 # Desde un clon de este repo:
-bash install.sh
+bash bin/install.sh
 
 # O, una vez publicado, en una línea:
-curl -fsSL https://raw.githubusercontent.com/Curcolor/CLAUDEMAX/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Curcolor/CLAUDEMAX/main/bin/install.sh | bash
 ```
 
 Re-ejecutable. Idempotente. Pasa `--dry-run` para ver exactamente qué haría.
@@ -85,7 +89,7 @@ Re-ejecutable. Idempotente. Pasa `--dry-run` para ver exactamente qué haría.
 | `--dry-run` | Imprime cada comando. No toca nada. |
 | `--force` | Reinstala componentes que se detectan a sí mismos como ya instalados. |
 | `--config-dir <path>` | Sobrescribe `$CLAUDE_CONFIG_DIR` (por defecto `~/.claude`). |
-| `--uninstall` | Delega en `uninstall.sh`. |
+| `--uninstall` | Delega en `bin/uninstall.sh`. |
 | `--no-color` | Desactiva los colores ANSI. |
 
 ## Después de instalar
@@ -134,7 +138,7 @@ MarkItDown también queda registrado como MCP (`markitdown`), así que puedes pe
 ## Inicio rápido de RAG
 
 ```bash
-RAG_ROOT=<workspace-root> VAULT_MODE=create RAG_MODE=create bash install.sh --only rag
+RAG_ROOT=<workspace-root> VAULT_MODE=create RAG_MODE=create bash bin/install.sh --only rag
 # luego:
 cd <workspace-root>/R.A.G
 node rag.mjs ingest          # indexa el vault
@@ -205,7 +209,7 @@ Regla dura: si `EMBED_BACKEND=kaggle` y ejecutas `query`, `rag.mjs` cae automát
 Para habilitar Kaggle en la instalación:
 
 ```bash
-KAGGLE_USERNAME=<usuario> KAGGLE_KEY=<key> RAG_ROOT=<root> bash install.sh --only rag
+KAGGLE_USERNAME=<usuario> KAGGLE_KEY=<key> RAG_ROOT=<root> bash bin/install.sh --only rag
 ```
 
 El instalador escribe las credenciales en `.env` y en `~/.kaggle/kaggle.json`, y hace `pip install kaggle`; sin esas variables no toca nada de Kaggle — es estrictamente opcional. Antes de usarlo, completa a mano `KAGGLE_KERNEL_SLUG=<usuario>/claudemax-embed` en `.env` y el campo `id`/`dataset_sources` de `R.A.G/kaggle/kernel-metadata.json` con tu usuario real.
@@ -295,10 +299,10 @@ Doble clic en `CLAUDEMAX-UNINSTALLER.cmd` (Windows) — igual de autosuficiente 
 (instala Node/Git Bash solo si faltan) — lanza el wizard en modo desinstalación
 (`wizard.mjs --uninstall`), que muestra en una tabla de dos columnas qué se borra y qué se
 conserva, y exige escribir la palabra `desinstalar` completa para confirmar, por ser una
-operación destructiva. O directo:
+operación destructiva. O directo (macOS/Linux/WSL, o Windows con Git Bash a mano):
 
 ```bash
-bash uninstall.sh
+bash bin/uninstall.sh
 ```
 
 Desmontaje simétrico. Deja los archivos por-repo (los que un `--with-init` de una instalación antigua de Caveman pudo haber escrito, `framer-motion`/`gsap` en el `node_modules` de tu proyecto) para que los borres a mano.

@@ -3,13 +3,13 @@
 // descrito en docs/superpowers/specs/2026-08-02-wizard-design.md.
 //
 // Principio rector (de la spec): el wizard NO reimplementa la instalación, la orquesta.
-// Toda la lógica de instalación sigue viviendo en install.sh y bin/components/*.sh; este
+// Toda la lógica de instalación sigue viviendo en bin/install.sh y bin/components/*.sh; este
 // archivo solo recoge decisiones del usuario y las traduce a flags + variables de entorno
-// para `bash install.sh`, que se lanza con stdio heredado (paso 8) sin reformatear su
+// para `bash bin/install.sh`, que se lanza con stdio heredado (paso 8) sin reformatear su
 // salida.
 //
-// Flags propios del wizard (no confundir con los de install.sh):
-//   --uninstall   modo desinstalación (delega en uninstall.sh)
+// Flags propios del wizard (no confundir con los de bin/install.sh):
+//   --uninstall   modo desinstalación (delega en bin/uninstall.sh)
 //   --dry-run     fuerza modo simulación sin preguntarlo en el paso 7
 //   --defaults    acepta todos los valores por defecto sin preguntar nada
 //   --no-color    desactiva los colores ANSI
@@ -24,8 +24,8 @@ import * as ui from "./ui.mjs";
 import { localizarBash, leerComponentes, detectar } from "./detect.mjs";
 
 const REPO_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const INSTALL_SH = path.join(REPO_DIR, "install.sh");
-const UNINSTALL_SH = path.join(REPO_DIR, "uninstall.sh");
+const INSTALL_SH = path.join(REPO_DIR, "bin", "install.sh");
+const UNINSTALL_SH = path.join(REPO_DIR, "bin", "uninstall.sh");
 
 // Total de pasos del flujo normal (no del modo --uninstall, que es un flujo aparte más corto
 // y no se numera igual). Usado por cada llamada a ui.titulo() para mostrar "Paso N de 9".
@@ -49,7 +49,7 @@ process.on("exit", () => ui.cerrarInterfaz());
 
 // --- Mapa id → descripción de una línea -------------------------------------------------
 // Los .sh de bin/components/ no tienen un campo estructurado para esto, así que vive aquí.
-// Si install.sh gana un componente nuevo y este mapa no se actualiza, no falla: se muestra
+// Si bin/install.sh gana un componente nuevo y este mapa no se actualiza, no falla: se muestra
 // con una descripción genérica (ver descripcionDe() más abajo).
 const DESCRIPCIONES = {
     rtk: "RTK — proxy CLI que reescribe comandos frecuentes (git, npm...) para ahorrar tokens.",
@@ -112,7 +112,7 @@ function comprobarDestino(ruta) {
         }
 
         // No existe todavía: busca el primer ancestro existente y comprueba que sea
-        // escribible (ahí es donde install.sh haría el mkdir -p).
+        // escribible (ahí es donde bin/install.sh haría el mkdir -p).
         let actual = ruta;
         let padre = path.dirname(actual);
         while (!fs.existsSync(padre) && padre !== actual) {
@@ -167,7 +167,7 @@ async function pasoBienvenida() {
     ui.titulo("Bienvenida", { paso: 1, total: TOTAL_PASOS });
     console.log(
         "Este asistente prepara tu workspace de CLAUDEMAX: detecta qué falta, deja elegir qué " +
-            "componentes instalar, y arma la línea de comando de install.sh para que la revises " +
+            "componentes instalar, y arma la línea de comando de bin/install.sh para que la revises " +
             "antes de ejecutarla — nunca instala nada por su cuenta.\n"
     );
     if (FLAGS.defaults) return;
@@ -435,7 +435,7 @@ async function pasoRag() {
     return env;
 }
 
-// --- Construcción de la línea de comando / entorno para install.sh -------------------------
+// --- Construcción de la línea de comando / entorno para bin/install.sh -------------------------
 
 function construirArgumentos(estado) {
     const idsDetectados = leerComponentes(INSTALL_SH);
@@ -496,12 +496,12 @@ async function pasoResumen(estado) {
         {
             id: "ejecutar",
             etiqueta: "Ejecutar la instalación de verdad",
-            detalle: "Corre install.sh con la línea de arriba tal cual — a partir de aquí sí cambia tu sistema.",
+            detalle: "Corre bin/install.sh con la línea de arriba tal cual — a partir de aquí sí cambia tu sistema.",
         },
         {
             id: "simular",
             etiqueta: "Simular (--dry-run) — no cambia nada, solo imprime",
-            detalle: "Corre install.sh en modo simulación: imprime cada comando sin ejecutarlo.",
+            detalle: "Corre bin/install.sh en modo simulación: imprime cada comando sin ejecutarlo.",
         },
         {
             id: "cancelar",
@@ -528,7 +528,7 @@ async function pasoEjecucion(estado) {
     }
     console.log(ui.atenuado(`(usando bash: ${bash})\n`));
 
-    const args = construirArgumentos(estado).slice(1); // el primer elemento es install.sh; lo pasamos aparte
+    const args = construirArgumentos(estado).slice(1); // el primer elemento es bin/install.sh; lo pasamos aparte
     const env = construirEnv(estado);
     // Cierra la interfaz de readline antes de heredar stdio: el hijo debe recibir stdin en
     // modo normal, no en el estado que readline pudo haberle dejado.
@@ -551,7 +551,7 @@ async function pasoFinal(codigo) {
     } else {
         console.log(ui.rojo(`El instalador terminó con código ${codigo} — revisa la salida de arriba.`));
         console.log("\nQué hacer ahora:");
-        console.log("  1. Reintenta: install.sh es idempotente, retoma donde se quedó sin repetir lo ya hecho.");
+        console.log("  1. Reintenta: bin/install.sh es idempotente, retoma donde se quedó sin repetir lo ya hecho.");
         console.log("  2. Si no ves qué falló, corre en modo simulación para ver qué haría sin tocar nada:");
         console.log("       node bin/wizard/wizard.mjs --dry-run");
         console.log("  3. Busca el mensaje de error concreto en la sección Troubleshooting de INSTALL.md.");
@@ -592,7 +592,7 @@ async function modoDesinstalar() {
     const args = [aPosix(UNINSTALL_SH)];
     if (FLAGS.dryRun) args.push("--dry-run");
 
-    ui.titulo("Ejecutando uninstall.sh");
+    ui.titulo("Ejecutando bin/uninstall.sh");
     ui.cerrarInterfaz();
     const codigo = await ejecutar(bash, args);
 
@@ -600,9 +600,9 @@ async function modoDesinstalar() {
     if (codigo === 0) {
         console.log(ui.verde("Desinstalación completada."));
     } else {
-        console.log(ui.rojo(`uninstall.sh terminó con código ${codigo} — revisa la salida de arriba.`));
+        console.log(ui.rojo(`bin/uninstall.sh terminó con código ${codigo} — revisa la salida de arriba.`));
         console.log("\nQué hacer ahora:");
-        console.log("  1. Reintenta: bash uninstall.sh, o CLAUDEMAX-UNINSTALLER.cmd, es idempotente.");
+        console.log("  1. Reintenta: bash bin/uninstall.sh, o CLAUDEMAX-UNINSTALLER.cmd, es idempotente.");
         console.log("  2. Corre con --dry-run para ver qué haría sin tocar nada: node bin/wizard/wizard.mjs --uninstall --dry-run");
         console.log("  3. Busca el mensaje de error concreto en la sección Troubleshooting de INSTALL.md.");
     }

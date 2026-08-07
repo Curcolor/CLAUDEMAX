@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Resuelve $CLAUDE_CONFIG_DIR. Solo para source.
-# Respeta el flag --config-dir si install.sh estableció AC_CONFIG_DIR_OVERRIDE.
+# Respeta el flag --config-dir si bin/install.sh estableció AC_CONFIG_DIR_OVERRIDE.
 
 ac_resolve_config_dir() {
     if [ -n "${AC_CONFIG_DIR_OVERRIDE:-}" ]; then

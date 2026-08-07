@@ -18,7 +18,8 @@
 
 set -euo pipefail
 
-AC_REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Este script vive en bin/, así que la raíz del repo es un nivel arriba.
+AC_REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export AC_REPO_DIR
 
 . "$AC_REPO_DIR/bin/lib/log.sh"

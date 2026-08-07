@@ -4,20 +4,23 @@ Para la versión corta, ve [README.md](README.md). Este documento cubre la estru
 
 ## Estructura
 
+La raíz del repo solo muestra los dos lanzadores `.cmd`, `README.md` e `INSTALL.md`: el motor de
+instalación real (`install.sh`, `uninstall.sh` y todo lo que orquestan) vive en `bin/`.
+
 ```
 CLAUDEMAX/
-├── install.sh                  # punto de entrada
-├── uninstall.sh                # desmontaje simétrico
 ├── CLAUDEMAX-INSTALLER.cmd     # lanzador Windows (doble clic) del wizard interactivo
 ├── CLAUDEMAX-UNINSTALLER.cmd   # lanzador Windows del wizard en modo desinstalación
 ├── README.md                   # versión corta
 ├── INSTALL.md                  # este archivo
 ├── bin/
+│   ├── install.sh              # punto de entrada real (macOS/Linux/WSL, o Windows con Git Bash a mano)
+│   ├── uninstall.sh            # desmontaje simétrico
 │   ├── wizard/
 │   │   ├── wizard.mjs          # flujo principal del wizard (9 pasos, ver más abajo)
 │   │   ├── ui.mjs               # primitivas: banner, menú, prompt, tabla, colores
 │   │   ├── detect.mjs           # envoltura sobre bin/lib/detect.sh + comprobaciones extra
-│   │   └── test-componentes.mjs # prueba: la lista de componentes del wizard no se desincroniza de install.sh
+│   │   └── test-componentes.mjs # prueba: la lista de componentes del wizard no se desincroniza de bin/install.sh
 │   ├── lib/
 │   │   ├── log.sh              # helpers info/warn/error/dim/run-or-dry
 │   │   ├── detect.sh           # comprobaciones de presencia para curl/git/node/npm/claude/opencode
@@ -98,11 +101,11 @@ Especificación completa: `docs/superpowers/specs/2026-08-02-wizard-design.md`. 
 el resumen operativo.
 
 **Principio rector: el wizard no reimplementa la instalación, la orquesta.** Toda la lógica de
-instalación sigue viviendo en `install.sh` y en `bin/components/*.sh`; `bin/wizard/wizard.mjs`
+instalación sigue viviendo en `bin/install.sh` y en `bin/components/*.sh`; `bin/wizard/wizard.mjs`
 solo recoge decisiones del usuario y las traduce a flags y variables de entorno para un único
-`bash install.sh` final, lanzado con stdio heredado — la salida que ves es literalmente la del
+`bash bin/install.sh` final, lanzado con stdio heredado — la salida que ves es literalmente la del
 instalador, sin ninguna capa de reformateo. Consecuencia directa: la ruta no interactiva (flags
-directos a `install.sh`) sigue funcionando exactamente igual y no hay dos instaladores que
+directos a `bin/install.sh`) sigue funcionando exactamente igual y no hay dos instaladores que
 mantener sincronizados.
 
 Tecnología: Node ≥18, sin dependencias (igual que el resto del repo). `node:readline/promises`
@@ -122,14 +125,14 @@ necesitas tener Node y Git Bash ya instalados — el bootstrap automático vive 
 
 ### Los 9 pasos
 
-1. **Bienvenida** — banner ASCII (el mismo de `install.sh`), y una frase de qué va a pasar. Enter para continuar, `q` para salir sin tocar nada.
+1. **Bienvenida** — banner ASCII (el mismo de `bin/install.sh`), y una frase de qué va a pasar. Enter para continuar, `q` para salir sin tocar nada.
 2. **Destino del workspace** — pregunta dónde crear la carpeta raíz; por defecto `%USERPROFILE%\Desktop\WORKSPACE`. Valida que la ruta sea escribible; si ya existe y no está vacía, pide confirmación explícita antes de seguir. Esta respuesta se convierte en `RAG_ROOT`.
-3. **Chequeo de dependencias** — tabla con estado en vivo (`node`, `git`, `claude`, `docker`, `ollama`, `python`, `java`, `winget`), detectada **ejecutando** `bin/lib/detect.sh` (la misma función `ac_detect_all` que usa `install.sh`), no reimplementando la detección en JS. Para lo que falte, el wizard no instala nada aquí: avisa qué componentes quedarán degradados y deja que cada componente resuelva sus propias dependencias en su momento (`ac_rag_ensure_deps` vía winget, `ac_parsers_ensure_python`).
-4. **Selección de componentes** — lista con casilla marcada por defecto en los diez. La lista se extrae de `ALL_COMPONENTS` en `install.sh` con una expresión regular al arrancar — el wizard nunca mantiene su propia copia (ver más abajo).
+3. **Chequeo de dependencias** — tabla con estado en vivo (`node`, `git`, `claude`, `docker`, `ollama`, `python`, `java`, `winget`), detectada **ejecutando** `bin/lib/detect.sh` (la misma función `ac_detect_all` que usa `bin/install.sh`), no reimplementando la detección en JS. Para lo que falte, el wizard no instala nada aquí: avisa qué componentes quedarán degradados y deja que cada componente resuelva sus propias dependencias en su momento (`ac_rag_ensure_deps` vía winget, `ac_parsers_ensure_python`).
+4. **Selección de componentes** — lista con casilla marcada por defecto en los diez. La lista se extrae de `ALL_COMPONENTS` en `bin/install.sh` con una expresión regular al arrancar — el wizard nunca mantiene su propia copia (ver más abajo).
 5. **Vault** — tres modos, como ya soporta `rag.sh`: crear desde cero (plantilla con la taxonomía de seis categorías), importar uno existente (`VAULT_SRC`, valida que la ruta exista) o conectar a uno remoto (`VAULT_REMOTE`, URL de git). Se omite si `rag` quedó desmarcado en el paso 4.
 6. **RAG** — los mismos tres modos (`RAG_MODE`, con `RAG_DUMP` / `RAG_REMOTE_URL` según el caso), y después Kaggle opcional: si se acepta, pide usuario y clave (**la clave se lee sin eco en pantalla**, con lectura raw-mode de stdin) y recuerda la verificación telefónica manual de Kaggle. Si se declina, las variables `KAGGLE_*` ni se mencionan en el resumen. Se omite si `rag` quedó desmarcado.
 7. **Resumen y confirmación** — imprime la línea de comando completa con sus variables de entorno (auditable: se ve exactamente qué se va a ejecutar antes de ejecutarlo; la clave de Kaggle se enmascara en pantalla, no en el entorno real del proceso hijo) y ofrece ejecutar de verdad, simular (`--dry-run`) o cancelar.
-8. **Ejecución** — localiza bash y lanza `bash install.sh` con los flags/variables acordados, con stdio heredado para que veas el progreso real (`ac_step` de `install.sh`).
+8. **Ejecución** — localiza bash y lanza `bash bin/install.sh` con los flags/variables acordados, con stdio heredado para que veas el progreso real (`ac_step` de `bin/install.sh`).
 9. **Resumen final** — código de salida del instalador, recordatorio de reiniciar Claude Code, y los comandos para empezar (`graphify extract .`, `ritual.mjs fin-sesion`, etc.). En Windows espera una tecla antes de cerrar (salvo con `--defaults` o si no hay TTY real, para no colgarse en una prueba automatizada).
 
 ### Modo desinstalación
@@ -140,11 +143,11 @@ columna; dependencias de sistema, el vault, el volumen de datos del RAG y las re
 editar en la otra. Solo entonces pide escribir la palabra **`desinstalar`** completa para
 confirmar — no un simple sí/no, precisamente porque es una operación destructiva y un Enter
 accidental no debe bastar. Cualquier otra respuesta cancela sin tocar nada. Confirmado, delega en
-`bash uninstall.sh` con stdio heredado, igual que el paso 8 de la instalación.
+`bash bin/uninstall.sh` con stdio heredado, igual que el paso 8 de la instalación.
 
 ### Flags del propio wizard
 
-No confundir con los flags de `install.sh` (sección [Flags](README.md#flags) del README):
+No confundir con los flags de `bin/install.sh` (sección [Flags](README.md#flags) del README):
 
 | Flag | Efecto |
 |---|---|
@@ -156,13 +159,13 @@ No confundir con los flags de `install.sh` (sección [Flags](README.md#flags) de
 ### Decisiones de diseño que merecen explicación
 
 - **Git Bash explícito antes que el `bash` del PATH, en Windows.** `bin/wizard/detect.mjs` prueba primero las rutas conocidas de Git for Windows (`%ProgramFiles%\Git\bin\bash.exe`, `%LOCALAPPDATA%\Programs\Git\bin\bash.exe`) antes de caer al `bash` que resuelva el PATH. Motivo: si el usuario tiene WSL instalado, su `bash` puede aparecer antes en el PATH, y el bash de WSL monta el disco de Windows en `/mnt/c` en vez de `/c` — las rutas que el wizard construye (`RAG_ROOT`, `AC_REPO_DIR`, rutas de vault/dump convertidas con `aPosix()`) no resolverían ahí y la instalación fallaría de forma confusa. Cada candidato se valida ejecutando `echo $OSTYPE` antes de aceptarlo: Git Bash reporta `msys`/`cygwin`, WSL reporta `linux-gnu` — si no empieza por `msys`/`cygwin` en Windows, se descarta aunque el binario exista y responda.
-- **La lista de componentes se deriva, no se duplica.** `leerComponentes()` en `bin/wizard/detect.mjs` extrae `ALL_COMPONENTS=(...)` de `install.sh` con una expresión regular al arrancar — el wizard nunca mantiene su propia lista escrita a mano. Así, añadir un componente nuevo a `install.sh` lo hace aparecer en el paso 4 del wizard sin tocar el wizard. `bin/wizard/test-componentes.mjs` es la prueba de sincronización: evalúa la línea `ALL_COMPONENTS=(...)` con el parser de arrays real de bash (no otra regex de JS, para no esconder el mismo bug dos veces) y falla si diverge de lo que devuelve `leerComponentes()`. Ejecutar: `node bin/wizard/test-componentes.mjs`.
+- **La lista de componentes se deriva, no se duplica.** `leerComponentes()` en `bin/wizard/detect.mjs` extrae `ALL_COMPONENTS=(...)` de `bin/install.sh` con una expresión regular al arrancar — el wizard nunca mantiene su propia lista escrita a mano. Así, añadir un componente nuevo a `bin/install.sh` lo hace aparecer en el paso 4 del wizard sin tocar el wizard. `bin/wizard/test-componentes.mjs` es la prueba de sincronización: evalúa la línea `ALL_COMPONENTS=(...)` con el parser de arrays real de bash (no otra regex de JS, para no esconder el mismo bug dos veces) y falla si diverge de lo que devuelve `leerComponentes()`. Ejecutar: `node bin/wizard/test-componentes.mjs`.
 - **Confirmación por palabra exacta en la desinstalación.** A diferencia del resto de prompts del wizard (que aceptan s/n con Enter por defecto), `--uninstall` exige teclear `desinstalar` literal. Es la única confirmación del wizard que funciona así, deliberadamente: un simple "sí" es demasiado fácil de teclear por reflejo cuando la acción es destructiva.
 - **Los pasos de vault y RAG (5 y 6) se omiten si `rag` queda desmarcado en el paso 4** — no tiene sentido preguntar `VAULT_MODE`/`RAG_MODE` si ese componente no se va a instalar.
 
 ## Dónde queda cada cosa en tu máquina
 
-| Ruta | Escrita por | ¿La elimina `uninstall.sh`? |
+| Ruta | Escrita por | ¿La elimina `bin/uninstall.sh`? |
 |---|---|---|
 | `$HOME/.local/bin/rtk` | Instalador de RTK (upstream) | Sí |
 | `$CLAUDE_CONFIG_DIR/settings.json` (entradas de hooks) | rtk init | Las quitamos nosotros |
@@ -187,7 +190,7 @@ No confundir con los flags de `install.sh` (sección [Flags](README.md#flags) de
 | `<RAG_ROOT>/.claude/` (`CLAUDEMAX.md`, `CLAUDE.md`, `proyecto.md`) | rules.sh (`cp -f` de `templates/rules/`) | **No** — contiene reglas que pudiste editar a mano; sobrevive a la desinstalación igual que `V.A.U.L.T`/`R.A.G` |
 | `$CLAUDE_CONFIG_DIR/state/{loop-breaker,skill-suggest}.json` | loop-breaker.mjs / skill-suggest.mjs (estado por sesión, escritura propia) | Sí |
 
-`uninstall.sh` también elimina, best-effort, un puñado de rutas heredadas de instalaciones antiguas de CLAUDEMAX (antes ABSOLUTE-CLAUDE) (`skills/repo-map/`, `skills/dcp-lite/`, `hooks/dcp-lite-dedup.mjs`, `state/dcp-lite-*.json`, y los nombres de skill pre-2.0 `solid`, `design-patterns`, `architecture-patterns`) para que actualizar en el sitio no deje nada atrás. Ninguno de esos componentes lo instala el `install.sh` actual. Lo mismo aplica a Caveman: ya no es un componente de `install.sh`, pero `uninstall.sh` sigue delegando en su propio `--uninstall` para dejar limpias las instalaciones antiguas que lo tenían activo (hooks, statusline, `$CLAUDE_CONFIG_DIR/.caveman-active`, y el MCP de proyecto `caveman-shrink`, que gestiona el propio desinstalador de Caveman).
+`bin/uninstall.sh` también elimina, best-effort, un puñado de rutas heredadas de instalaciones antiguas de CLAUDEMAX (antes ABSOLUTE-CLAUDE) (`skills/repo-map/`, `skills/dcp-lite/`, `hooks/dcp-lite-dedup.mjs`, `state/dcp-lite-*.json`, y los nombres de skill pre-2.0 `solid`, `design-patterns`, `architecture-patterns`) para que actualizar en el sitio no deje nada atrás. Ninguno de esos componentes lo instala el `bin/install.sh` actual. Lo mismo aplica a Caveman: ya no es un componente de `bin/install.sh`, pero `bin/uninstall.sh` sigue delegando en su propio `--uninstall` para dejar limpias las instalaciones antiguas que lo tenían activo (hooks, statusline, `$CLAUDE_CONFIG_DIR/.caveman-active`, y el MCP de proyecto `caveman-shrink`, que gestiona el propio desinstalador de Caveman).
 
 ## Orden de instalación de componentes (y por qué)
 
@@ -256,12 +259,12 @@ Combínalo con `--dry-run` para ver primero qué línea de comando ejecutaría, 
 node bin/wizard/wizard.mjs --defaults --dry-run
 ```
 
-Si prefieres no pasar por el wizard en absoluto, `bash install.sh` (sin argumentos) es el
+Si prefieres no pasar por el wizard en absoluto, `bash bin/install.sh` (sin argumentos) es el
 equivalente directo — instala todos los componentes con los valores por defecto de cada uno.
 
 ### "El preflight dice que me falta node, pero `node --version` funciona en mi shell"
 
-`install.sh` ejecuta `command -v node`. Si tu node lo carga un gestor de versiones que solo se activa en shells interactivos (nvm, asdf), no será visible para un script. Haz source del gestor de versiones primero, o enlaza (symlink) el binario de node en `/usr/local/bin/` o `~/.local/bin/`.
+`bin/install.sh` ejecuta `command -v node`. Si tu node lo carga un gestor de versiones que solo se activa en shells interactivos (nvm, asdf), no será visible para un script. Haz source del gestor de versiones primero, o enlaza (symlink) el binario de node en `/usr/local/bin/` o `~/.local/bin/`.
 
 ### "`claude mcp add figma ...` falló con 'unknown command'"
 
@@ -284,7 +287,7 @@ Abre un issue con el archivo dañado (redactado) — que el merger JSONC sobrevi
 ### "Quiero omitir RTK porque estoy en un entorno gestionado que bloquea `$HOME/.local/bin`"
 
 ```bash
-bash install.sh --skip rtk
+bash bin/install.sh --skip rtk
 ```
 
 Todo lo demás se instala igual.
@@ -292,7 +295,7 @@ Todo lo demás se instala igual.
 ### "Solo quiero las partes de UI/UX, no los ahorradores de tokens"
 
 ```bash
-bash install.sh --only figma --only ui-ux
+bash bin/install.sh --only figma --only ui-ux
 ```
 
 ### "Re-ejecutar el instalador sigue re-clonando superpowers"
@@ -301,7 +304,7 @@ Si `--force` está activo, `dev-skills.sh` borra y re-clona. Sin `--force`, hace
 
 ### "Docker no está corriendo / falta ollama"
 
-El componente `rag` avisa y omite esos pasos en vez de hacer fallar la instalación (los pasos de compose/schema necesitan Docker; la descarga de `bge-m3` necesita `ollama` en el PATH). Arranca Docker Desktop / instala Ollama, y vuelve a correr `bash install.sh --only rag` — es idempotente y retoma donde se quedó.
+El componente `rag` avisa y omite esos pasos en vez de hacer fallar la instalación (los pasos de compose/schema necesitan Docker; la descarga de `bge-m3` necesita `ollama` en el PATH). Arranca Docker Desktop / instala Ollama, y vuelve a correr `bash bin/install.sh --only rag` — es idempotente y retoma donde se quedó.
 
 ### "winget falló al instalar Python / el JDK"
 
@@ -312,7 +315,7 @@ winget install -e --id Python.Python.3.12
 winget install -e --id EclipseAdoptium.Temurin.21.JDK
 ```
 
-Después **abre una shell nueva** (winget actualiza el PATH, pero la sesión actual no lo ve) y vuelve a correr `bash install.sh --only parsers`. Si `python` sigue sin aparecer en Git Bash pero `py -3` sí funciona, el componente usa `py -3` automáticamente.
+Después **abre una shell nueva** (winget actualiza el PATH, pero la sesión actual no lo ve) y vuelve a correr `bash bin/install.sh --only parsers`. Si `python` sigue sin aparecer en Git Bash pero `py -3` sí funciona, el componente usa `py -3` automáticamente.
 
 ### "`graphify` no queda en el PATH después de instalarlo"
 
@@ -327,7 +330,7 @@ WARNING: The script graphify.exe is installed in '...\Python\PythonXXX\Scripts' 
 Soluciones, de más a menos preferible:
 
 1. **Instala con `pipx` o `uv` en su lugar** (ambos gestionan el PATH por ti): `pipx install graphifyy`
-   o `uv tool install graphifyy`, y vuelve a correr `bash install.sh --only graphify --force`.
+   o `uv tool install graphifyy`, y vuelve a correr `bash bin/install.sh --only graphify --force`.
 2. **Añade el directorio de scripts al PATH** — en Windows suele ser
    `%APPDATA%\Python\PythonXXX\Scripts` (Git Bash: `~/AppData/Roaming/Python/PythonXXX/Scripts`); en
    macOS/Linux, `~/.local/bin`. Abre una shell nueva después de tocar el PATH.
@@ -336,7 +339,7 @@ Soluciones, de más a menos preferible:
 
 Mientras `graphify` no esté en el PATH, el paso de registro en Claude Code (`graphify claude install`)
 se omite con un aviso — el resto de componentes se instalan igual. Vuelve a correr
-`bash install.sh --only graphify` una vez resuelto el PATH; es idempotente.
+`bash bin/install.sh --only graphify` una vez resuelto el PATH; es idempotente.
 
 ### "`graphify claude install` falló durante la instalación"
 
@@ -365,7 +368,7 @@ export PONYTAIL_DEFAULT_MODE=lite   # o: full | ultra | off
 
 O edita directamente `~/.config/ponytail/config.json` (el mismo archivo que lee la variable
 de entorno de arriba si no está definida). Ninguna de las dos formas requiere reinstalar ni
-tocar `install.sh` — son configuración propia del plugin, no de CLAUDEMAX.
+tocar `bin/install.sh` — son configuración propia del plugin, no de CLAUDEMAX.
 
 ### "`claude plugin install ponytail@ponytail` falló durante la instalación"
 
@@ -393,7 +396,7 @@ Su núcleo es Java: sin un JDK 11+ funcional el wrapper de Python no hace nada. 
 export CLAUDEMAX_UI_AUDIT=0
 ```
 
-Para quitarlo del todo, desregistra la entrada `PostToolUse` que contiene `ui-audit.mjs` en `$CLAUDE_CONFIG_DIR/settings.json` (o corre `bash uninstall.sh`, que lo hace por ti con `ac_remove_hook`).
+Para quitarlo del todo, desregistra la entrada `PostToolUse` que contiene `ui-audit.mjs` en `$CLAUDE_CONFIG_DIR/settings.json` (o corre `bash bin/uninstall.sh`, que lo hace por ti con `ac_remove_hook`).
 
 ### "Un commit me lo bloquea el hook"
 
@@ -462,4 +465,4 @@ Cada skill bajo `skills/<name>/` necesita los tres archivos (`SKILL.md`, `skill.
 
 ## Instalación manual (sin instalador)
 
-Cada paso que ejecuta `install.sh` es simplemente un comando público. Si prefieres auditarlos y ejecutarlos tú mismo, lee `bin/components/*.sh` — cada archivo tiene ~50 líneas y es autocontenido.
+Cada paso que ejecuta `bin/install.sh` es simplemente un comando público. Si prefieres auditarlos y ejecutarlos tú mismo, lee `bin/components/*.sh` — cada archivo tiene ~50 líneas y es autocontenido.

@@ -5,31 +5,32 @@
 # + MCP magic de 21st.dev + framer-motion/gsap vía npm).
 #
 # Uso:
-#   bash install.sh                    # instala todo
-#   bash install.sh --only rtk         # un solo componente
-#   bash install.sh --skip ui-ux       # omite uno
-#   bash install.sh --dry-run          # solo imprime
-#   bash install.sh --uninstall        # desinstala
+#   bash bin/install.sh                    # instala todo
+#   bash bin/install.sh --only rtk         # un solo componente
+#   bash bin/install.sh --skip ui-ux       # omite uno
+#   bash bin/install.sh --dry-run          # solo imprime
+#   bash bin/install.sh --uninstall        # desinstala
 #
 # Ver README.md / INSTALL.md para la documentación completa de flags.
 
 set -euo pipefail
 
-# --- Resuelve el directorio del repo para que este script funcione tanto como `bash install.sh` como en un pipe de curl.
+# --- Resuelve el directorio del repo para que este script funcione tanto como `bash bin/install.sh` como en un pipe de curl.
+# Este script vive en bin/, así que la raíz del repo es un nivel arriba.
 # Cuando se ejecuta vía curl|bash, BASH_SOURCE[0] está vacío; usamos un clon temporal como respaldo.
 if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]:-}" ]; then
-    AC_REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    AC_REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 else
     # Ruta de instalación por pipe: clona el repo a un directorio temporal y re-ejecuta desde ahí.
     if [ -z "${AC_BOOTSTRAPPED:-}" ]; then
         TMP="$(mktemp -d)"
         echo "[INFO]  Instalación por pipe detectada; clonando CLAUDEMAX en $TMP ..."
         git clone --depth 1 https://github.com/Curcolor/CLAUDEMAX "$TMP/CLAUDEMAX" 2>/dev/null \
-            || { echo "[ERR] No se pudo clonar CLAUDEMAX. Clónalo manualmente y ejecuta bash install.sh."; exit 1; }
+            || { echo "[ERR] No se pudo clonar CLAUDEMAX. Clónalo manualmente y ejecuta bash bin/install.sh."; exit 1; }
         export AC_BOOTSTRAPPED=1
-        exec bash "$TMP/CLAUDEMAX/install.sh" "$@"
+        exec bash "$TMP/CLAUDEMAX/bin/install.sh" "$@"
     fi
-    AC_REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
+    AC_REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 fi
 export AC_REPO_DIR
 
@@ -59,7 +60,7 @@ usage() {
     cat <<EOF
 CLAUDEMAX — instala el stack de ahorro de tokens + UI/UX para Claude Code.
 
-Uso: bash install.sh [flags]
+Uso: bash bin/install.sh [flags]
 
 Flags:
   --all                Instala todos los componentes (por defecto).
@@ -76,10 +77,10 @@ Flags:
   -h | --help          Esta ayuda.
 
 Ejemplos:
-  bash install.sh
-  bash install.sh --only rtk --only figma
-  bash install.sh --skip ui-ux --no-npm
-  bash install.sh --dry-run --all
+  bash bin/install.sh
+  bash bin/install.sh --only rtk --only figma
+  bash bin/install.sh --skip ui-ux --no-npm
+  bash bin/install.sh --dry-run --all
 
   Flags de entorno para RAG (componente 'rag'):
     RAG_ROOT=<path>            raíz del workspace (requerido para rag)
@@ -112,7 +113,7 @@ export DRY_RUN FORCE NO_NPM WITH_NPM AC_CONFIG_DIR_OVERRIDE
 . "$AC_REPO_DIR/bin/lib/log.sh"
 
 if [ "$UNINSTALL" = "1" ]; then
-    exec bash "$AC_REPO_DIR/uninstall.sh" ${DRY_RUN:+--dry-run}
+    exec bash "$AC_REPO_DIR/bin/uninstall.sh" ${DRY_RUN:+--dry-run}
 fi
 
 # Usa --all por defecto si no hay flags --only
@@ -238,7 +239,7 @@ ${AC_GREEN}Listo.${AC_NC} Próximos pasos:
        /cyber-neo <ruta>     — auditoría de seguridad OWASP/CWE
        markitdown / whisper-ctranslate2 / opendataloader-pdf — parsers de ingesta (Bash)
 
-  Ver README.md para la documentación completa. Para eliminar todo: bash uninstall.sh
+  Ver README.md para la documentación completa. Para eliminar todo: bash bin/uninstall.sh
 EOF
 )
 printf '%b\n' "$DONE_MSG"

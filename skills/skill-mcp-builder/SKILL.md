@@ -49,7 +49,7 @@ Contrato mínimo: JSON Schema con `definitions.inputs` y `definitions.outputs`. 
 2. Escribe el cuerpo de `SKILL.md` en español; los triggers de `skill.yaml` van en pares español/inglés.
 3. Corre `node skills/validate-skills.mjs` hasta que salga `OK (<n> skills)`. Corrige cualquier error que reporte (nombre desalineado, campo faltante, script inexistente, JSON inválido) antes de continuar.
 4. Si es una skill first-party que debe instalarse en cada máquina, añade su nombre a `FIRST_PARTY_SKILLS` en `bin/components/dev-skills.sh` (el instalador la copia a `$CLAUDE_CONFIG_DIR/skills/`).
-5. Añade su desinstalación al loop de skills de ingeniería en `uninstall.sh` (el mismo `for s in ...` que ya limpia `architecture-principles` y `conventional-commits`).
+5. Añade su desinstalación al loop de skills de ingeniería en `bin/uninstall.sh` (el mismo `for s in ...` que ya limpia `architecture-principles` y `conventional-commits`).
 
 ### Checklist de calidad antes de dar por terminada una skill
 
@@ -132,9 +132,9 @@ claude mcp list                 # busca "<id>  ✓ Connected"
 
 `-s user` lo registra a nivel de usuario (no por-repo). Si `claude mcp list` muestra el id sin el check de conectado, el proceso del servidor está fallando al arrancar — corre el archivo directamente con `node <ruta>` para ver el stack trace.
 
-### Desregistro (para que `uninstall.sh` sea simétrico)
+### Desregistro (para que `bin/uninstall.sh` sea simétrico)
 
-Todo componente que registra un MCP debe des-registrarlo en `uninstall.sh`:
+Todo componente que registra un MCP debe des-registrarlo en `bin/uninstall.sh`:
 
 ```bash
 if [ "$AC_HAS_CLAUDE" = "1" ]; then

@@ -54,7 +54,7 @@ function anchoVisible(texto) {
 
 // --- Banner y títulos ------------------------------------------------------------------
 
-// Mismo arte ASCII que el banner de install.sh (líneas 133-142), para que la experiencia
+// Mismo arte ASCII que el banner de bin/install.sh (líneas 134-143), para que la experiencia
 // del wizard y la del instalador no interactivo se sientan como la misma herramienta.
 const ARTE = [
     "  ___ _      _   _   _ ___  ___ __  __  _   __  __",

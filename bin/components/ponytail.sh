@@ -14,7 +14,7 @@
 # y UserPromptSubmit — ninguno es PreToolUse, así que no choca con el hook PreToolUse
 # que registra Graphify. Escribe flags propios en $CLAUDE_CONFIG_DIR
 # (.ponytail-active, .ponytail-statusline-nudged) y su configuración en
-# ~/.config/ponytail/config.json. Requiere Node en el PATH (ya lo garantiza install.sh).
+# ~/.config/ponytail/config.json. Requiere Node en el PATH (ya lo garantiza bin/install.sh).
 #
 # Upstream: https://github.com/DietrichGebert/ponytail (MIT)
 

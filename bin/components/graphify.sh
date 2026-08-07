@@ -19,7 +19,7 @@
 # directorio DESDE el que se ejecuta el comando — a diferencia del resto de componentes
 # de CLAUDEMAX, que escriben en $CLAUDE_CONFIG_DIR (global, para todos los proyectos).
 # Aquí lo ejecutamos en $AC_REPO_DIR (el propio repo de CLAUDEMAX, destino determinista
-# sin importar cómo se invocó install.sh); para activarlo en cualquier otro proyecto,
+# sin importar cómo se invocó bin/install.sh); para activarlo en cualquier otro proyecto,
 # ejecuta `graphify claude install` dentro de ese proyecto (ver README/INSTALL).
 # Instalado SIN --strict: el hook solo sugiere consultar el grafo antes de leer/grepear
 # en crudo, nunca bloquea una herramienta.
@@ -65,7 +65,7 @@ ac_graphify_migrar_plugin_viejo() {
 
 # Mismo patrón que ac_parsers_ensure_python (bin/components/parsers.sh): funciones
 # locales propias en vez de sourcear ese archivo — cada component.sh de este repo es
-# autocontenido y se carga bajo demanda (install.sh solo sourcea el componente pedido).
+# autocontenido y se carga bajo demanda (bin/install.sh solo sourcea el componente pedido).
 ac_graphify_ensure_python() {
     if command -v python >/dev/null 2>&1 || command -v py >/dev/null 2>&1; then
         return 0

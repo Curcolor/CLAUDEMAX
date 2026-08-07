@@ -92,7 +92,7 @@ echo   estara actualizado en la siguiente ventana.
 exit /b 1
 
 rem ================================================================
-rem  Git Bash — el wizard lo necesita para lanzar install.sh.
+rem  Git Bash — el wizard lo necesita para lanzar bin/install.sh.
 rem  IMPORTANTE: nunca se usa "where bash" como prueba de existencia, porque en
 rem  equipos con WSL instalado el PATH puede resolver a su bash, que no sirve
 rem  (monta el disco en /mnt/c en vez de /c). Se comprueban las rutas propias
@@ -104,7 +104,7 @@ if exist "%LOCALAPPDATA%\Programs\Git\bin\bash.exe" exit /b 0
 
 echo.
 echo   [AVISO] No se encontro Git Bash instalado.
-echo   CLAUDEMAX necesita Git for Windows (trae Git Bash) para ejecutar install.sh.
+echo   CLAUDEMAX necesita Git for Windows (trae Git Bash) para ejecutar bin/install.sh.
 echo.
 
 where winget >nul 2>nul
