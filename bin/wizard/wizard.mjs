@@ -54,6 +54,7 @@ const DESCRIPCIONES = {
     "dev-skills": "Skills de disciplina de ingeniería: superpowers, arquitectura, patrones, commits convencionales.",
     rag: "V.A.U.L.T + stack RAG (PGVector + Ollama bge-m3) — memoria semántica del workspace.",
     graphify: "CLI de Graphify — grafo de conocimiento del repo (graphify extract .).",
+    ponytail: "Plugin Ponytail — escalera de minimalismo al escribir código + deuda técnica.",
     "cyber-neo": "Skill de auditoría de seguridad OWASP Top 10 / CWE.",
     parsers: "MCP markitdown + parsers de ingesta (PDF, audio, documentos).",
     rules: "Reglas operativas del workspace + hooks de rituales (git-footer-guard, loop-breaker...).",

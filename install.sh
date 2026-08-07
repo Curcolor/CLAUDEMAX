@@ -53,7 +53,7 @@ ONLY=()
 SKIP=()
 AC_CONFIG_DIR_OVERRIDE=""
 
-ALL_COMPONENTS=(rtk figma ui-ux dev-skills rag graphify cyber-neo parsers rules)
+ALL_COMPONENTS=(rtk figma ui-ux dev-skills rag graphify ponytail cyber-neo parsers rules)
 
 usage() {
     cat <<EOF
@@ -178,6 +178,10 @@ component_run() {
             . "$AC_REPO_DIR/bin/components/graphify.sh"
             ac_component_graphify
             ;;
+        ponytail)
+            . "$AC_REPO_DIR/bin/components/ponytail.sh"
+            ac_component_ponytail
+            ;;
         cyber-neo)
             . "$AC_REPO_DIR/bin/components/cyber-neo.sh"
             ac_component_cyber_neo
@@ -229,6 +233,8 @@ ${AC_GREEN}Listo.${AC_NC} Próximos pasos:
        /architecture-principles /conventional-commits
        /mcp → rag            — búsqueda semántica sobre tu V.A.U.L.T (rag_query)
        graphify extract .    — grafo de conocimiento del proyecto (Graphify)
+       /ponytail-review      — revisa el diff con la escalera de minimalismo (Ponytail)
+       /ponytail-audit       — audita el repo completo con la misma escalera (Ponytail)
        /cyber-neo <ruta>     — auditoría de seguridad OWASP/CWE
        markitdown / whisper-ctranslate2 / opendataloader-pdf — parsers de ingesta (Bash)
 

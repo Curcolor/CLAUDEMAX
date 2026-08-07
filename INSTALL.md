@@ -30,6 +30,7 @@ CLAUDEMAX/
 │       ├── dev-skills.sh       # clon de superpowers + 5 skills propias (incluidas no-ai-slop y rituales)
 │       ├── rag.sh              # vault V.A.U.L.T + stack R.A.G (compose/schema/CLI/MCP) + backend Kaggle opcional + registro MCP
 │       ├── graphify.sh         # instala el CLI de Graphify (pip) y lo registra en Claude Code
+│       ├── ponytail.sh         # `claude plugin marketplace add` + `install` del plugin ponytail
 │       ├── cyber-neo.sh        # clon de la skill de seguridad (commit fijado)
 │       ├── parsers.sh          # markitdown (+MCP) / opendataloader-pdf / whisper-ctranslate2
 │       └── rules.sh            # plantillas de reglas → <RAG_ROOT>/.claude/ + 4 hooks de cumplimiento/contexto
@@ -123,7 +124,7 @@ También se puede invocar directo, sin pasar por el `.cmd`: `node bin/wizard/wiz
 1. **Bienvenida** — banner ASCII (el mismo de `install.sh`), y una frase de qué va a pasar. Enter para continuar, `q` para salir sin tocar nada.
 2. **Destino del workspace** — pregunta dónde crear la carpeta raíz; por defecto `%USERPROFILE%\Desktop\WORKSPACE`. Valida que la ruta sea escribible; si ya existe y no está vacía, pide confirmación explícita antes de seguir. Esta respuesta se convierte en `RAG_ROOT`.
 3. **Chequeo de dependencias** — tabla con estado en vivo (`node`, `git`, `claude`, `docker`, `ollama`, `python`, `java`, `winget`), detectada **ejecutando** `bin/lib/detect.sh` (la misma función `ac_detect_all` que usa `install.sh`), no reimplementando la detección en JS. Para lo que falte, el wizard no instala nada aquí: avisa qué componentes quedarán degradados y deja que cada componente resuelva sus propias dependencias en su momento (`ac_rag_ensure_deps` vía winget, `ac_parsers_ensure_python`).
-4. **Selección de componentes** — lista con casilla marcada por defecto en los nueve. La lista se extrae de `ALL_COMPONENTS` en `install.sh` con una expresión regular al arrancar — el wizard nunca mantiene su propia copia (ver más abajo).
+4. **Selección de componentes** — lista con casilla marcada por defecto en los diez. La lista se extrae de `ALL_COMPONENTS` en `install.sh` con una expresión regular al arrancar — el wizard nunca mantiene su propia copia (ver más abajo).
 5. **Vault** — tres modos, como ya soporta `rag.sh`: crear desde cero (plantilla con la taxonomía de seis categorías), importar uno existente (`VAULT_SRC`, valida que la ruta exista) o conectar a uno remoto (`VAULT_REMOTE`, URL de git). Se omite si `rag` quedó desmarcado en el paso 4.
 6. **RAG** — los mismos tres modos (`RAG_MODE`, con `RAG_DUMP` / `RAG_REMOTE_URL` según el caso), y después Kaggle opcional: si se acepta, pide usuario y clave (**la clave se lee sin eco en pantalla**, con lectura raw-mode de stdin) y recuerda la verificación telefónica manual de Kaggle. Si se declina, las variables `KAGGLE_*` ni se mencionan en el resumen. Se omite si `rag` quedó desmarcado.
 7. **Resumen y confirmación** — imprime la línea de comando completa con sus variables de entorno (auditable: se ve exactamente qué se va a ejecutar antes de ejecutarlo; la clave de Kaggle se enmascara en pantalla, no en el entorno real del proceso hijo) y ofrece ejecutar de verdad, simular (`--dry-run`) o cancelar.
@@ -172,6 +173,7 @@ No confundir con los flags de `install.sh` (sección [Flags](README.md#flags) de
 | Sección `## graphify` en `CLAUDE.md` + hook `PreToolUse` (`Bash\|Grep`, `Read\|Glob`) en `.claude/settings.json`, en `$AC_REPO_DIR` (el propio repo de CLAUDEMAX) | graphify.sh (`graphify claude install`, sin `--strict`) | Sí — `graphify claude uninstall` en `$AC_REPO_DIR`. Es un registro **por-proyecto**: si ejecutaste `graphify claude install` en otros proyectos a mano, desregístralos ahí también con `graphify claude uninstall` |
 | `<proyecto>/graphify-out/` (`graph.json`, `graph.html`, `GRAPH_REPORT.md`) en cualquier proyecto donde corras `graphify extract` | El propio CLI `graphify`, invocado manualmente por ti | **No** — no es CLAUDEMAX quien lo genera; bórralo a mano en cada proyecto si quieres |
 | Legado: plugin `understand-anything` (en `$CLAUDE_CONFIG_DIR/plugins/cache/`) + marketplace `understand-anything`, de instalaciones de CLAUDEMAX anteriores a este cambio | Ya no lo instala `graphify.sh` — se detecta y se quita como migración (`claude plugin uninstall`/`marketplace remove`, best-effort) | Sí, best-effort — `claude plugin uninstall understand-anything -s user` + `marketplace remove`. Si el CLI falla, hazlo en sesión con `/plugin uninstall understand-anything` |
+| Plugin `ponytail` (marketplace `DietrichGebert/ponytail`, típicamente en `$CLAUDE_CONFIG_DIR/plugins/cache/`) + flags `$CLAUDE_CONFIG_DIR/.ponytail-active` y `.ponytail-statusline-nudged` | ponytail.sh (`claude plugin marketplace add` + `claude plugin install`) | Sí, best-effort — ejecuta primero `node <plugin>/scripts/uninstall.js` (limpia flags/statusLine) si localiza el directorio del plugin, luego `claude plugin uninstall ponytail -s user` + `marketplace remove`, y borra los dos archivos de flag. **No** elimina `~/.config/ponytail/config.json` — puedes haberlo editado a mano |
 | Registro MCP de Claude: `markitdown` | parsers.sh (`claude mcp add -s user`) | Sí |
 | Paquetes pip `markitdown[all]`, `markitdown-mcp`, `opendataloader-pdf`, `whisper-ctranslate2` | parsers.sh (`pip install`) | **No** — quítalos con `pip uninstall` si quieres |
 | Python 3.12, Temurin JDK 21, Docker Desktop, Ollama | parsers.sh / rag.sh (`winget install`, solo si faltaban) | **No** — son dependencias de sistema; desinstálalas a mano |
@@ -196,9 +198,10 @@ No confundir con los flags de `install.sh` (sección [Flags](README.md#flags) de
 4. **dev-skills** — copia simple de archivos para `architecture-principles` / `conventional-commits` / `skill-mcp-builder` / `no-ai-slop` / `rituales`; `git clone`/`git pull` para `superpowers`. Sin dependencia de orden con los demás.
 5. **rag** — opt-in (necesita `RAG_ROOT` definido, si no avisa y se omite): copia `templates/vault` (con la taxonomía de 6 categorías) → `<RAG_ROOT>/V.A.U.L.T` y `templates/rag` (incluidas las plantillas de Kaggle en `kaggle/`) → `<RAG_ROOT>/R.A.G`, auto-instala Docker y Ollama vía winget si faltan, levanta el stack Docker Compose `ragdb` + `bge-m3`, hace `npm install` de las dependencias del CLI/MCP, configura el backend opcional de Kaggle si `KAGGLE_USERNAME`/`KAGGLE_KEY` están en el entorno, y registra el MCP `rag` a nivel de **usuario**.
 6. **graphify** — instala el paquete pip `graphifyy` (`uv tool install` / `pipx install` / `pip install --user`, el primero disponible) y ejecuta `graphify claude install` (registro por-proyecto: sección de `CLAUDE.md` + hook `PreToolUse`, sin `--strict`). Antes de instalar nada, hace la migración: si detecta el plugin equivocado de una instalación anterior (`understand-anything`), lo quita. Sin dependencia de orden con los demás — ya no toca la configuración de plugins de `claude`.
-7. **cyber-neo** — `git clone` + `checkout` del commit fijado en `$CLAUDE_CONFIG_DIR/skills/cyber-neo`. Sin dependencia de orden.
-8. **parsers** — auto-instala Python y el JDK vía winget si faltan, luego `pip install` de los tres parsers, registra el MCP `markitdown` a nivel de **usuario**, y barre restos heredados de Context7 / Claude-Mem (entran en conflicto con el cerebro RAG).
-9. **rules** — **último** a propósito: copia `templates/rules/` a `<RAG_ROOT>/.claude/` (requiere `RAG_ROOT`, igual que `rag`; sin él instala solo los hooks y avisa) y registra los cuatro hooks de cumplimiento y contexto en `$CLAUDE_CONFIG_DIR/hooks/`. Va al final porque sus reglas y su hook `session-start` referencian rutas que crean los pasos anteriores (`<RAG_ROOT>/V.A.U.L.T`, `<RAG_ROOT>/R.A.G/rag.mjs`, las skills ya instaladas) — instalarlo antes correría el riesgo de documentar/consultar rutas que todavía no existen.
+7. **ponytail** — necesita `claude`; sin él avisa con los comandos `/plugin` para hacerlo en sesión y no falla la instalación. Idempotente vía `claude plugin list`. `claude plugin marketplace add DietrichGebert/ponytail` + `claude plugin install ponytail@ponytail`. Sin dependencia de orden con los demás — sus hooks (`SessionStart`/`SubagentStart`/`UserPromptSubmit`) no chocan con el `PreToolUse` de graphify.
+8. **cyber-neo** — `git clone` + `checkout` del commit fijado en `$CLAUDE_CONFIG_DIR/skills/cyber-neo`. Sin dependencia de orden.
+9. **parsers** — auto-instala Python y el JDK vía winget si faltan, luego `pip install` de los tres parsers, registra el MCP `markitdown` a nivel de **usuario**, y barre restos heredados de Context7 / Claude-Mem (entran en conflicto con el cerebro RAG).
+10. **rules** — **último** a propósito: copia `templates/rules/` a `<RAG_ROOT>/.claude/` (requiere `RAG_ROOT`, igual que `rag`; sin él instala solo los hooks y avisa) y registra los cuatro hooks de cumplimiento y contexto en `$CLAUDE_CONFIG_DIR/hooks/`. Va al final porque sus reglas y su hook `session-start` referencian rutas que crean los pasos anteriores (`<RAG_ROOT>/V.A.U.L.T`, `<RAG_ROOT>/R.A.G/rag.mjs`, las skills ya instaladas) — instalarlo antes correría el riesgo de documentar/consultar rutas que todavía no existen.
 
 ## Interacciones entre flags
 
@@ -341,6 +344,34 @@ Escribe una sección `## graphify` en `./CLAUDE.md` y un hook `PreToolUse` en `.
 — es un registro **por-proyecto**, no global (a diferencia del resto de componentes de CLAUDEMAX). El
 componente `graphify.sh` lo ejecuta en `$AC_REPO_DIR` (el propio repo de CLAUDEMAX); para activarlo en
 cualquier otro proyecto, repite el comando ahí.
+
+### "Ponytail me interrumpe demasiado / quiero bajarle la intensidad sin desinstalarlo"
+
+Ponytail arranca en modo `full`. Sin desinstalar el plugin, tienes dos formas de bajarle
+el volumen o apagarlo del todo, de niveles `lite` (menos estricto) a `ultra` (más estricto)
+y `off` (desactivado):
+
+```bash
+export PONYTAIL_DEFAULT_MODE=lite   # o: full | ultra | off
+```
+
+O edita directamente `~/.config/ponytail/config.json` (el mismo archivo que lee la variable
+de entorno de arriba si no está definida). Ninguna de las dos formas requiere reinstalar ni
+tocar `install.sh` — son configuración propia del plugin, no de CLAUDEMAX.
+
+### "`claude plugin install ponytail@ponytail` falló durante la instalación"
+
+`bin/components/ponytail.sh` avisa en vez de romper la instalación y te da los dos comandos
+exactos para hacerlo a mano en una sesión de Claude Code:
+
+```
+/plugin marketplace add DietrichGebert/ponytail
+/plugin install ponytail@ponytail
+```
+
+Si `claude plugin list` no muestra `ponytail` después de eso, actualiza el CLI `claude`
+(las versiones antiguas pueden no soportar `plugin marketplace`/`plugin install` de forma
+no interactiva) y vuelve a intentarlo.
 
 ### "`opendataloader-pdf` no procesa nada"
 

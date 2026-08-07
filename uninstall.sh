@@ -124,6 +124,37 @@ else
 fi
 ac_dim "  (se conserva: el paquete pip graphifyy — es una dependencia de sistema, igual que los parsers. Desinstálalo a mano con 'pip uninstall graphifyy' si quieres.)"
 
+# --- Ponytail (plugin de marketplace de Claude Code)
+# Orden importa: el script de limpieza (flags + statusLine) vive DENTRO del plugin, así
+# que hay que ejecutarlo ANTES de quitar el plugin con `claude plugin uninstall` — una
+# vez desinstalado, scripts/uninstall.js ya no está en disco. Localización defensiva
+# porque el layout exacto de plugins/cache/ no está documentado públicamente.
+ac_step "Ponytail (plugin de marketplace)"
+if [ "$AC_HAS_CLAUDE" = "1" ]; then
+    ponytail_plugin_dir=""
+    if [ -f "$CLAUDE_CONFIG_DIR/plugins/cache/ponytail/scripts/uninstall.js" ]; then
+        ponytail_plugin_dir="$CLAUDE_CONFIG_DIR/plugins/cache/ponytail"
+    elif [ -d "$CLAUDE_CONFIG_DIR/plugins/cache" ]; then
+        ponytail_plugin_dir="$(find "$CLAUDE_CONFIG_DIR/plugins/cache" -mindepth 1 -maxdepth 3 -type d -iname '*ponytail*' 2>/dev/null | head -n1)"
+        [ -n "$ponytail_plugin_dir" ] && [ -f "$ponytail_plugin_dir/scripts/uninstall.js" ] || ponytail_plugin_dir=""
+    fi
+
+    if [ -n "$ponytail_plugin_dir" ]; then
+        ac_run node "$ponytail_plugin_dir/scripts/uninstall.js" \
+            || ac_warn "El script de limpieza de ponytail (flags + statusLine) falló — se continúa igualmente (mejor esfuerzo)."
+    else
+        ac_dim "  No se localizó scripts/uninstall.js del plugin ponytail bajo $CLAUDE_CONFIG_DIR/plugins/cache/ — se omite (mejor esfuerzo; los dos comandos de abajo igual limpian el registro del plugin)."
+    fi
+
+    ac_run claude plugin uninstall ponytail -s user 2>/dev/null || true
+    ac_run claude plugin marketplace remove ponytail 2>/dev/null || true
+else
+    ac_dim "  El CLI claude no está en el PATH — si tenías ponytail instalado, quítalo en sesión: /plugin uninstall ponytail"
+fi
+ac_run rm -f "$CLAUDE_CONFIG_DIR/.ponytail-active"
+ac_run rm -f "$CLAUDE_CONFIG_DIR/.ponytail-statusline-nudged"
+ac_dim "  (se conserva: ~/.config/ponytail/config.json — puedes haberlo editado a mano; bórralo tú si quieres.)"
+
 # --- Limpieza heredada: plugin equivocado de instalaciones antiguas de CLAUDEMAX (Egonex-AI/Understand-Anything)
 ac_step "Limpieza heredada: plugin understand-anything (versión anterior de este componente)"
 if [ "$AC_HAS_CLAUDE" = "1" ]; then

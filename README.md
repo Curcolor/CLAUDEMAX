@@ -19,6 +19,7 @@ bash install.sh
 | **Skills de disciplina de ingeniería** | Propias: `architecture-principles` (fusiona las antiguas skills `solid`, `design-patterns` y `architecture-patterns` en una sola skill SOLID → patrones GoF → arquitectura de sistemas), `conventional-commits`, `skill-mcp-builder` (meta-skill para crear Skills 2.0 y servidores MCP), `no-ai-slop` (anti-slop de *prosa* — documentación, README, artículos; fork propio traducido de `petergyang/no-ai-slop`, MIT. Actúa sobre texto que un humano leerá fuera de la sesión, nunca sobre las respuestas de la conversación) y `rituales` (documenta los cinco rituales de ciclo de vida de CLAUDEMAX — ver sección [Rituales](#rituales)). | este repo |
 | **rag** | Vault V.A.U.L.T con taxonomía de 6 categorías con color + RAG con PGVector (Docker) + Ollama bge-m3 + backend de embeddings conmutable (`ollama`/`remote`/`kaggle`) + MCP `rag` (`rag_query`/`rag_status`, con filtros `categoria`/`proyecto`). `rag.mjs ingest` también indexa los grafos de conocimiento de Graphify (`graphify-out/graph.json`). También instala `ritual.mjs` junto a `rag.mjs` — los rituales manuales de ciclo de vida (`init-proyecto`/`fin-sesion`/`fin-dia`/`fin-ciclo`, ver sección [Rituales](#rituales)). Auto-instala Docker y Ollama vía winget si faltan. | propia (este repo) |
 | **graphify** | CLI de Python (no un plugin del marketplace) que analiza el código con tree-sitter (+ un LLM opcional) y genera un grafo de conocimiento navegable del repo. `graphify extract .` produce `graphify-out/graph.json` (formato `node_link_data` de NetworkX: nodos con tipo/archivo/comunidad, aristas con relación/confianza), `graphify-out/graph.html` (dashboard interactivo) y `graphify-out/GRAPH_REPORT.md`. El instalador también corre `graphify claude install`, que registra un hook `PreToolUse` (matchers `Bash\|Grep` y `Read\|Glob`) que **sugiere** consultar el grafo antes de leer/grepear en crudo — nunca bloquea (se instala sin `--strict`). Sustituye al componente anterior, que por error instalaba el plugin de otro autor con nombre parecido. | [Graphify-Labs/graphify](https://github.com/Graphify-Labs/graphify) (paquete PyPI `graphifyy`) |
+| **ponytail** | Plugin de Claude Code que fuerza minimalismo al escribir código mediante una "escalera" de 7 peldaños (¿hace falta? → ¿ya existe en el repo? → ¿stdlib? → ¿feature nativa? → ¿dependencia ya instalada? → ¿cabe en una línea? → el mínimo que funcione). Trae 6 skills: `ponytail` (modo activo, niveles `lite`/`full`/`ultra`), `ponytail-review` (revisa el diff), `ponytail-audit` (repo completo), `ponytail-debt` (cosecha comentarios `ponytail:` en una libreta de deuda técnica), `ponytail-gain` y `ponytail-help`. No choca con Graphify: registra hooks `SessionStart`/`SubagentStart`/`UserPromptSubmit`, ninguno es `PreToolUse` (el único evento que usa Graphify). | [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) |
 | **cyber-neo** | Skill de auditoría de seguridad: OWASP 2025 Top 10 y CWE Top 25, escaneo de dependencias, secretos, SAST y configuración. Solo lectura; reporte en `~/Desktop/`. Clonada con commit fijado. | [Hainrixz/cyber-neo](https://github.com/Hainrixz/cyber-neo) |
 | **parsers** | Ingesta de archivos para el RAG: **MarkItDown** (cualquier archivo → markdown, con MCP oficial `markitdown`), **opendataloader-pdf** (PDFs complejos) y **whisper-ctranslate2** (audio → texto, CPU). Auto-instala Python y el JDK vía winget si faltan. | [markitdown](https://github.com/microsoft/markitdown), [opendataloader-pdf](https://github.com/opendataloader-project/opendataloader-pdf), [whisper-ctranslate2](https://github.com/Softcatala/whisper-ctranslate2) |
 | **rules** | Reglas operativas empaquetadas en el repo (`templates/rules/`) — no en la configuración personal de tu máquina — instaladas en `<RAG_ROOT>/.claude/`: `CLAUDEMAX.md` (las 7 reglas) y `proyecto.md` (plantilla por proyecto) se sobrescriben en cada instalación; `CLAUDE.md` nunca se pisa, solo se le añade `@CLAUDEMAX.md` si falta. Además instala y registra 4 hooks de cumplimiento y contexto: `git-footer-guard.mjs`, `loop-breaker.mjs`, `skill-suggest.mjs`, `session-start.mjs`. Ver sección [Reglas operativas](#reglas-operativas). Último componente en instalarse — sus reglas referencian rutas que crean los pasos anteriores. | propia (este repo) |
@@ -40,7 +41,7 @@ exacta que va a ejecutar y solo entonces la lanza.
 1. Bienvenida.
 2. Destino del workspace — crea la carpeta raíz que elijas (por defecto `WORKSPACE` en tu escritorio); se convierte en `RAG_ROOT`.
 3. Tabla de dependencias con estado en vivo: `node`, `git`, `claude`, `docker`, `ollama`, `python`, `java`, `winget`.
-4. Selección de componentes (los mismos nueve de la tabla de arriba).
+4. Selección de componentes (los mismos diez de la tabla de arriba).
 5. Vault: crear desde cero / importar uno existente / conectar a uno remoto.
 6. RAG: los mismos tres modos, más Kaggle opcional (usuario y clave, la clave sin eco en pantalla).
 7. Resumen auditable — la línea de comando completa con sus variables, antes de tocar nada.
@@ -73,7 +74,7 @@ Re-ejecutable. Idempotente. Pasa `--dry-run` para ver exactamente qué haría.
 | Flag | Efecto |
 |---|---|
 | `--all` | Instala todos los componentes (por defecto). |
-| `--only <id>` | Solo un componente. Repetible. ids: `rtk`, `figma`, `ui-ux`, `dev-skills`, `rag`, `graphify`, `cyber-neo`, `parsers`, `rules`. |
+| `--only <id>` | Solo un componente. Repetible. ids: `rtk`, `figma`, `ui-ux`, `dev-skills`, `rag`, `graphify`, `ponytail`, `cyber-neo`, `parsers`, `rules`. |
 | `--skip <id>` | Omite un componente. Repetible. |
 | `--no-npm` | Omite `npm install framer-motion gsap`. |
 | `--with-npm` | Fuerza el paso de npm aunque no haya `package.json` (ejecuta `npm init -y`). |
@@ -97,6 +98,7 @@ arranca la sesión; desactívalo con `CLAUDEMAX_SESSION_CONTEXT=0` si te resulta
    - `architecture-principles`, `conventional-commits` — skills de disciplina de ingeniería. Invócalas por nombre o deja que sus triggers se disparen automáticamente durante una revisión/refactor/commit.
    - `ui-ux-pro-max` — inteligencia de diseño UI/UX. Se dispara automáticamente en prompts de diseño/construcción/revisión que toquen UI, o pídela por nombre.
    - `graphify extract .` — genera el grafo de conocimiento del proyecto actual (Graphify): `graphify-out/graph.json` + `graph.html`. Ábrelo con tu navegador para el dashboard interactivo.
+   - `/ponytail-review` — revisa el diff actual con la escalera de minimalismo de Ponytail. `/ponytail-audit` hace lo mismo sobre el repo completo. `/ponytail-debt` cosecha los comentarios `ponytail:` que hayas dejado en el código.
    - `/cyber-neo <ruta>` — auditoría de seguridad OWASP/CWE del proyecto.
    - `skill-mcp-builder` — para crear nuevas Skills 2.0 o servidores MCP.
    - `no-ai-slop` — pide que audite o edite un borrador (README, artículo, mensaje) para quitarle "slop" de IA sin perder tu voz.
@@ -302,6 +304,7 @@ Sin telemetría. El instalador no hace llamadas de analítica. Sí delega en:
 - El script de instalación de `rtk-ai/rtk` (descarga el binario de rtk desde los releases de GitHub).
 - `claude mcp add` (CLI de Anthropic) para los registros MCP de Figma, 21st.dev magic, `rag` y `markitdown`.
 - `uv tool install` / `pipx install` / `pip install --user` (el primero disponible) para `graphifyy`, el paquete PyPI del CLI de Graphify — y `graphify claude install` para registrar su hook `PreToolUse` local (ver fila de `graphify` en la tabla de componentes).
+- `claude plugin marketplace add` + `claude plugin install` (CLI de Anthropic) para instalar el plugin `ponytail` desde `DietrichGebert/ponytail`.
 - `git clone` para la skill superpowers (`obra/superpowers`) y para `cyber-neo` (con commit fijado). Las demás skills propias (`architecture-principles`, `conventional-commits`, `skill-mcp-builder`, `ui-ux-pro-max`, `no-ai-slop`, `rituales`) y los cuatro hooks de `rules` se copian directo desde este repo — sin llamadas de red.
 - `npm install framer-motion gsap` en tu cwd (solo si existe un `package.json` o se pasa `--with-npm`).
 - `winget install` para dependencias de sistema que falten: Docker Desktop, Ollama, Python 3.12 y Temurin JDK 21.
