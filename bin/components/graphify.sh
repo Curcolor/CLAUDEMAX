@@ -48,7 +48,14 @@ ac_component_graphify() {
     ac_warn "Graphify registra un hook PreToolUse (matchers Bash|Grep y Read|Glob -> 'graphify hook-guard search|read') que SUGIERE consultar el grafo antes de leer/grepear en crudo. Se instala SIN --strict: nunca bloquea una herramienta, solo avisa."
     ac_run bash -c "cd '$AC_REPO_DIR' && graphify claude install" \
         || ac_warn "graphify claude install falló — ejecútalo manualmente dentro del proyecto que quieras integrar."
-    ac_info "Registro por-proyecto: escribió en ./CLAUDE.md y ./.claude/settings.json de \$AC_REPO_DIR. Para activarlo en cualquier otro proyecto, ejecuta 'graphify claude install' dentro de él, y 'graphify extract .' para generar su grafo."
+    # El verbo cambia según el modo: en dry-run nada se ha escrito todavía, y afirmarlo
+    # sería mentirle al usuario sobre el estado real de su disco.
+    if [ "${DRY_RUN:-0}" = "1" ]; then
+        ac_dim "  Registro por-proyecto: escribiría en $AC_REPO_DIR/CLAUDE.md y $AC_REPO_DIR/.claude/settings.json."
+    else
+        ac_info "Registro por-proyecto: escrito en $AC_REPO_DIR/CLAUDE.md y $AC_REPO_DIR/.claude/settings.json."
+    fi
+    ac_dim "  Para activarlo en otro proyecto: 'graphify claude install' dentro de él, y 'graphify extract .' para generar su grafo."
 }
 
 # Best-effort: si el plugin equivocado de una instalación anterior de CLAUDEMAX sigue
