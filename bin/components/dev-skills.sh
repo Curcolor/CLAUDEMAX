@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Instala skills de disciplina de ingeniería:
 #   - superpowers             (clonado de obra/superpowers — meta-skill upstream)
-#   - architecture-principles (propia/first-party)
+#   - swebok            (propia/first-party — absorbe la antigua architecture-principles)
+#   - book-to-skill     (propia/first-party)
 #   - conventional-commits    (propia/first-party)
 #   - skill-mcp-builder       (propia/first-party — meta-skill: crear skills y MCPs)
 #   - no-ai-slop              (propia/first-party — fork traducido de petergyang/no-ai-slop, MIT)
@@ -11,10 +12,10 @@
 
 SUPERPOWERS_REPO="https://github.com/obra/superpowers"
 
-FIRST_PARTY_SKILLS=(architecture-principles conventional-commits skill-mcp-builder no-ai-slop rituales)
+FIRST_PARTY_SKILLS=(swebok book-to-skill conventional-commits skill-mcp-builder no-ai-slop rituales)
 
 ac_component_dev_skills() {
-    ac_step "Skills de ingeniería — superpowers + architecture-principles + conventional-commits + skill-mcp-builder + no-ai-slop"
+    ac_step "Skills de ingeniería — superpowers + swebok + book-to-skill + conventional-commits + skill-mcp-builder + no-ai-slop"
 
     ac_devskills_install_first_party
     ac_devskills_install_superpowers
