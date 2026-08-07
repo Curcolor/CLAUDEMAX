@@ -44,8 +44,17 @@ CLAUDEMAX/
 │   ├── skill-suggest.mjs        # hook UserPromptSubmit: sugiere Skills 2.0 para tecnologías nuevas
 │   └── session-start.mjs        # hook SessionStart: contexto automático (grafo de Graphify + RAG)
 ├── skills/
-│   ├── architecture-principles/
+│   ├── swebok/               # destilación del SWEBOK v4 (IEEE) — absorbe a la skill de arquitectura que existía antes (ya no está)
 │   │   ├── SKILL.md
+│   │   ├── skill.yaml
+│   │   ├── schema.json
+│   │   ├── cheatsheet.md    # reglas de decisión, no glosario
+│   │   ├── glossary.md      # términos con referencia a capítulo
+│   │   ├── patterns.md      # marcos y técnicas con nombre propio, agrupados por tema
+│   │   ├── chapters/        # 18 archivos, uno por área de conocimiento del SWEBOK
+│   │   └── referencias/     # curado a mano, NO extraído del SWEBOK: solid.md, patrones-gof.md, arquitecturas.md
+│   ├── book-to-skill/
+│   │   ├── SKILL.md         # fork adaptado al español de virgiliojr94/book-to-skill (MIT)
 │   │   ├── skill.yaml
 │   │   └── schema.json
 │   ├── conventional-commits/
@@ -172,7 +181,7 @@ No confundir con los flags de `bin/install.sh` (sección [Flags](README.md#flags
 | `$CLAUDE_CONFIG_DIR/skills/ui-ux-pro-max/` | ui-ux.sh (`cp -R` desde este repo) | Sí |
 | `$CLAUDE_CONFIG_DIR/hooks/ui-audit.mjs` + entrada `PostToolUse`/`Edit\|Write` en `settings.json` | ui-ux.sh (`cp` + `ac_merge_hook`) | Sí — `rm -f` del archivo y `ac_remove_hook` de la entrada en `settings.json` |
 | `$CLAUDE_CONFIG_DIR/skills/superpowers/` | dev-skills.sh (`git clone`) | Sí |
-| `$CLAUDE_CONFIG_DIR/skills/{architecture-principles,conventional-commits,skill-mcp-builder,no-ai-slop,rituales}/` | dev-skills.sh (`cp -R` desde este repo) | Sí |
+| `$CLAUDE_CONFIG_DIR/skills/{swebok,book-to-skill,conventional-commits,skill-mcp-builder,no-ai-slop,rituales}/` | dev-skills.sh (`cp -R` desde este repo) | Sí |
 | `$CLAUDE_CONFIG_DIR/skills/cyber-neo/` | cyber-neo.sh (`git clone` + checkout del commit fijado) | Sí |
 | Paquete pip `graphifyy` (binario `graphify`, vía `uv tool install` / `pipx install` / `pip install --user`, el primero disponible) | graphify.sh | **No** — es una dependencia de sistema, igual que los parsers; desinstálala a mano con `pip uninstall graphifyy` (o `uv tool uninstall` / `pipx uninstall`) si quieres |
 | Sección `## graphify` en `CLAUDE.md` + hook `PreToolUse` (`Bash\|Grep`, `Read\|Glob`) en `.claude/settings.json`, en `$AC_REPO_DIR` (el propio repo de CLAUDEMAX) | graphify.sh (`graphify claude install`, sin `--strict`) | Sí — `graphify claude uninstall` en `$AC_REPO_DIR`. Es un registro **por-proyecto**: si ejecutaste `graphify claude install` en otros proyectos a mano, desregístralos ahí también con `graphify claude uninstall` |
@@ -200,7 +209,7 @@ No confundir con los flags de `bin/install.sh` (sección [Flags](README.md#flags
    - El hook PreToolUse/Bash (`rtk hook claude`) se escribe directamente en `~/.claude/settings.json` mediante nuestro merger JSONC — no dependemos del prompt interactivo y/N de `rtk init -g`, que por defecto responde `N` en shells no interactivos.
 2. **figma** — necesita el CLI `claude`; se registra a nivel de **usuario** (`claude mcp add -s user`) para que funcione en todos los proyectos.
 3. **ui-ux** — también necesita `claude` para el MCP magic (también registrado a nivel de **usuario**); muta el cwd vía `npm install` (condicionado). Además de copiar la skill, ahora también copia `hooks/ui-audit.mjs` a `$CLAUDE_CONFIG_DIR/hooks/` y lo registra como `PostToolUse`/`Edit|Write` en `settings.json` (auditoría determinista de anti-patrones de UI; desactivable con `CLAUDEMAX_UI_AUDIT=0`).
-4. **dev-skills** — copia simple de archivos para `architecture-principles` / `conventional-commits` / `skill-mcp-builder` / `no-ai-slop` / `rituales`; `git clone`/`git pull` para `superpowers`. Sin dependencia de orden con los demás.
+4. **dev-skills** — copia simple de archivos para `swebok` / `book-to-skill` / `conventional-commits` / `skill-mcp-builder` / `no-ai-slop` / `rituales`; `git clone`/`git pull` para `superpowers`. Sin dependencia de orden con los demás.
 5. **rag** — opt-in (necesita `RAG_ROOT` definido, si no avisa y se omite): copia `templates/vault` (con la taxonomía de 6 categorías) → `<RAG_ROOT>/V.A.U.L.T` y `templates/rag` (incluidas las plantillas de Kaggle en `kaggle/`) → `<RAG_ROOT>/R.A.G`, auto-instala Docker y Ollama vía winget si faltan, levanta el stack Docker Compose `ragdb` + `bge-m3`, hace `npm install` de las dependencias del CLI/MCP, configura el backend opcional de Kaggle si `KAGGLE_USERNAME`/`KAGGLE_KEY` están en el entorno, y registra el MCP `rag` a nivel de **usuario**.
 6. **graphify** — instala el paquete pip `graphifyy` (`uv tool install` / `pipx install` / `pip install --user`, el primero disponible) y ejecuta `graphify claude install` (registro por-proyecto: sección de `CLAUDE.md` + hook `PreToolUse`, sin `--strict`). Antes de instalar nada, hace la migración: si detecta el plugin equivocado de una instalación anterior (`understand-anything`), lo quita. Sin dependencia de orden con los demás — ya no toca la configuración de plugins de `claude`.
 7. **ponytail** — necesita `claude`; sin él avisa con los comandos `/plugin` para hacerlo en sesión y no falla la instalación. Idempotente vía `claude plugin list`. `claude plugin marketplace add DietrichGebert/ponytail` + `claude plugin install ponytail@ponytail`. Sin dependencia de orden con los demás — sus hooks (`SessionStart`/`SubagentStart`/`UserPromptSubmit`) no chocan con el `PreToolUse` de graphify.
