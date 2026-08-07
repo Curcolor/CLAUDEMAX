@@ -1,0 +1,17 @@
+name: book-to-skill
+version: 2.0.0
+kind: knowledge
+triggers:
+  - "convertir libro en skill / book to skill"
+  - "destilar PDF / distill PDF"
+  - "destilar libro / distill book"
+  - "generar skill desde documento / generate skill from document"
+  - "crear skill de un libro / create skill from a book"
+  - "PDF to skill / PDF a skill"
+  - "EPUB to skill / EPUB a skill"
+  - "book-to-skill"
+commands: []
+scripts: []
+dependencies:
+  - skill-mcp-builder
+schema: ./schema.json

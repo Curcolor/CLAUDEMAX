@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "book-to-skill",
+  "definitions": {
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "documento": {
+          "type": "string",
+          "description": "Ruta del archivo, carpeta o patrón glob de origen a convertir. Formatos aceptados: .pdf, .epub, .docx, .txt, .md, .markdown, .rst, .adoc, .html, .htm, .rtf, .mobi, .azw, .azw3"
+        },
+        "tipo_libro": {
+          "type": "string",
+          "enum": ["technical", "text"],
+          "description": "technical = tiene código, tablas, fórmulas o diagramas (prioriza Tablas de referencia y Ejemplos de código en cada capítulo); text = mayormente prosa (prioriza Marcos que introduce y Modelos mentales). Omitir para que la skill lo infiera del documento."
+        },
+        "profundidad": {
+          "type": "string",
+          "enum": ["reference", "study"],
+          "description": "reference = capítulos ligeros de consulta rápida, sin ejemplos trabajados; study = capítulos más profundos con ejemplo trabajado y el 'cómo' de cada marco expandido en pasos. Determina el presupuesto de tokens por capítulo (ver tabla en SKILL.md)."
+        },
+        "nombre_skill": {
+          "type": "string",
+          "description": "Slug propuesto para la skill resultante (p. ej. cialdini-influence o swebok). Si se omite, se deriva de autor+concepto o del título del documento."
+        }
+      },
+      "required": ["documento"],
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "carpeta_skill": {
+          "type": "string",
+          "description": "Ruta a la carpeta skills/<nombre_skill>/ generada, ya adaptada a Skills 2.0 (incluye skill.yaml y schema.json además de los archivos que produce el conversor original)"
+        },
+        "archivos": {
+          "type": "object",
+          "description": "Archivos generados dentro de carpeta_skill",
+          "properties": {
+            "skill_md": {
+              "type": "string",
+              "description": "SKILL.md — marcos transversales, tabla de capítulos, índice de temas navegable por pregunta, y enlaces a los archivos de soporte"
+            },
+            "capitulos": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Rutas relativas de cada chapters/ch<NN>-<slug>.md generado"
+            },
+            "glossary_md": {
+              "type": "string",
+              "description": "glossary.md — todos los términos significativos, alfabético, formato **Término** — definición (Cap N)"
+            },
+            "patterns_md": {
+              "type": "string",
+              "description": "patterns.md — técnicas, algoritmos y patrones concretos del documento, agrupados por tema"
+            },
+            "cheatsheet_md": {
+              "type": "string",
+              "description": "cheatsheet.md — reglas de decisión, árboles de decisión, matrices de trade-off y umbrales; nunca términos→definición (eso va en glossary.md)"
+            },
+            "skill_yaml": {
+              "type": "string",
+              "description": "skill.yaml añadido en el Paso 5 para cumplir el contrato Skills 2.0 de este repo"
+            },
+            "schema_json": {
+              "type": "string",
+              "description": "schema.json añadido en el Paso 5 para cumplir el contrato Skills 2.0 de este repo"
+            }
+          }
+        }
+      },
+      "required": ["carpeta_skill"]
+    }
+  }
+}
