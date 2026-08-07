@@ -13,5 +13,5 @@ triggers:
 commands: []
 scripts: []
 dependencies:
-  - architecture-principles
+  - swebok
 schema: ./schema.json

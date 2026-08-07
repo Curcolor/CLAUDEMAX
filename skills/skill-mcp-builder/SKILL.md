@@ -37,11 +37,11 @@ dependencies: []            # nombres de otras skills de las que depende (opcion
 schema: ./schema.json
 ```
 
-`kind: knowledge` es para skills que aportan criterio y patrones (como esta misma, o `architecture-principles`) — no ejecutan nada, solo cargan contexto. `kind: tool` es para skills que envuelven `scripts`/`commands` reales; en ese caso cada ruta en `scripts` DEBE existir en disco o el validador falla.
+`kind: knowledge` es para skills que aportan criterio y patrones (como esta misma, o `swebok`) — no ejecutan nada, solo cargan contexto. `kind: tool` es para skills que envuelven `scripts`/`commands` reales; en ese caso cada ruta en `scripts` DEBE existir en disco o el validador falla.
 
 ### `schema.json`
 
-Contrato mínimo: JSON Schema con `definitions.inputs` y `definitions.outputs`. No hace falta que sea exhaustivo — documenta la forma de lo que la skill espera recibir y producir, útil tanto para quien la invoca como para un futuro wrapper MCP sobre la misma lógica. Ver `skills/skill-mcp-builder/schema.json` como ejemplo mínimo, o `skills/architecture-principles/schema.json` como ejemplo con `enum`.
+Contrato mínimo: JSON Schema con `definitions.inputs` y `definitions.outputs`. No hace falta que sea exhaustivo — documenta la forma de lo que la skill espera recibir y producir, útil tanto para quien la invoca como para un futuro wrapper MCP sobre la misma lógica. Ver `skills/skill-mcp-builder/schema.json` como ejemplo mínimo, o `skills/swebok/schema.json` como ejemplo con `enum`.
 
 ### Flujo de creación
 
@@ -49,7 +49,7 @@ Contrato mínimo: JSON Schema con `definitions.inputs` y `definitions.outputs`. 
 2. Escribe el cuerpo de `SKILL.md` en español; los triggers de `skill.yaml` van en pares español/inglés.
 3. Corre `node skills/validate-skills.mjs` hasta que salga `OK (<n> skills)`. Corrige cualquier error que reporte (nombre desalineado, campo faltante, script inexistente, JSON inválido) antes de continuar.
 4. Si es una skill first-party que debe instalarse en cada máquina, añade su nombre a `FIRST_PARTY_SKILLS` en `bin/components/dev-skills.sh` (el instalador la copia a `$CLAUDE_CONFIG_DIR/skills/`).
-5. Añade su desinstalación al loop de skills de ingeniería en `bin/uninstall.sh` (el mismo `for s in ...` que ya limpia `architecture-principles` y `conventional-commits`).
+5. Añade su desinstalación al loop de skills de ingeniería en `bin/uninstall.sh` (el mismo `for s in ...` que ya limpia `swebok` y `conventional-commits`).
 
 ### Checklist de calidad antes de dar por terminada una skill
 
@@ -57,7 +57,7 @@ Contrato mínimo: JSON Schema con `definitions.inputs` y `definitions.outputs`. 
 - [ ] Triggers de `skill.yaml` bilingües (español + inglés, no solo uno de los dos).
 - [ ] Todo script declarado en `scripts:` existe en disco.
 - [ ] `node skills/validate-skills.mjs` termina en `OK`.
-- [ ] No duplica contenido ya cubierto por otra skill — si el solape es total, considera fusionar (así nació `architecture-principles` a partir de tres skills previas).
+- [ ] No duplica contenido ya cubierto por otra skill — si el solape es total, considera fusionar (así absorbió `swebok` a la antigua `architecture-principles`, que a su vez había nacido fusionando tres skills previas).
 - [ ] Termina con la línea `Config: skill.yaml · Schema: schema.json` (convención de pie de página de todas las skills del repo).
 
 ## Parte 2 — Crear un servidor MCP

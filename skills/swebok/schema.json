@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "swebok",
+  "definitions": {
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "consulta": {
+          "type": "string",
+          "description": "Pregunta en lenguaje natural (español o inglés) sobre ingeniería de software: requisitos, arquitectura, diseño, pruebas, calidad, mantenimiento, estimación, SOLID, patrones GoF, arquitecturas de sistema, etc."
+        },
+        "area": {
+          "type": "string",
+          "enum": [
+            "requisitos",
+            "arquitectura",
+            "diseno",
+            "construccion",
+            "pruebas",
+            "operaciones",
+            "mantenimiento",
+            "gestion-configuracion",
+            "gestion-ingenieria",
+            "proceso",
+            "modelos-metodos",
+            "calidad",
+            "seguridad",
+            "practica-profesional",
+            "economia",
+            "fundamentos-informatica",
+            "fundamentos-matematicos",
+            "fundamentos-ingenieria",
+            "solid",
+            "patrones",
+            "arquitecturas"
+          ],
+          "description": "Área de conocimiento SWEBOK a consultar (una de las 18, por slug de capítulo) o una de las tres referencias curadas absorbidas de architecture-principles (solid, patrones, arquitecturas). Omitir para que la skill la infiera de la consulta."
+        },
+        "profundidad": {
+          "type": "string",
+          "enum": ["cheatsheet", "capitulo", "referencia"],
+          "description": "Nivel de detalle deseado: cheatsheet (regla rápida tipo 'si X, haz Y'), capitulo (detalle completo de un área SWEBOK en chapters/), o referencia (material curado a mano en referencias/: solid.md, patrones-gof.md, arquitecturas.md). Omitir para que la skill elija según la consulta."
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "respuesta": {
+          "type": "string",
+          "description": "Recomendación o respuesta a la consulta, con su justificación y, cuando aplica, los trade-offs relevantes"
+        },
+        "fuente": {
+          "type": "string",
+          "description": "Ruta relativa del capítulo o referencia consultado dentro de la skill (p. ej. chapters/ch02-arquitectura-de-software.md o referencias/solid.md)"
+        }
+      },
+      "required": ["respuesta"]
+    }
+  }
+}

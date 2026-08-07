@@ -1,0 +1,24 @@
+name: swebok
+version: 2.0.0
+kind: knowledge
+triggers:
+  # bilingües: cada concepto en español e inglés
+  - "SWEBOK / cuerpo de conocimiento / body of knowledge"
+  - "requisitos / requirements / elicitación"
+  - "arquitectura / architecture / ASR / vistas"
+  - "diseño / design / patrón / pattern / GoF"
+  - "SOLID / SRP / OCP / LSP / ISP / DIP"
+  - "pruebas / testing / cobertura / coverage / oráculo"
+  - "calidad / quality / verificación / validación"
+  - "mantenimiento / maintenance / deuda técnica / technical debt"
+  - "estimación / estimation / esfuerzo / effort"
+  - "proceso / process / ciclo de vida / lifecycle"
+  - "refactorizar / refactor / clean architecture / hexagonal / microservicios / microservices"
+  - "seguridad / security / DevSecOps / amenazas / threat modeling"
+  - "gestión de configuración / configuration management / SBOM / línea base"
+  - "economía de ingeniería / engineering economics / TCO / MARR"
+commands: []
+scripts: []
+dependencies:
+  - conventional-commits
+schema: ./schema.json

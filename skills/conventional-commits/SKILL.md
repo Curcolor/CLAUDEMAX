@@ -113,7 +113,7 @@ Usa lo que ya esté establecido en este repo (ejecuta `git log --oneline -50` pa
 
 ## Ver también
 
-- [[architecture-principles]] — los commits `refactor:` a menudo van de la mano con aplicar principios SOLID, y nombrar un patrón en el body explica el *por qué* de forma concisa.
+- [[swebok]] — los commits `refactor:` a menudo van de la mano con aplicar principios SOLID o un patrón GoF (ver `referencias/solid.md` y `referencias/patrones-gof.md` dentro de esa skill), y nombrarlo en el body explica el *por qué* de forma concisa.
 
 ---
 
