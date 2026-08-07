@@ -8,9 +8,16 @@ Para la versión corta, ve [README.md](README.md). Este documento cubre la estru
 CLAUDEMAX/
 ├── install.sh                  # punto de entrada
 ├── uninstall.sh                # desmontaje simétrico
+├── CLAUDEMAX-INSTALLER.cmd     # lanzador Windows (doble clic) del wizard interactivo
+├── CLAUDEMAX-UNINSTALLER.cmd   # lanzador Windows del wizard en modo desinstalación
 ├── README.md                   # versión corta
 ├── INSTALL.md                  # este archivo
 ├── bin/
+│   ├── wizard/
+│   │   ├── wizard.mjs          # flujo principal del wizard (9 pasos, ver más abajo)
+│   │   ├── ui.mjs               # primitivas: banner, menú, prompt, tabla, colores
+│   │   ├── detect.mjs           # envoltura sobre bin/lib/detect.sh + comprobaciones extra
+│   │   └── test-componentes.mjs # prueba: la lista de componentes del wizard no se desincroniza de install.sh
 │   ├── lib/
 │   │   ├── log.sh              # helpers info/warn/error/dim/run-or-dry
 │   │   ├── detect.sh           # comprobaciones de presencia para curl/git/node/npm/claude/opencode
@@ -84,6 +91,72 @@ CLAUDEMAX/
         └── proyecto.md          # plantilla por proyecto que instancia `ritual.mjs init-proyecto`
 ```
 
+## Wizard interactivo
+
+Especificación completa: `docs/superpowers/specs/2026-08-02-wizard-design.md`. Lo que sigue es
+el resumen operativo.
+
+**Principio rector: el wizard no reimplementa la instalación, la orquesta.** Toda la lógica de
+instalación sigue viviendo en `install.sh` y en `bin/components/*.sh`; `bin/wizard/wizard.mjs`
+solo recoge decisiones del usuario y las traduce a flags y variables de entorno para un único
+`bash install.sh` final, lanzado con stdio heredado — la salida que ves es literalmente la del
+instalador, sin ninguna capa de reformateo. Consecuencia directa: la ruta no interactiva (flags
+directos a `install.sh`) sigue funcionando exactamente igual y no hay dos instaladores que
+mantener sincronizados.
+
+Tecnología: Node ≥18, sin dependencias (igual que el resto del repo). `node:readline/promises`
+para la entrada, secuencias ANSI para el color — sin librerías de TUI, para que el mismo menú
+numerado funcione igual en Git Bash, cmd.exe y Windows Terminal. Colores desactivados si
+`NO_COLOR`/`CLAUDEMAX_NO_COLOR` están definidas, si la salida no es TTY, o con `--no-color`.
+
+### Puntos de entrada
+
+| Archivo | Qué hace |
+|---|---|
+| `CLAUDEMAX-INSTALLER.cmd` | Comprueba que `node` esté en el PATH y lanza `bin/wizard/wizard.mjs`. Si falta Node, explica cómo instalarlo y hace `pause` antes de cerrar — para que la ventana no desaparezca de golpe al hacer doble clic. |
+| `CLAUDEMAX-UNINSTALLER.cmd` | Igual, pero lanza `wizard.mjs --uninstall`. |
+
+También se puede invocar directo, sin pasar por el `.cmd`: `node bin/wizard/wizard.mjs`.
+
+### Los 9 pasos
+
+1. **Bienvenida** — banner ASCII (el mismo de `install.sh`), y una frase de qué va a pasar. Enter para continuar, `q` para salir sin tocar nada.
+2. **Destino del workspace** — pregunta dónde crear la carpeta raíz; por defecto `%USERPROFILE%\Desktop\WORKSPACE`. Valida que la ruta sea escribible; si ya existe y no está vacía, pide confirmación explícita antes de seguir. Esta respuesta se convierte en `RAG_ROOT`.
+3. **Chequeo de dependencias** — tabla con estado en vivo (`node`, `git`, `claude`, `docker`, `ollama`, `python`, `java`, `winget`), detectada **ejecutando** `bin/lib/detect.sh` (la misma función `ac_detect_all` que usa `install.sh`), no reimplementando la detección en JS. Para lo que falte, el wizard no instala nada aquí: avisa qué componentes quedarán degradados y deja que cada componente resuelva sus propias dependencias en su momento (`ac_rag_ensure_deps` vía winget, `ac_parsers_ensure_python`).
+4. **Selección de componentes** — lista con casilla marcada por defecto en los nueve. La lista se extrae de `ALL_COMPONENTS` en `install.sh` con una expresión regular al arrancar — el wizard nunca mantiene su propia copia (ver más abajo).
+5. **Vault** — tres modos, como ya soporta `rag.sh`: crear desde cero (plantilla con la taxonomía de seis categorías), importar uno existente (`VAULT_SRC`, valida que la ruta exista) o conectar a uno remoto (`VAULT_REMOTE`, URL de git). Se omite si `rag` quedó desmarcado en el paso 4.
+6. **RAG** — los mismos tres modos (`RAG_MODE`, con `RAG_DUMP` / `RAG_REMOTE_URL` según el caso), y después Kaggle opcional: si se acepta, pide usuario y clave (**la clave se lee sin eco en pantalla**, con lectura raw-mode de stdin) y recuerda la verificación telefónica manual de Kaggle. Si se declina, las variables `KAGGLE_*` ni se mencionan en el resumen. Se omite si `rag` quedó desmarcado.
+7. **Resumen y confirmación** — imprime la línea de comando completa con sus variables de entorno (auditable: se ve exactamente qué se va a ejecutar antes de ejecutarlo; la clave de Kaggle se enmascara en pantalla, no en el entorno real del proceso hijo) y ofrece ejecutar de verdad, simular (`--dry-run`) o cancelar.
+8. **Ejecución** — localiza bash y lanza `bash install.sh` con los flags/variables acordados, con stdio heredado para que veas el progreso real (`ac_step` de `install.sh`).
+9. **Resumen final** — código de salida del instalador, recordatorio de reiniciar Claude Code, y los comandos para empezar (`/understand`, `ritual.mjs fin-sesion`, etc.). En Windows espera una tecla antes de cerrar (salvo con `--defaults` o si no hay TTY real, para no colgarse en una prueba automatizada).
+
+### Modo desinstalación
+
+`wizard.mjs --uninstall` (o `CLAUDEMAX-UNINSTALLER.cmd`) muestra qué se va a eliminar y qué se
+conserva (dependencias de sistema, el vault, el volumen de datos del RAG, las reglas que
+pudiste editar) y pide escribir la palabra **`desinstalar`** completa para confirmar — no un
+simple sí/no, precisamente porque es una operación destructiva y un Enter accidental no debe
+bastar. Cualquier otra respuesta cancela sin tocar nada. Confirmado, delega en `bash
+uninstall.sh` con stdio heredado, igual que el paso 8 de la instalación.
+
+### Flags del propio wizard
+
+No confundir con los flags de `install.sh` (sección [Flags](README.md#flags) del README):
+
+| Flag | Efecto |
+|---|---|
+| `--uninstall` | Modo desinstalación. |
+| `--dry-run` | Fuerza modo simulación sin preguntarlo en el paso 7. |
+| `--defaults` | Acepta todos los valores por defecto sin preguntar nada — útil para reinstalar rápido. Combinable con `--dry-run` para simular sin que pregunte nada. |
+| `--no-color` | Desactiva los colores ANSI. |
+
+### Decisiones de diseño que merecen explicación
+
+- **Git Bash explícito antes que el `bash` del PATH, en Windows.** `bin/wizard/detect.mjs` prueba primero las rutas conocidas de Git for Windows (`%ProgramFiles%\Git\bin\bash.exe`, `%LOCALAPPDATA%\Programs\Git\bin\bash.exe`) antes de caer al `bash` que resuelva el PATH. Motivo: si el usuario tiene WSL instalado, su `bash` puede aparecer antes en el PATH, y el bash de WSL monta el disco de Windows en `/mnt/c` en vez de `/c` — las rutas que el wizard construye (`RAG_ROOT`, `AC_REPO_DIR`, rutas de vault/dump convertidas con `aPosix()`) no resolverían ahí y la instalación fallaría de forma confusa. Cada candidato se valida ejecutando `echo $OSTYPE` antes de aceptarlo: Git Bash reporta `msys`/`cygwin`, WSL reporta `linux-gnu` — si no empieza por `msys`/`cygwin` en Windows, se descarta aunque el binario exista y responda.
+- **La lista de componentes se deriva, no se duplica.** `leerComponentes()` en `bin/wizard/detect.mjs` extrae `ALL_COMPONENTS=(...)` de `install.sh` con una expresión regular al arrancar — el wizard nunca mantiene su propia lista escrita a mano. Así, añadir un componente nuevo a `install.sh` lo hace aparecer en el paso 4 del wizard sin tocar el wizard. `bin/wizard/test-componentes.mjs` es la prueba de sincronización: evalúa la línea `ALL_COMPONENTS=(...)` con el parser de arrays real de bash (no otra regex de JS, para no esconder el mismo bug dos veces) y falla si diverge de lo que devuelve `leerComponentes()`. Ejecutar: `node bin/wizard/test-componentes.mjs`.
+- **Confirmación por palabra exacta en la desinstalación.** A diferencia del resto de prompts del wizard (que aceptan s/n con Enter por defecto), `--uninstall` exige teclear `desinstalar` literal. Es la única confirmación del wizard que funciona así, deliberadamente: un simple "sí" es demasiado fácil de teclear por reflejo cuando la acción es destructiva.
+- **Los pasos de vault y RAG (5 y 6) se omiten si `rag` queda desmarcado en el paso 4** — no tiene sentido preguntar `VAULT_MODE`/`RAG_MODE` si ese componente no se va a instalar.
+
 ## Dónde queda cada cosa en tu máquina
 
 | Ruta | Escrita por | ¿La elimina `uninstall.sh`? |
@@ -132,6 +205,45 @@ CLAUDEMAX/
 - `--config-dir` se propaga a dónde `dev-skills`/`ui-ux` copian los directorios de skills (vía `CLAUDE_CONFIG_DIR`). RTK y los registros MCP de Figma/magic no aceptan un override de config-dir — usan los valores por defecto del CLI `claude`.
 
 ## Troubleshooting
+
+### "Hago doble clic en `CLAUDEMAX-INSTALLER.cmd` y la ventana se cierra de golpe"
+
+El `.cmd` termina con `pause`, así que en condiciones normales siempre espera una tecla antes de
+cerrar — incluso si algo falló. Si la ventana se cierra de golpe sin llegar a mostrar ese
+`pause`, es que falta Node.js ≥18 en el PATH: el propio `.cmd` comprueba `where node` al
+arrancar y, si no lo encuentra, imprime el error, hace `pause` y sale con código 1 (ese `pause`
+sí debería verse). Si ni siquiera eso aparece, revisa que el archivo no se esté ejecutando desde
+un antivirus/SmartScreen que lo bloquee antes de arrancar `cmd.exe`. Instala Node desde
+<https://nodejs.org/> (o `winget install -e --id OpenJS.NodeJS.LTS`) y vuelve a intentarlo.
+
+### "El wizard dice que no encuentra bash"
+
+`bin/wizard/detect.mjs` busca bash en este orden: rutas conocidas de Git for Windows
+(`%ProgramFiles%\Git\bin\bash.exe`, `%LOCALAPPDATA%\Programs\Git\bin\bash.exe`) y, si ninguna
+sirve, el `bash` del PATH. **El bash de WSL no cuenta aunque esté instalado y responda**: WSL
+monta el disco de Windows en `/mnt/c` en vez de `/c`, así que las rutas que el wizard le pasa
+(`RAG_ROOT`, rutas de vault/dump) no resolverían ahí — el wizard valida cada candidato con
+`echo $OSTYPE` y descarta cualquiera que no reporte `msys`/`cygwin` en Windows, precisamente
+para no caer en ese caso. La solución es instalar Git for Windows
+(<https://git-scm.com/download/win>), que trae Git Bash — no hace falta configurar nada más, el
+wizard lo encuentra solo en cuanto está en una de esas dos rutas estándar.
+
+### "Quiero reinstalar sin que me pregunte nada"
+
+```bash
+node bin/wizard/wizard.mjs --defaults
+```
+
+Acepta todos los valores por defecto (destino `WORKSPACE` en el escritorio, todos los
+componentes marcados, vault y RAG en modo `create`, Kaggle omitido) sin hacer ninguna pregunta.
+Combínalo con `--dry-run` para ver primero qué línea de comando ejecutaría, sin tocar nada:
+
+```bash
+node bin/wizard/wizard.mjs --defaults --dry-run
+```
+
+Si prefieres no pasar por el wizard en absoluto, `bash install.sh` (sin argumentos) es el
+equivalente directo — instala todos los componentes con los valores por defecto de cada uno.
 
 ### "El preflight dice que me falta node, pero `node --version` funciona en mi shell"
 

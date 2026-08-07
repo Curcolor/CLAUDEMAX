@@ -25,6 +25,39 @@ bash install.sh
 
 ## Instalación
 
+### Vía recomendada: wizard interactivo
+
+Doble clic en `CLAUDEMAX-INSTALLER.cmd` (Windows), o:
+
+```bash
+node bin/wizard/wizard.mjs
+```
+
+Un asistente de 9 pasos, sin dependencias (Node ≥18, nada de npm install), que **orquesta**
+`install.sh` en vez de reimplementarlo: recoge tus decisiones, te enseña la línea de comando
+exacta que va a ejecutar y solo entonces la lanza.
+
+1. Bienvenida.
+2. Destino del workspace — crea la carpeta raíz que elijas (por defecto `WORKSPACE` en tu escritorio); se convierte en `RAG_ROOT`.
+3. Tabla de dependencias con estado en vivo: `node`, `git`, `claude`, `docker`, `ollama`, `python`, `java`, `winget`.
+4. Selección de componentes (los mismos nueve de la tabla de arriba).
+5. Vault: crear desde cero / importar uno existente / conectar a uno remoto.
+6. RAG: los mismos tres modos, más Kaggle opcional (usuario y clave, la clave sin eco en pantalla).
+7. Resumen auditable — la línea de comando completa con sus variables, antes de tocar nada.
+8. Ejecución — stdout/stderr real de `install.sh`, sin reformatear.
+9. Resumen final y próximos pasos.
+
+Flags propios del wizard (no confundir con los de `install.sh` de más abajo): `--dry-run`
+(simula sin cambiar nada), `--defaults` (acepta todos los valores por defecto, para reinstalar
+rápido sin que pregunte nada — combinable con `--dry-run`), `--no-color` y `--uninstall` (ver
+[Desinstalación](#desinstalación)). Detalle completo en [INSTALL.md](INSTALL.md#wizard-interactivo).
+
+### Vía scripted: flags directos a `install.sh`
+
+Para automatización, CI, o si prefieres no pasar por el wizard — `install.sh` sigue funcionando
+exactamente igual que siempre; el wizard de arriba solo le pasa flags y variables de entorno, no
+hay dos instaladores que mantener sincronizados:
+
 ```bash
 # Desde un clon de este repo:
 bash install.sh
@@ -102,6 +135,10 @@ node rag.mjs ingest          # indexa el vault
 node rag.mjs query "..."     # búsqueda semántica (español o inglés)
 node rag.mjs status
 ```
+
+No hace falta memorizar estas variables: el wizard (`node bin/wizard/wizard.mjs`) pregunta el
+destino del workspace, el modo de vault y el modo de RAG uno por uno y arma esta misma línea de
+comando por ti — la enseña en su paso de resumen antes de ejecutarla.
 
 `VAULT_MODE` / `RAG_MODE` toman cada una uno de tres valores (por defecto `create`):
 
@@ -247,6 +284,10 @@ Valida todo el árbol con:
     node skills/validate-skills.mjs
 
 ## Desinstalación
+
+Doble clic en `CLAUDEMAX-UNINSTALLER.cmd` (Windows) — lanza el wizard en modo desinstalación
+(`wizard.mjs --uninstall`), que enseña qué se borra y qué se conserva y exige escribir la
+palabra `desinstalar` completa para confirmar, por ser una operación destructiva. O directo:
 
 ```bash
 bash uninstall.sh
