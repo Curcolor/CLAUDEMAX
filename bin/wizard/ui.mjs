@@ -133,12 +133,26 @@ function obtenerInterfaz() {
     return interfazCompartida;
 }
 
+// Se pone a true cuando el stream de entrada se agota. Los bucles que reintentan ante una
+// respuesta inválida deben consultarlo con hayEntrada() para no girar infinitamente pidiendo
+// una línea que ya nunca va a llegar.
+let eofAlcanzado = false;
+
+export function hayEntrada() {
+    return !eofAlcanzado;
+}
+
 // Pide la siguiente línea ya escrita por el usuario (o disponible en el pipe). Devuelve ""
 // si el stream se acabó (EOF) en vez de colgarse esperando algo que ya no va a llegar.
 async function siguienteLinea() {
+    if (eofAlcanzado) return "";
     obtenerInterfaz();
     const { value, done } = await iteradorLineas.next();
-    return done ? "" : value;
+    if (done) {
+        eofAlcanzado = true;
+        return "";
+    }
+    return value;
 }
 
 // Cierra la interfaz compartida (si existe) y restaura el modo cocido de la TTY. Hay que
@@ -251,6 +265,12 @@ export async function menuSimple(opciones) {
         if (Number.isInteger(n) && n >= 1 && n <= opciones.length) {
             return opciones[n - 1].id;
         }
+        // Sin entrada disponible (EOF) reintentar giraría para siempre: se toma la primera
+        // opción, que es la recomendada por convención en todos los menús del wizard.
+        if (!hayEntrada()) {
+            console.log(atenuado(`  Sin respuesta — se usa la opción 1 (${opciones[0].etiqueta}).`));
+            return opciones[0].id;
+        }
         console.log(rojo("  Opción inválida."));
     }
 }
@@ -272,6 +292,8 @@ export async function menuMultiple(opciones) {
         const n = Number(respuesta);
         if (Number.isInteger(n) && n >= 1 && n <= estado.length) {
             estado[n - 1].marcado = !estado[n - 1].marcado;
+        } else if (!hayEntrada()) {
+            break; // EOF: se confirma la selección actual en vez de reintentar sin fin
         } else {
             console.log(rojo("  Opción inválida."));
         }
