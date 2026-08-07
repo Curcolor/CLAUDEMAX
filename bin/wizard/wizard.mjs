@@ -53,7 +53,7 @@ const DESCRIPCIONES = {
     "ui-ux": "Skill UI/UX Pro Max + MCP magic (21st.dev) + hook de auditoría de anti-patrones visuales.",
     "dev-skills": "Skills de disciplina de ingeniería: superpowers, arquitectura, patrones, commits convencionales.",
     rag: "V.A.U.L.T + stack RAG (PGVector + Ollama bge-m3) — memoria semántica del workspace.",
-    graphify: "Plugin Understand-Anything — grafo de conocimiento del repo (/understand).",
+    graphify: "CLI de Graphify — grafo de conocimiento del repo (graphify extract .).",
     "cyber-neo": "Skill de auditoría de seguridad OWASP Top 10 / CWE.",
     parsers: "MCP markitdown + parsers de ingesta (PDF, audio, documentos).",
     rules: "Reglas operativas del workspace + hooks de rituales (git-footer-guard, loop-breaker...).",
@@ -472,7 +472,7 @@ async function pasoFinal(codigo) {
     }
     console.log("\nPróximos pasos:");
     console.log("  1. Reinicia Claude Code para que carguen los hooks y skills nuevos.");
-    console.log("  2. Prueba: /understand           — grafo de conocimiento del proyecto (Graphify)");
+    console.log("  2. Prueba: graphify extract .    — grafo de conocimiento del proyecto (Graphify)");
     console.log("  3. Prueba: /mcp → rag             — búsqueda semántica sobre tu V.A.U.L.T");
     console.log("  4. node <RAG_ROOT>/R.A.G/ritual.mjs fin-sesion");
     console.log("  5. Ver README.md para la documentación completa.");

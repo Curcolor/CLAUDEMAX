@@ -17,8 +17,8 @@ bash install.sh
 | **Framer Motion + GSAP** | `npm install --save framer-motion gsap` en tu proyecto (se omite si no hay `package.json`). | [framer-motion](https://www.npmjs.com/package/framer-motion), [GSAP](https://gsap.com/docs/v3/) |
 | **skill superpowers** | Clonada en `~/.claude/skills/superpowers/`. Paquete de meta-skills. | [obra/superpowers](https://github.com/obra/superpowers) |
 | **Skills de disciplina de ingeniería** | Propias: `architecture-principles` (fusiona las antiguas skills `solid`, `design-patterns` y `architecture-patterns` en una sola skill SOLID → patrones GoF → arquitectura de sistemas), `conventional-commits`, `skill-mcp-builder` (meta-skill para crear Skills 2.0 y servidores MCP), `no-ai-slop` (anti-slop de *prosa* — documentación, README, artículos; fork propio traducido de `petergyang/no-ai-slop`, MIT. Actúa sobre texto que un humano leerá fuera de la sesión, nunca sobre las respuestas de la conversación) y `rituales` (documenta los cinco rituales de ciclo de vida de CLAUDEMAX — ver sección [Rituales](#rituales)). | este repo |
-| **rag** | Vault V.A.U.L.T con taxonomía de 6 categorías con color + RAG con PGVector (Docker) + Ollama bge-m3 + backend de embeddings conmutable (`ollama`/`remote`/`kaggle`) + MCP `rag` (`rag_query`/`rag_status`, con filtros `categoria`/`proyecto`). `rag.mjs ingest` también indexa los grafos de conocimiento de Graphify (`.ua/knowledge-graph.json`). También instala `ritual.mjs` junto a `rag.mjs` — los rituales manuales de ciclo de vida (`init-proyecto`/`fin-sesion`/`fin-dia`/`fin-ciclo`, ver sección [Rituales](#rituales)). Auto-instala Docker y Ollama vía winget si faltan. | propia (este repo) |
-| **graphify** | Plugin Understand-Anything: grafos de conocimiento interactivos del codebase. Se instala como **plugin** (no como skill suelta), así que vive en `~/.claude/plugins/cache/understand-anything/` y sus 9 skills aparecen con el prefijo `understand-anything:` — `/understand`, `/understand-dashboard`, `/understand-diff`, `/understand-domain`, `/understand-explain`, `/understand-chat`, `/understand-onboard`, `/understand-figma`, `/understand-knowledge`. Genera `.ua/knowledge-graph.json` por proyecto: ese JSON lo indexa el RAG (para el LLM) y el dashboard es la vista para ti. | [Egonex-AI/Understand-Anything](https://github.com/Egonex-AI/Understand-Anything) |
+| **rag** | Vault V.A.U.L.T con taxonomía de 6 categorías con color + RAG con PGVector (Docker) + Ollama bge-m3 + backend de embeddings conmutable (`ollama`/`remote`/`kaggle`) + MCP `rag` (`rag_query`/`rag_status`, con filtros `categoria`/`proyecto`). `rag.mjs ingest` también indexa los grafos de conocimiento de Graphify (`graphify-out/graph.json`). También instala `ritual.mjs` junto a `rag.mjs` — los rituales manuales de ciclo de vida (`init-proyecto`/`fin-sesion`/`fin-dia`/`fin-ciclo`, ver sección [Rituales](#rituales)). Auto-instala Docker y Ollama vía winget si faltan. | propia (este repo) |
+| **graphify** | CLI de Python (no un plugin del marketplace) que analiza el código con tree-sitter (+ un LLM opcional) y genera un grafo de conocimiento navegable del repo. `graphify extract .` produce `graphify-out/graph.json` (formato `node_link_data` de NetworkX: nodos con tipo/archivo/comunidad, aristas con relación/confianza), `graphify-out/graph.html` (dashboard interactivo) y `graphify-out/GRAPH_REPORT.md`. El instalador también corre `graphify claude install`, que registra un hook `PreToolUse` (matchers `Bash\|Grep` y `Read\|Glob`) que **sugiere** consultar el grafo antes de leer/grepear en crudo — nunca bloquea (se instala sin `--strict`). Sustituye al componente anterior, que por error instalaba el plugin de otro autor con nombre parecido. | [Graphify-Labs/graphify](https://github.com/Graphify-Labs/graphify) (paquete PyPI `graphifyy`) |
 | **cyber-neo** | Skill de auditoría de seguridad: OWASP 2025 Top 10 y CWE Top 25, escaneo de dependencias, secretos, SAST y configuración. Solo lectura; reporte en `~/Desktop/`. Clonada con commit fijado. | [Hainrixz/cyber-neo](https://github.com/Hainrixz/cyber-neo) |
 | **parsers** | Ingesta de archivos para el RAG: **MarkItDown** (cualquier archivo → markdown, con MCP oficial `markitdown`), **opendataloader-pdf** (PDFs complejos) y **whisper-ctranslate2** (audio → texto, CPU). Auto-instala Python y el JDK vía winget si faltan. | [markitdown](https://github.com/microsoft/markitdown), [opendataloader-pdf](https://github.com/opendataloader-project/opendataloader-pdf), [whisper-ctranslate2](https://github.com/Softcatala/whisper-ctranslate2) |
 | **rules** | Reglas operativas empaquetadas en el repo (`templates/rules/`) — no en la configuración personal de tu máquina — instaladas en `<RAG_ROOT>/.claude/`: `CLAUDEMAX.md` (las 7 reglas) y `proyecto.md` (plantilla por proyecto) se sobrescriben en cada instalación; `CLAUDE.md` nunca se pisa, solo se le añade `@CLAUDEMAX.md` si falta. Además instala y registra 4 hooks de cumplimiento y contexto: `git-footer-guard.mjs`, `loop-breaker.mjs`, `skill-suggest.mjs`, `session-start.mjs`. Ver sección [Reglas operativas](#reglas-operativas). Último componente en instalarse — sus reglas referencian rutas que crean los pasos anteriores. | propia (este repo) |
@@ -96,7 +96,7 @@ arranca la sesión; desactívalo con `CLAUDEMAX_SESSION_CONTEXT=0` si te resulta
    - `/superpowers` — paquete de meta-skills (obra/superpowers).
    - `architecture-principles`, `conventional-commits` — skills de disciplina de ingeniería. Invócalas por nombre o deja que sus triggers se disparen automáticamente durante una revisión/refactor/commit.
    - `ui-ux-pro-max` — inteligencia de diseño UI/UX. Se dispara automáticamente en prompts de diseño/construcción/revisión que toquen UI, o pídela por nombre.
-   - `/understand` — genera el grafo de conocimiento del proyecto actual (Graphify). `/understand-dashboard` lo abre en el navegador.
+   - `graphify extract .` — genera el grafo de conocimiento del proyecto actual (Graphify): `graphify-out/graph.json` + `graph.html`. Ábrelo con tu navegador para el dashboard interactivo.
    - `/cyber-neo <ruta>` — auditoría de seguridad OWASP/CWE del proyecto.
    - `skill-mcp-builder` — para crear nuevas Skills 2.0 o servidores MCP.
    - `no-ai-slop` — pide que audite o edite un borrador (README, artículo, mensaje) para quitarle "slop" de IA sin perder tu voz.
@@ -182,7 +182,7 @@ node rag.mjs query "decisiones del sprint" --proyecto claudemax
 node rag.mjs query "..." --categoria proyectos --proyecto claudemax --topk 10
 ```
 
-`node rag.mjs status` agrupa el conteo de chunks por proyecto y por categoría. `rag.mjs ingest` también indexa los grafos de conocimiento de Graphify (`.ua/knowledge-graph.json` que genera `/understand`), aplanados a texto con `categoria: codigo` y `proyecto: <nombre del repo>`: el JSON alimenta al RAG para que el LLM entienda la arquitectura de un repo sin abrir archivos; `/understand-dashboard` sigue siendo la vista para el humano.
+`node rag.mjs status` agrupa el conteo de chunks por proyecto y por categoría. `rag.mjs ingest` también indexa los grafos de conocimiento de Graphify (`graphify-out/graph.json` que genera `graphify extract .`), aplanados a texto con `categoria: codigo` y `proyecto: <nombre del repo>`: el JSON alimenta al RAG para que el LLM entienda la arquitectura de un repo sin abrir archivos; `graphify-out/graph.html` sigue siendo el dashboard para el humano.
 
 ### Backends de embeddings
 
@@ -264,7 +264,7 @@ La diferencia clave entre los tres rituales manuales de cierre:
 - **`fin-ciclo`** es caro y exige confirmación: sin `--si` solo imprime el plan y no toca nada
   ni se conecta a la base de datos. Con `--si` escribe la nota de cierre, ejecuta
   `rag.mjs reindex` (respetando `EMBED_BACKEND`, sugiriendo `--backend kaggle` si hay
-  credenciales y muchas notas), recuerda regenerar los grafos con `/understand`, e imprime un
+  credenciales y muchas notas), recuerda regenerar los grafos con `graphify extract .`, e imprime un
   resumen final de documentos indexados por categoría.
 
 ## Formato Skills 2.0
@@ -301,7 +301,7 @@ Sin telemetría. El instalador no hace llamadas de analítica. Sí delega en:
 
 - El script de instalación de `rtk-ai/rtk` (descarga el binario de rtk desde los releases de GitHub).
 - `claude mcp add` (CLI de Anthropic) para los registros MCP de Figma, 21st.dev magic, `rag` y `markitdown`.
-- `claude plugin marketplace add` / `claude plugin install` para el plugin Understand-Anything.
+- `uv tool install` / `pipx install` / `pip install --user` (el primero disponible) para `graphifyy`, el paquete PyPI del CLI de Graphify — y `graphify claude install` para registrar su hook `PreToolUse` local (ver fila de `graphify` en la tabla de componentes).
 - `git clone` para la skill superpowers (`obra/superpowers`) y para `cyber-neo` (con commit fijado). Las demás skills propias (`architecture-principles`, `conventional-commits`, `skill-mcp-builder`, `ui-ux-pro-max`, `no-ai-slop`, `rituales`) y los cuatro hooks de `rules` se copian directo desde este repo — sin llamadas de red.
 - `npm install framer-motion gsap` en tu cwd (solo si existe un `package.json` o se pasa `--with-npm`).
 - `winget install` para dependencias de sistema que falten: Docker Desktop, Ollama, Python 3.12 y Temurin JDK 21.

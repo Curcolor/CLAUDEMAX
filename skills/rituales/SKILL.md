@@ -120,7 +120,7 @@ cada carpeta para el detalle completo con ejemplos):
   `V.A.U.L.T/Proyectos/<proyecto>/ciclos/<ciclo>.md`; ejecuta `rag.mjs reindex` (respeta
   `EMBED_BACKEND` del `.env` compartido; si hay credenciales de Kaggle configuradas y el
   vault tiene muchas notas, sugiere `--backend kaggle` para acelerar — no lo fuerza); recuerda
-  ejecutar `/understand` en los repos activos para regenerar sus grafos de Graphify; e
+  ejecutar `graphify extract .` en los repos activos para regenerar sus grafos de Graphify; e
   imprime un resumen final de documentos indexados por categoría.
 - **Qué NO hace:** nunca reindexa sin confirmación explícita — es el único de los cinco
   rituales que exige `--si`, porque reindexa toda la base. Si la base de datos no responde al

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // Hook SessionStart de CLAUDEMAX: autocontextualiza cada sesión nueva con un resumen
-// compacto del grafo de conocimiento de Graphify (Understand-Anything) del repo actual
-// y, si el CLI del RAG responde, con los chunks más relevantes para el proyecto detectado.
+// compacto del grafo de conocimiento de Graphify del repo actual y, si el CLI del RAG
+// responde, con los chunks más relevantes para el proyecto detectado.
 //
 // Nunca bloquea el arranque de la sesión ni la retrasa más de la cuenta: presupuesto total
 // ~5s repartido entre los pasos, cada llamada a un proceso externo lleva su propio timeout
-// explícito, y cualquier fallo (git ausente, sin `.ua/`, Docker apagado, `rag.mjs` no
-// localizable) se traga en silencio — son casos normales, no errores.
+// explícito, y cualquier fallo (git ausente, sin `graphify-out/`, Docker apagado, `rag.mjs`
+// no localizable) se traga en silencio — son casos normales, no errores.
 //
 // La salida es un único bloque de texto plano por stdout, con cabecera que dice
 // explícitamente que es contexto automático de CLAUDEMAX. En hooks SessionStart, Claude
@@ -86,19 +86,23 @@ async function detectProjectRoot(cwd) {
     return cwd;
 }
 
-// --- Paso 2: resumen del grafo de Graphify (.ua/knowledge-graph.json) --------------------
-// El esquema real ha variado entre versiones del plugin Understand-Anything (misma
-// precaución que ya documenta flattenGraph en templates/rag/rag.mjs): nodos con
-// id/name/label, type/kind, complexity (simple|moderate|complex); aristas con
-// source/from/src y target/to/dst. Nunca se asume un formato fijo. Nunca se vuelca el
-// grafo entero: solo conteos, agregados por tipo/capa y el top de nodos más conectados.
+// --- Paso 2: resumen del grafo de Graphify (graphify-out/graph.json) ---------------------
+// Mismo esquema que documenta flattenGraph en templates/rag/rag.mjs, y misma tolerancia:
+// se acepta tanto Graphify (graphify-out/graph.json — aristas en `links`, nodo con
+// id/label/norm_label, file_type, source_file, metadata.kind opcional, community/
+// community_name opcionales) como el esquema legado de Understand-Anything (.ua/
+// knowledge-graph.json — aristas en `edges`, nodo con id/name/label, type/kind,
+// complexity simple|moderate|complex, path/filePath/file). Nunca se asume un formato
+// fijo, y nunca se vuelca el grafo entero: solo conteos, agregados por tipo/comunidad y
+// el top de nodos más conectados.
 
 const COMPLEXITY_RANK = { complex: 3, moderate: 2, simple: 1 };
 
 function summarizeGraph(json) {
     if (!json || typeof json !== "object" || !Array.isArray(json.nodes)) return null;
     const nodes = json.nodes.filter(Boolean);
-    const edges = (Array.isArray(json.edges) ? json.edges : []).filter(Boolean);
+    // Graphify usa `links`; el esquema legado de Understand-Anything usa `edges`.
+    const edges = (Array.isArray(json.links) ? json.links : (Array.isArray(json.edges) ? json.edges : [])).filter(Boolean);
 
     const degreeById = new Map();
     const bumpDegree = id => { if (id != null) degreeById.set(id, (degreeById.get(id) || 0) + 1); };
@@ -107,9 +111,17 @@ function summarizeGraph(json) {
         bumpDegree(e.target ?? e.to ?? e.dst);
     }
 
+    // Tipo fino: metadata.kind (Graphify, cuando el extractor lo trae) > type/kind
+    // (esquema legado) > _callable_class/_callable (Graphify, resto de lenguajes) >
+    // file_type (Graphify, categoría gruesa: code|document|paper|image|rationale) como
+    // último recurso.
+    const tipoDe = n => (n.metadata && n.metadata.kind) || n.type || n.kind
+        || (n._callable_class ? "class" : n._callable ? "function" : "")
+        || n.file_type || "(sin tipo)";
+
     const countByType = new Map();
     for (const n of nodes) {
-        const type = n.type || n.kind || "(sin tipo)";
+        const type = tipoDe(n);
         countByType.set(type, (countByType.get(type) || 0) + 1);
     }
 
@@ -118,8 +130,8 @@ function summarizeGraph(json) {
             const id = n.id ?? n.name ?? n.label;
             return {
                 name: n.name || n.label || (id != null ? String(id) : "(sin nombre)"),
-                type: n.type || n.kind || "",
-                filePath: n.path || n.filePath || n.file || "",
+                type: tipoDe(n) === "(sin tipo)" ? "" : tipoDe(n),
+                filePath: n.source_file || n.path || n.filePath || n.file || "",
                 degree: degreeById.get(id) || 0,
                 complexityRank: COMPLEXITY_RANK[n.complexity] || 0,
             };
@@ -127,6 +139,9 @@ function summarizeGraph(json) {
         .sort((a, b) => (b.degree - a.degree) || (b.complexityRank - a.complexityRank))
         .slice(0, MAX_TOP_NODES);
 
+    // "Capas" (esquema legado, json.layers) y "comunidades" (Graphify, node.community /
+    // node.community_name) son mecanismos de agrupación distintos — se exponen por
+    // separado en vez de forzarlos al mismo campo.
     let topLayers = null;
     if (Array.isArray(json.layers) && json.layers.length) {
         topLayers = json.layers
@@ -135,33 +150,60 @@ function summarizeGraph(json) {
             .sort((a, b) => b.count - a.count);
     }
 
+    let topCommunities = null;
+    if (nodes.some(n => n.community_name != null || n.community != null)) {
+        const byCommunity = new Map();
+        for (const n of nodes) {
+            if (n.community_name == null && n.community == null) continue;
+            const key = n.community_name || `Community ${n.community}`;
+            byCommunity.set(key, (byCommunity.get(key) || 0) + 1);
+        }
+        topCommunities = [...byCommunity.entries()]
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count);
+    }
+
     return {
         nodeCount: nodes.length,
         edgeCount: edges.length,
         countByType: [...countByType.entries()].sort((a, b) => b[1] - a[1]),
         topLayers,
+        topCommunities,
         topNodes,
     };
 }
 
+// Busca primero el grafo de Graphify (graphify-out/graph.json); como respaldo, el
+// esquema legado de Understand-Anything (.ua/knowledge-graph.json), para no perder el
+// contexto automático en repos que todavía no regeneraron su grafo con Graphify.
 function loadGraphSummary(projectRoot) {
-    const file = path.join(projectRoot, ".ua", "knowledge-graph.json");
-    try {
-        if (!fs.existsSync(file)) return null;
-        if (fs.statSync(file).size > MAX_GRAPH_FILE_BYTES) return null;
-        const json = JSON.parse(fs.readFileSync(file, "utf8"));
-        return summarizeGraph(json);
-    } catch {
-        return null;
+    const candidatos = [
+        ["graphify-out/graph.json", path.join(projectRoot, "graphify-out", "graph.json")],
+        [".ua/knowledge-graph.json", path.join(projectRoot, ".ua", "knowledge-graph.json")],
+    ];
+    for (const [label, file] of candidatos) {
+        try {
+            if (!fs.existsSync(file)) continue;
+            if (fs.statSync(file).size > MAX_GRAPH_FILE_BYTES) continue;
+            const json = JSON.parse(fs.readFileSync(file, "utf8"));
+            const summary = summarizeGraph(json);
+            if (summary) return { ...summary, sourceLabel: label };
+        } catch {
+            // este candidato falló (JSON inválido, I/O, etc.) — prueba el siguiente.
+        }
     }
+    return null;
 }
 
 function formatGraphSummary(summary) {
     const lines = [];
-    lines.push(`Grafo de Graphify (.ua/knowledge-graph.json): ${summary.nodeCount} nodos, ${summary.edgeCount} aristas.`);
+    lines.push(`Grafo de Graphify (${summary.sourceLabel || "graphify-out/graph.json"}): ${summary.nodeCount} nodos, ${summary.edgeCount} aristas.`);
     if (summary.topLayers && summary.topLayers.length) {
         const str = summary.topLayers.slice(0, 8).map(l => `${l.name} (${l.count})`).join(", ");
         lines.push(`Capas principales: ${str}.`);
+    } else if (summary.topCommunities && summary.topCommunities.length) {
+        const str = summary.topCommunities.slice(0, 8).map(c => `${c.name} (${c.count})`).join(", ");
+        lines.push(`Comunidades principales: ${str}.`);
     } else if (summary.countByType.length) {
         const str = summary.countByType.slice(0, 8).map(([t, n]) => `${t} (${n})`).join(", ");
         lines.push(`Tipos principales: ${str}.`);

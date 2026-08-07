@@ -114,14 +114,23 @@ ac_run rm -f "$CLAUDE_CONFIG_DIR/state/loop-breaker.json"
 ac_run rm -f "$CLAUDE_CONFIG_DIR/state/skill-suggest.json"
 ac_dim "  (se conservan: las reglas de <RAG_ROOT>/.claude/ — puedes haberlas editado)"
 
-# --- Graphify (plugin Understand-Anything + su marketplace)
-ac_step "Graphify (plugin Understand-Anything)"
+# --- Graphify (registro en Claude Code: sección de CLAUDE.md + hook PreToolUse, por-proyecto)
+ac_step "Graphify (registro en Claude Code)"
+if command -v graphify >/dev/null 2>&1; then
+    ac_run bash -c "cd '$AC_REPO_DIR' && graphify claude uninstall" \
+        || ac_warn "graphify claude uninstall falló — quita a mano la sección '## graphify' de CLAUDE.md y el hook PreToolUse de .claude/settings.json en cada proyecto donde lo hayas activado."
+else
+    ac_warn "El binario graphify no está en el PATH — no se puede desregistrar automáticamente. Si lo instalaste con pip --user, revisa INSTALL.md > Troubleshooting."
+fi
+ac_dim "  (se conserva: el paquete pip graphifyy — es una dependencia de sistema, igual que los parsers. Desinstálalo a mano con 'pip uninstall graphifyy' si quieres.)"
+
+# --- Limpieza heredada: plugin equivocado de instalaciones antiguas de CLAUDEMAX (Egonex-AI/Understand-Anything)
+ac_step "Limpieza heredada: plugin understand-anything (versión anterior de este componente)"
 if [ "$AC_HAS_CLAUDE" = "1" ]; then
-    ac_run claude plugin uninstall understand-anything -s user 2>/dev/null \
-        || ac_warn "No se pudo desinstalar el plugin automáticamente — hazlo en sesión: /plugin uninstall understand-anything"
+    ac_run claude plugin uninstall understand-anything -s user 2>/dev/null || true
     ac_run claude plugin marketplace remove understand-anything 2>/dev/null || true
 else
-    ac_warn "El CLI claude no está en el PATH — desinstala el plugin en sesión: /plugin uninstall understand-anything"
+    ac_dim "  El CLI claude no está en el PATH — si tenías el plugin antiguo instalado, quítalo en sesión: /plugin uninstall understand-anything"
 fi
 
 # --- Cyber Neo (clon git aparte; no forma parte del loop de skills de ingeniería)

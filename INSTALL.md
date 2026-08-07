@@ -29,7 +29,7 @@ CLAUDEMAX/
 │       ├── ui-ux.sh            # copia skills/ui-ux-pro-max + registra el MCP magic + npm i + hook ui-audit.mjs
 │       ├── dev-skills.sh       # clon de superpowers + 5 skills propias (incluidas no-ai-slop y rituales)
 │       ├── rag.sh              # vault V.A.U.L.T + stack R.A.G (compose/schema/CLI/MCP) + backend Kaggle opcional + registro MCP
-│       ├── graphify.sh         # plugin Understand-Anything vía marketplace de Claude Code
+│       ├── graphify.sh         # instala el CLI de Graphify (pip) y lo registra en Claude Code
 │       ├── cyber-neo.sh        # clon de la skill de seguridad (commit fijado)
 │       ├── parsers.sh          # markitdown (+MCP) / opendataloader-pdf / whisper-ctranslate2
 │       └── rules.sh            # plantillas de reglas → <RAG_ROOT>/.claude/ + 4 hooks de cumplimiento/contexto
@@ -128,7 +128,7 @@ También se puede invocar directo, sin pasar por el `.cmd`: `node bin/wizard/wiz
 6. **RAG** — los mismos tres modos (`RAG_MODE`, con `RAG_DUMP` / `RAG_REMOTE_URL` según el caso), y después Kaggle opcional: si se acepta, pide usuario y clave (**la clave se lee sin eco en pantalla**, con lectura raw-mode de stdin) y recuerda la verificación telefónica manual de Kaggle. Si se declina, las variables `KAGGLE_*` ni se mencionan en el resumen. Se omite si `rag` quedó desmarcado.
 7. **Resumen y confirmación** — imprime la línea de comando completa con sus variables de entorno (auditable: se ve exactamente qué se va a ejecutar antes de ejecutarlo; la clave de Kaggle se enmascara en pantalla, no en el entorno real del proceso hijo) y ofrece ejecutar de verdad, simular (`--dry-run`) o cancelar.
 8. **Ejecución** — localiza bash y lanza `bash install.sh` con los flags/variables acordados, con stdio heredado para que veas el progreso real (`ac_step` de `install.sh`).
-9. **Resumen final** — código de salida del instalador, recordatorio de reiniciar Claude Code, y los comandos para empezar (`/understand`, `ritual.mjs fin-sesion`, etc.). En Windows espera una tecla antes de cerrar (salvo con `--defaults` o si no hay TTY real, para no colgarse en una prueba automatizada).
+9. **Resumen final** — código de salida del instalador, recordatorio de reiniciar Claude Code, y los comandos para empezar (`graphify extract .`, `ritual.mjs fin-sesion`, etc.). En Windows espera una tecla antes de cerrar (salvo con `--defaults` o si no hay TTY real, para no colgarse en una prueba automatizada).
 
 ### Modo desinstalación
 
@@ -168,7 +168,10 @@ No confundir con los flags de `install.sh` (sección [Flags](README.md#flags) de
 | `$CLAUDE_CONFIG_DIR/skills/superpowers/` | dev-skills.sh (`git clone`) | Sí |
 | `$CLAUDE_CONFIG_DIR/skills/{architecture-principles,conventional-commits,skill-mcp-builder,no-ai-slop,rituales}/` | dev-skills.sh (`cp -R` desde este repo) | Sí |
 | `$CLAUDE_CONFIG_DIR/skills/cyber-neo/` | cyber-neo.sh (`git clone` + checkout del commit fijado) | Sí |
-| Plugin `understand-anything` (en `$CLAUDE_CONFIG_DIR/plugins/cache/`) + marketplace `Egonex-AI/Understand-Anything` | graphify.sh (`claude plugin marketplace add` + `claude plugin install`) | Sí — `claude plugin uninstall understand-anything -s user` + `marketplace remove`. Si el CLI falla, hazlo en sesión con `/plugin uninstall understand-anything` |
+| Paquete pip `graphifyy` (binario `graphify`, vía `uv tool install` / `pipx install` / `pip install --user`, el primero disponible) | graphify.sh | **No** — es una dependencia de sistema, igual que los parsers; desinstálala a mano con `pip uninstall graphifyy` (o `uv tool uninstall` / `pipx uninstall`) si quieres |
+| Sección `## graphify` en `CLAUDE.md` + hook `PreToolUse` (`Bash\|Grep`, `Read\|Glob`) en `.claude/settings.json`, en `$AC_REPO_DIR` (el propio repo de CLAUDEMAX) | graphify.sh (`graphify claude install`, sin `--strict`) | Sí — `graphify claude uninstall` en `$AC_REPO_DIR`. Es un registro **por-proyecto**: si ejecutaste `graphify claude install` en otros proyectos a mano, desregístralos ahí también con `graphify claude uninstall` |
+| `<proyecto>/graphify-out/` (`graph.json`, `graph.html`, `GRAPH_REPORT.md`) en cualquier proyecto donde corras `graphify extract` | El propio CLI `graphify`, invocado manualmente por ti | **No** — no es CLAUDEMAX quien lo genera; bórralo a mano en cada proyecto si quieres |
+| Legado: plugin `understand-anything` (en `$CLAUDE_CONFIG_DIR/plugins/cache/`) + marketplace `understand-anything`, de instalaciones de CLAUDEMAX anteriores a este cambio | Ya no lo instala `graphify.sh` — se detecta y se quita como migración (`claude plugin uninstall`/`marketplace remove`, best-effort) | Sí, best-effort — `claude plugin uninstall understand-anything -s user` + `marketplace remove`. Si el CLI falla, hazlo en sesión con `/plugin uninstall understand-anything` |
 | Registro MCP de Claude: `markitdown` | parsers.sh (`claude mcp add -s user`) | Sí |
 | Paquetes pip `markitdown[all]`, `markitdown-mcp`, `opendataloader-pdf`, `whisper-ctranslate2` | parsers.sh (`pip install`) | **No** — quítalos con `pip uninstall` si quieres |
 | Python 3.12, Temurin JDK 21, Docker Desktop, Ollama | parsers.sh / rag.sh (`winget install`, solo si faltaban) | **No** — son dependencias de sistema; desinstálalas a mano |
@@ -192,7 +195,7 @@ No confundir con los flags de `install.sh` (sección [Flags](README.md#flags) de
 3. **ui-ux** — también necesita `claude` para el MCP magic (también registrado a nivel de **usuario**); muta el cwd vía `npm install` (condicionado). Además de copiar la skill, ahora también copia `hooks/ui-audit.mjs` a `$CLAUDE_CONFIG_DIR/hooks/` y lo registra como `PostToolUse`/`Edit|Write` en `settings.json` (auditoría determinista de anti-patrones de UI; desactivable con `CLAUDEMAX_UI_AUDIT=0`).
 4. **dev-skills** — copia simple de archivos para `architecture-principles` / `conventional-commits` / `skill-mcp-builder` / `no-ai-slop` / `rituales`; `git clone`/`git pull` para `superpowers`. Sin dependencia de orden con los demás.
 5. **rag** — opt-in (necesita `RAG_ROOT` definido, si no avisa y se omite): copia `templates/vault` (con la taxonomía de 6 categorías) → `<RAG_ROOT>/V.A.U.L.T` y `templates/rag` (incluidas las plantillas de Kaggle en `kaggle/`) → `<RAG_ROOT>/R.A.G`, auto-instala Docker y Ollama vía winget si faltan, levanta el stack Docker Compose `ragdb` + `bge-m3`, hace `npm install` de las dependencias del CLI/MCP, configura el backend opcional de Kaggle si `KAGGLE_USERNAME`/`KAGGLE_KEY` están en el entorno, y registra el MCP `rag` a nivel de **usuario**.
-6. **graphify** — añade el marketplace e instala el plugin Understand-Anything. Va antes de `parsers` a propósito: `claude plugin install` reescribe la configuración de plugins, así que conviene que los registros MCP posteriores queden escritos después.
+6. **graphify** — instala el paquete pip `graphifyy` (`uv tool install` / `pipx install` / `pip install --user`, el primero disponible) y ejecuta `graphify claude install` (registro por-proyecto: sección de `CLAUDE.md` + hook `PreToolUse`, sin `--strict`). Antes de instalar nada, hace la migración: si detecta el plugin equivocado de una instalación anterior (`understand-anything`), lo quita. Sin dependencia de orden con los demás — ya no toca la configuración de plugins de `claude`.
 7. **cyber-neo** — `git clone` + `checkout` del commit fijado en `$CLAUDE_CONFIG_DIR/skills/cyber-neo`. Sin dependencia de orden.
 8. **parsers** — auto-instala Python y el JDK vía winget si faltan, luego `pip install` de los tres parsers, registra el MCP `markitdown` a nivel de **usuario**, y barre restos heredados de Context7 / Claude-Mem (entran en conflicto con el cerebro RAG).
 9. **rules** — **último** a propósito: copia `templates/rules/` a `<RAG_ROOT>/.claude/` (requiere `RAG_ROOT`, igual que `rag`; sin él instala solo los hooks y avisa) y registra los cuatro hooks de cumplimiento y contexto en `$CLAUDE_CONFIG_DIR/hooks/`. Va al final porque sus reglas y su hook `session-start` referencian rutas que crean los pasos anteriores (`<RAG_ROOT>/V.A.U.L.T`, `<RAG_ROOT>/R.A.G/rag.mjs`, las skills ya instaladas) — instalarlo antes correría el riesgo de documentar/consultar rutas que todavía no existen.
@@ -300,16 +303,44 @@ winget install -e --id EclipseAdoptium.Temurin.21.JDK
 
 Después **abre una shell nueva** (winget actualiza el PATH, pero la sesión actual no lo ve) y vuelve a correr `bash install.sh --only parsers`. Si `python` sigue sin aparecer en Git Bash pero `py -3` sí funciona, el componente usa `py -3` automáticamente.
 
-### "El plugin de Graphify no se instaló solo"
+### "`graphify` no queda en el PATH después de instalarlo"
 
-Algunas versiones del CLI `claude` no exponen `claude plugin` en modo no interactivo. El componente lo detecta e imprime los comandos a ejecutar dentro de una sesión de Claude Code:
+Cuando ni `uv` ni `pipx` están disponibles, `graphify.sh` cae a `pip install --user graphifyy`, y `pip`
+deja el binario en el directorio de scripts de usuario de Python — que **no** siempre está en el
+PATH. Verás un aviso así en la instalación:
 
 ```
-/plugin marketplace add Egonex-AI/Understand-Anything
-/plugin install understand-anything
+WARNING: The script graphify.exe is installed in '...\Python\PythonXXX\Scripts' which is not on PATH.
 ```
 
-Eso no es un fallo de la instalación — el resto de componentes se instalan igual.
+Soluciones, de más a menos preferible:
+
+1. **Instala con `pipx` o `uv` en su lugar** (ambos gestionan el PATH por ti): `pipx install graphifyy`
+   o `uv tool install graphifyy`, y vuelve a correr `bash install.sh --only graphify --force`.
+2. **Añade el directorio de scripts al PATH** — en Windows suele ser
+   `%APPDATA%\Python\PythonXXX\Scripts` (Git Bash: `~/AppData/Roaming/Python/PythonXXX/Scripts`); en
+   macOS/Linux, `~/.local/bin`. Abre una shell nueva después de tocar el PATH.
+3. **Localízalo a mano si no sabes dónde quedó**: `python -m pip show -f graphifyy` lista los archivos
+   instalados, incluido el binario.
+
+Mientras `graphify` no esté en el PATH, el paso de registro en Claude Code (`graphify claude install`)
+se omite con un aviso — el resto de componentes se instalan igual. Vuelve a correr
+`bash install.sh --only graphify` una vez resuelto el PATH; es idempotente.
+
+### "`graphify claude install` falló durante la instalación"
+
+Revisa que `graphify --version` funcione en una shell nueva (ver el punto anterior sobre el PATH). Si
+funciona pero el registro sigue fallando, ejecútalo a mano dentro del repo que quieras integrar:
+
+```bash
+cd <tu-repo>
+graphify claude install
+```
+
+Escribe una sección `## graphify` en `./CLAUDE.md` y un hook `PreToolUse` en `./.claude/settings.json`
+— es un registro **por-proyecto**, no global (a diferencia del resto de componentes de CLAUDEMAX). El
+componente `graphify.sh` lo ejecuta en `$AC_REPO_DIR` (el propio repo de CLAUDEMAX); para activarlo en
+cualquier otro proyecto, repite el comando ahí.
 
 ### "`opendataloader-pdf` no procesa nada"
 

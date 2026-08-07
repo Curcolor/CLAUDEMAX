@@ -228,7 +228,7 @@ ${AC_GREEN}Listo.${AC_NC} Próximos pasos:
        /superpowers       — paquete de meta-skills (obra/superpowers)
        /architecture-principles /conventional-commits
        /mcp → rag            — búsqueda semántica sobre tu V.A.U.L.T (rag_query)
-       /understand           — grafo de conocimiento del proyecto (Graphify)
+       graphify extract .    — grafo de conocimiento del proyecto (Graphify)
        /cyber-neo <ruta>     — auditoría de seguridad OWASP/CWE
        markitdown / whisper-ctranslate2 / opendataloader-pdf — parsers de ingesta (Bash)
 

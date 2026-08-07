@@ -310,7 +310,7 @@ function imprimirPlanFinCiclo(ciclo, proyecto, vaultDir) {
     console.log("ritual: fin-ciclo — plan (nada se ha tocado todavía; añade --si para ejecutarlo):");
     console.log(`  1. Escribir la nota de cierre en ${path.join(vaultDir, "Proyectos", proyecto, "ciclos", ciclo + ".md")}`);
     console.log(`  2. Ejecutar rag.mjs reindex sobre ${vaultDir} (backend actual: ${backend})`);
-    console.log("  3. Recordar ejecutar /understand en los repos activos y volver a ingerir sus grafos");
+    console.log("  3. Recordar ejecutar 'graphify extract .' en los repos activos y volver a ingerir sus grafos");
     console.log("  4. Imprimir un resumen final de documentos indexados por categoría");
     console.log("ritual: no se conectó a la base de datos ni se modificó ningún archivo.");
 }
@@ -373,7 +373,7 @@ async function cmdFinCiclo(opts) {
         }
     }
 
-    console.log("ritual: recuerda ejecutar /understand en cada repo activo para regenerar sus grafos de Graphify, y luego rag.mjs ingest para volver a indexarlos.");
+    console.log("ritual: recuerda ejecutar 'graphify extract .' en cada repo activo para regenerar sus grafos de Graphify, y luego rag.mjs ingest para volver a indexarlos.");
 
     // Resumen final por categoría (best-effort): si la BD no responde, se avisa y se omite
     // solo esta parte — el resto del ritual ya se ejecutó.

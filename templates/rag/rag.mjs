@@ -155,17 +155,29 @@ function chunkMarkdown(text) {
     return out;
 }
 
-// Aplana un grafo de conocimiento de Graphify/Understand-Anything (.ua/knowledge-graph.json
-// o .ua/domain-graph.json) a chunks de texto indexable, uno por nodo. El esquema real varía
-// entre versiones del plugin (se ha visto `name`/`filePath` y también `label`/`path`), así
-// que se detectan las claves que existan en vez de asumir un formato fijo. Si no hay un
-// array "nodes" reconocible, se avisa por stderr y se omite el archivo sin lanzar excepción.
+// Aplana un grafo de conocimiento a chunks de texto indexable, uno por nodo. Acepta DOS
+// esquemas y detecta cuál es por las claves presentes, sin asumir un formato fijo:
+//   - Graphify (Graphify-Labs/graphify, graphify-out/graph.json — formato node_link_data
+//     de NetworkX): aristas en `links` (no `edges`); nodo con id/label/norm_label,
+//     file_type (code|document|paper|image|rationale|concept), source_file,
+//     source_location, metadata.kind opcional (tipo fino: file/bash_function/... — solo
+//     lo trae el extractor de bash; otros lenguajes solo marcan _callable/_callable_class),
+//     community/community_name opcionales; arista con relation (verbo: calls/imports/...),
+//     confidence (EXTRACTED|INFERRED|AMBIGUOUS), confidence_score, weight, source_file.
+//   - Understand-Anything, esquema legado (.ua/knowledge-graph.json o .ua/domain-graph.json):
+//     nodo con id/name/label, type/kind, summary/description, path/filePath/file; arista
+//     con source/from/src, target/to/dst, type/label.
+// Los campos se leen de forma tolerante (encadenando los nombres de ambos esquemas — la
+// mayoría de las claves de nodo/arista no chocan entre uno y otro) y solo `links` vs
+// `edges` necesita una rama explícita, porque son arrays con nombres distintos. Si no hay
+// un array "nodes" reconocible, se avisa por stderr y se omite el archivo sin lanzar excepción.
 function flattenGraph(json, file) {
     if (!json || typeof json !== "object" || !Array.isArray(json.nodes)) {
         console.error(`rag: aviso — ${file} no tiene un array "nodes" reconocible; se omite`);
         return [];
     }
-    const edges = Array.isArray(json.edges) ? json.edges : [];
+    // Graphify usa `links`; el esquema legado de Understand-Anything usa `edges`.
+    const edges = Array.isArray(json.links) ? json.links : (Array.isArray(json.edges) ? json.edges : []);
     // Índice de aristas por nodo origen, para adjuntar "Relaciones:" al chunk de cada nodo.
     const edgesPorNodo = new Map();
     for (const e of edges) {
@@ -180,17 +192,24 @@ function flattenGraph(json, file) {
         if (!node) continue;
         const id = node.id ?? node.name ?? node.label;
         const label = node.label || node.name || (id != null ? String(id) : "(sin nombre)");
-        const tipo = node.type || node.kind || "";
+        // Tipo fino: metadata.kind (Graphify, cuando el extractor lo trae) > type/kind
+        // (esquema legado) > _callable_class/_callable (Graphify, resto de lenguajes) >
+        // file_type (Graphify, categoría gruesa) como último recurso.
+        const tipo = (node.metadata && node.metadata.kind) || node.type || node.kind
+            || (node._callable_class ? "class" : node._callable ? "function" : "")
+            || node.file_type || "";
         const resumen = node.summary || node.description || "";
-        const ruta = node.path || node.filePath || node.file || "";
+        const ruta = node.source_file || node.path || node.filePath || node.file || "";
         const relaciones = (edgesPorNodo.get(id) || []).map(e => {
             const destino = e.target ?? e.to ?? e.dst ?? "?";
-            const tipoArista = e.type || e.label || "relacionado con";
-            return `${tipoArista} → ${destino}`;
+            const tipoArista = e.relation || e.type || e.label || "relacionado con";
+            const confianza = e.confidence && e.confidence !== "EXTRACTED" ? ` (${e.confidence})` : "";
+            return `${tipoArista}${confianza} → ${destino}`;
         });
         const header = `${label}${tipo ? ` (${tipo})` : ""}${ruta ? ` — ${ruta}` : ""}`;
         const lineas = [header];
         if (resumen) lineas.push(resumen);
+        if (node.community_name) lineas.push(`Comunidad: ${node.community_name}`);
         if (relaciones.length) lineas.push(`Relaciones: ${relaciones.join("; ")}`);
         out.push({ heading: label, content: lineas.join("\n") });
     }
@@ -246,9 +265,11 @@ function proyectoOf(file, root, meta) {
     return null;
 }
 
-// Recorre el árbol de archivos indexables: notas .md del vault y grafos de Graphify
-// (.ua/knowledge-graph.json, .ua/domain-graph.json). Ignora carpetas ocultas salvo `.ua`,
-// que es donde Understand-Anything deja el grafo de cada repo.
+// Recorre el árbol de archivos indexables: notas .md del vault y grafos de conocimiento.
+// Graphify deja el suyo en <repo>/graphify-out/graph.json — "graphify-out" no es una
+// carpeta oculta, así que ya se recorre sin necesitar una excepción como la de `.ua`
+// (esquema legado de Understand-Anything: .ua/knowledge-graph.json, .ua/domain-graph.json,
+// se sigue reconociendo para no romper grafos ya generados con el plugin anterior).
 function* walkSources(dir) {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
         const p = path.join(dir, e.name);
@@ -259,6 +280,8 @@ function* walkSources(dir) {
         } else if (e.name.endsWith(".md")) {
             yield p;
         } else if (e.name === "knowledge-graph.json" || e.name === "domain-graph.json") {
+            yield p;
+        } else if (e.name === "graph.json" && path.basename(dir) === "graphify-out") {
             yield p;
         }
     }
@@ -285,7 +308,7 @@ async function cmdIngest(root, opts = {}) {
         for (const file of walkSources(root)) {
             seen.add(file);
             const base = path.basename(file);
-            const esGrafo = base === "knowledge-graph.json" || base === "domain-graph.json";
+            const esGrafo = base === "knowledge-graph.json" || base === "domain-graph.json" || base === "graph.json";
 
             let meta, chunks;
             if (esGrafo) {
@@ -297,7 +320,12 @@ async function cmdIngest(root, opts = {}) {
                     grafosOmitidos++;
                     continue;
                 }
-                // proyecto = nombre de la carpeta del repo que contiene .ua/ (el padre de .ua/)
+                // proyecto = nombre de la carpeta del repo que contiene la carpeta del grafo
+                // (el padre de graphify-out/ o, en el esquema legado, de .ua/) — misma
+                // profundidad en los dos casos: <repo>/graphify-out/graph.json y
+                // <repo>/.ua/knowledge-graph.json envuelven el archivo en un único
+                // subdirectorio, así que "dos niveles arriba del archivo" sigue siendo la
+                // raíz del repo en ambos esquemas.
                 const repo = path.basename(path.dirname(path.dirname(file)));
                 meta = { categoria: "codigo", proyecto: repo, tags: [] };
                 chunks = flattenGraph(json, file);
