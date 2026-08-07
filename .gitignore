@@ -1,3 +1,17 @@
 # Salida de `graphify extract` (bin/components/graphify.sh, PASO 0 de la migración a
 # Graphify) — se regenera con el comando, no se versiona.
 graphify-out/
+
+# Caché de bytecode que genera Python al ejecutar los scripts de ui-ux-pro-max.
+__pycache__/
+*.pyc
+
+# Dependencias y credenciales del stack R.A.G desplegado (templates/rag/ tiene su propio
+# .gitignore; esto cubre el caso de que alguien instale dentro del repo por error).
+node_modules/
+.env
+
+# Respaldos que deja el merger JSONC al tocar settings.json, y temporales de editor.
+*.bak
+*.orig
+*.rej
