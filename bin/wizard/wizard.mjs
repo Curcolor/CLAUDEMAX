@@ -27,6 +27,10 @@ const REPO_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const INSTALL_SH = path.join(REPO_DIR, "install.sh");
 const UNINSTALL_SH = path.join(REPO_DIR, "uninstall.sh");
 
+// Total de pasos del flujo normal (no del modo --uninstall, que es un flujo aparte más corto
+// y no se numera igual). Usado por cada llamada a ui.titulo() para mostrar "Paso N de 9".
+const TOTAL_PASOS = 9;
+
 // --- Flags del wizard ------------------------------------------------------------------
 
 const argv = process.argv.slice(2);
@@ -160,6 +164,7 @@ async function esperarTeclaFinal() {
 
 async function pasoBienvenida() {
     ui.banner();
+    ui.titulo("Bienvenida", { paso: 1, total: TOTAL_PASOS });
     console.log(
         "Este asistente prepara tu workspace de CLAUDEMAX: detecta qué falta, deja elegir qué " +
             "componentes instalar, y arma la línea de comando de install.sh para que la revises " +
@@ -176,7 +181,13 @@ async function pasoBienvenida() {
 // --- Paso 2: destino del workspace -------------------------------------------------------
 
 async function pasoDestino() {
-    ui.titulo("2. Destino del workspace");
+    ui.titulo("Destino del workspace", { paso: 2, total: TOTAL_PASOS });
+    console.log(
+        ui.atenuado(
+            "  Aquí se crean V.A.U.L.T (tu vault de notas) y R.A.G (el stack de memoria semántica) — " +
+                "esta ruta se convierte en RAG_ROOT para el resto de la instalación."
+        )
+    );
     const porDefecto = path.join(os.homedir(), "Desktop", "WORKSPACE");
 
     if (FLAGS.defaults) {
@@ -227,7 +238,7 @@ function formatearNombre(item) {
 }
 
 async function pasoDependencias() {
-    ui.titulo("3. Chequeo de dependencias");
+    ui.titulo("Chequeo de dependencias", { paso: 3, total: TOTAL_PASOS });
     const resultado = detectar(REPO_DIR);
 
     if (!resultado.ok) {
@@ -259,8 +270,22 @@ async function pasoDependencias() {
                     "(ac_rag_ensure_deps vía winget, ac_parsers_ensure_python) cuando les toque ejecutarse."
             )
         );
+        for (const id of faltantes) {
+            const necesaria = NECESARIA_PARA[id] || "algún componente";
+            console.log(
+                ui.amarillo(
+                    `    - Sin ${id}: "${necesaria}" quedará degradado. El instalador intentará instalarlo ` +
+                        "solo cuando le toque ese paso."
+                )
+            );
+        }
         if (!resultado.items.winget?.disponible) {
-            console.log(ui.atenuado("  winget tampoco está disponible — puede que tengas que instalar algo a mano."));
+            console.log(
+                ui.rojo(
+                    "  winget tampoco está disponible — nada de lo anterior podrá instalarse solo; tendrás " +
+                        "que instalar a mano lo que falte."
+                )
+            );
         }
         if (!FLAGS.defaults) {
             await ui.confirmar("  ¿Continuar de todas formas?", { defecto: true });
@@ -273,7 +298,7 @@ async function pasoDependencias() {
 // --- Paso 4: selección de componentes -----------------------------------------------------
 
 async function pasoComponentes() {
-    ui.titulo("4. Selección de componentes");
+    ui.titulo("Selección de componentes", { paso: 4, total: TOTAL_PASOS });
     const idsDetectados = leerComponentes(INSTALL_SH);
 
     if (FLAGS.defaults) {
@@ -281,6 +306,12 @@ async function pasoComponentes() {
         return idsDetectados;
     }
 
+    console.log(
+        ui.atenuado(
+            "  Todos vienen marcados por defecto. Desmarca los que no quieras instalar — nada se ejecuta " +
+                "todavía, esto solo decide qué entra en la línea de comando del paso 7."
+        )
+    );
     const opciones = idsDetectados.map((id) => ({ id, etiqueta: `${id} — ${descripcionDe(id)}`, marcado: true }));
     const seleccionados = await ui.menuMultiple(opciones);
     if (seleccionados.length === 0) {
@@ -292,16 +323,28 @@ async function pasoComponentes() {
 // --- Paso 5: vault (solo si 'rag' está seleccionado) ---------------------------------------
 
 async function pasoVault() {
-    ui.titulo("5. Vault (V.A.U.L.T)");
+    ui.titulo("Vault (V.A.U.L.T)", { paso: 5, total: TOTAL_PASOS });
     if (FLAGS.defaults) {
         console.log("  Modo: crear desde cero.");
         return { VAULT_MODE: "create" };
     }
 
     const modo = await ui.menuSimple([
-        { id: "create", etiqueta: "Crear desde cero (plantilla con la taxonomía de seis categorías)" },
-        { id: "import", etiqueta: "Importar uno existente" },
-        { id: "connect", etiqueta: "Conectar a uno remoto (git)" },
+        {
+            id: "create",
+            etiqueta: "Crear desde cero (plantilla con la taxonomía de seis categorías)",
+            detalle: "Copia la plantilla vacía a tu workspace — no necesitas tener nada previo.",
+        },
+        {
+            id: "import",
+            etiqueta: "Importar uno existente",
+            detalle: "Copia un vault que ya tengas en otra carpeta de tu equipo (te pedirá la ruta).",
+        },
+        {
+            id: "connect",
+            etiqueta: "Conectar a uno remoto (git)",
+            detalle: "Clona un vault versionado desde un repositorio git (te pedirá la URL).",
+        },
     ]);
     const env = { VAULT_MODE: modo };
 
@@ -325,16 +368,28 @@ async function pasoVault() {
 // --- Paso 6: RAG + Kaggle opcional (solo si 'rag' está seleccionado) -----------------------
 
 async function pasoRag() {
-    ui.titulo("6. RAG (stack + Kaggle opcional)");
+    ui.titulo("RAG (stack + Kaggle opcional)", { paso: 6, total: TOTAL_PASOS });
     if (FLAGS.defaults) {
         console.log("  Modo: crear desde cero. Kaggle: omitido.");
         return { RAG_MODE: "create" };
     }
 
     const modo = await ui.menuSimple([
-        { id: "create", etiqueta: "Crear desde cero (Docker Compose + schema + Ollama bge-m3)" },
-        { id: "import", etiqueta: "Importar un dump existente" },
-        { id: "connect", etiqueta: "Conectar a un Postgres remoto" },
+        {
+            id: "create",
+            etiqueta: "Crear desde cero (Docker Compose + schema + Ollama bge-m3)",
+            detalle: "Levanta una base Postgres+pgvector local nueva — necesita Docker y Ollama (se avisa si faltan).",
+        },
+        {
+            id: "import",
+            etiqueta: "Importar un dump existente",
+            detalle: "Restaura un volcado de base de datos (.sql/.dump) en un stack recién creado.",
+        },
+        {
+            id: "connect",
+            etiqueta: "Conectar a un Postgres remoto",
+            detalle: "Usa una instancia de Postgres+pgvector que ya exista en otra máquina (te pedirá la URL).",
+        },
     ]);
     const env = { RAG_MODE: modo };
 
@@ -349,6 +404,13 @@ async function pasoRag() {
         else console.log(ui.amarillo("  URL vacía — RAG_REMOTE_URL no se establecerá."));
     }
 
+    console.log(
+        ui.atenuado(
+            "  Si dices que sí: pide usuario y clave de Kaggle para calcular embeddings por lotes en una GPU " +
+                "gratuita (requiere verificación telefónica una sola vez). Si dices que no, no se mencionan " +
+                "estas variables y se usa Ollama local (o remoto) sin configuración extra."
+        )
+    );
     const quiereKaggle = await ui.confirmar(
         "  ¿Configurar el backend opcional de Kaggle (embeddings por lotes en GPU)?",
         { defecto: false }
@@ -409,7 +471,7 @@ function construirLineaComando(estado, { ocultarClave = true } = {}) {
 // --- Paso 7: resumen y confirmación -------------------------------------------------------
 
 async function pasoResumen(estado) {
-    ui.titulo("7. Resumen y confirmación");
+    ui.titulo("Resumen y confirmación", { paso: 7, total: TOTAL_PASOS });
     console.log("\nEsto es exactamente lo que se va a ejecutar:\n");
     console.log(`  ${construirLineaComando(estado)}\n`);
 
@@ -431,9 +493,21 @@ async function pasoResumen(estado) {
     }
 
     const eleccion = await ui.menuSimple([
-        { id: "ejecutar", etiqueta: "Ejecutar la instalación de verdad" },
-        { id: "simular", etiqueta: "Simular (--dry-run) — no cambia nada, solo imprime" },
-        { id: "cancelar", etiqueta: "Cancelar" },
+        {
+            id: "ejecutar",
+            etiqueta: "Ejecutar la instalación de verdad",
+            detalle: "Corre install.sh con la línea de arriba tal cual — a partir de aquí sí cambia tu sistema.",
+        },
+        {
+            id: "simular",
+            etiqueta: "Simular (--dry-run) — no cambia nada, solo imprime",
+            detalle: "Corre install.sh en modo simulación: imprime cada comando sin ejecutarlo.",
+        },
+        {
+            id: "cancelar",
+            etiqueta: "Cancelar",
+            detalle: "Sale sin tocar nada.",
+        },
     ]);
     if (eleccion === "cancelar") {
         console.log("\nCancelado. No se ha tocado nada.");
@@ -445,7 +519,7 @@ async function pasoResumen(estado) {
 // --- Paso 8: ejecución ---------------------------------------------------------------------
 
 async function pasoEjecucion(estado) {
-    ui.titulo("8. Ejecución");
+    ui.titulo("Ejecución", { paso: 8, total: TOTAL_PASOS });
     const bash = localizarBash();
     if (!bash) {
         console.log(ui.rojo("No se encontró bash (ni en el PATH ni en las rutas conocidas de Git for Windows)."));
@@ -465,18 +539,23 @@ async function pasoEjecucion(estado) {
 // --- Paso 9: resumen final ------------------------------------------------------------------
 
 async function pasoFinal(codigo) {
-    ui.titulo("9. Resumen final");
+    ui.titulo("Resumen final", { paso: 9, total: TOTAL_PASOS });
     if (codigo === 0) {
         console.log(ui.verde("La instalación terminó sin errores fatales (código de salida 0)."));
+        console.log("\nPróximos pasos:");
+        console.log("  1. Reinicia Claude Code para que carguen los hooks y skills nuevos.");
+        console.log("  2. Prueba: graphify extract .    — grafo de conocimiento del proyecto (Graphify)");
+        console.log("  3. Prueba: /mcp → rag             — búsqueda semántica sobre tu V.A.U.L.T");
+        console.log("  4. node <RAG_ROOT>/R.A.G/ritual.mjs fin-sesion");
+        console.log("  5. Ver README.md para la documentación completa.");
     } else {
         console.log(ui.rojo(`El instalador terminó con código ${codigo} — revisa la salida de arriba.`));
+        console.log("\nQué hacer ahora:");
+        console.log("  1. Reintenta: install.sh es idempotente, retoma donde se quedó sin repetir lo ya hecho.");
+        console.log("  2. Si no ves qué falló, corre en modo simulación para ver qué haría sin tocar nada:");
+        console.log("       node bin/wizard/wizard.mjs --dry-run");
+        console.log("  3. Busca el mensaje de error concreto en la sección Troubleshooting de INSTALL.md.");
     }
-    console.log("\nPróximos pasos:");
-    console.log("  1. Reinicia Claude Code para que carguen los hooks y skills nuevos.");
-    console.log("  2. Prueba: graphify extract .    — grafo de conocimiento del proyecto (Graphify)");
-    console.log("  3. Prueba: /mcp → rag             — búsqueda semántica sobre tu V.A.U.L.T");
-    console.log("  4. node <RAG_ROOT>/R.A.G/ritual.mjs fin-sesion");
-    console.log("  5. Ver README.md para la documentación completa.");
     await esperarTeclaFinal();
     process.exit(codigo);
 }
@@ -487,16 +566,15 @@ async function modoDesinstalar() {
     ui.banner();
     ui.titulo("Desinstalación de CLAUDEMAX");
 
-    console.log("Esto va a eliminar:");
-    console.log("  - Skills instaladas (superpowers, ui-ux-pro-max, cyber-neo, dev-skills...)");
-    console.log("  - Los cuatro hooks de reglas/rituales, el hook de auditoría de UI y el de rtk");
-    console.log("  - Registros de MCP (figma, rag, markitdown) y el plugin Graphify");
-    console.log("  - El binario de rtk\n");
-    console.log(ui.atenuado("Se conserva:"));
-    console.log(ui.atenuado("  - El vault (V.A.U.L.T) y el volumen de datos del RAG"));
-    console.log(ui.atenuado("  - Las reglas del workspace en <RAG_ROOT>/.claude/ (pueden estar editadas)"));
-    console.log(ui.atenuado("  - Dependencias de sistema (Docker, Ollama, Python, Java)"));
-    console.log(ui.atenuado("  - RTK.md y la referencia @RTK.md en tu CLAUDE.md\n"));
+    console.log("Esto es exactamente lo que va a pasar:\n");
+    ui.tabla([
+        ["Se elimina", "Se conserva"],
+        ["Skills (superpowers, ui-ux-pro-max, cyber-neo, dev-skills, ...)", "Vault (V.A.U.L.T) y volumen de datos del RAG"],
+        ["4 hooks: reglas, rituales, auditoría de UI, rtk", "Reglas en <RAG_ROOT>/.claude/ (por si las editaste)"],
+        ["MCPs registrados: figma, rag, markitdown, y el plugin Graphify", "Dependencias de sistema (Docker, Ollama, Python, Java)"],
+        ["El binario de rtk", "RTK.md y la referencia @RTK.md en tu CLAUDE.md"],
+    ]);
+    console.log("");
 
     const respuesta = await ui.preguntar('Escribe la palabra "desinstalar" para confirmar (cualquier otra cosa cancela)');
     if (String(respuesta).trim() !== "desinstalar") {
@@ -519,7 +597,15 @@ async function modoDesinstalar() {
     const codigo = await ejecutar(bash, args);
 
     ui.titulo("Listo");
-    console.log(codigo === 0 ? ui.verde("Desinstalación completada.") : ui.rojo(`uninstall.sh terminó con código ${codigo}.`));
+    if (codigo === 0) {
+        console.log(ui.verde("Desinstalación completada."));
+    } else {
+        console.log(ui.rojo(`uninstall.sh terminó con código ${codigo} — revisa la salida de arriba.`));
+        console.log("\nQué hacer ahora:");
+        console.log("  1. Reintenta: bash uninstall.sh, o CLAUDEMAX-UNINSTALLER.cmd, es idempotente.");
+        console.log("  2. Corre con --dry-run para ver qué haría sin tocar nada: node bin/wizard/wizard.mjs --uninstall --dry-run");
+        console.log("  3. Busca el mensaje de error concreto en la sección Troubleshooting de INSTALL.md.");
+    }
     await esperarTeclaFinal();
     process.exit(codigo);
 }

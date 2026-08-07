@@ -114,10 +114,11 @@ numerado funcione igual en Git Bash, cmd.exe y Windows Terminal. Colores desacti
 
 | Archivo | Qué hace |
 |---|---|
-| `CLAUDEMAX-INSTALLER.cmd` | Comprueba que `node` esté en el PATH y lanza `bin/wizard/wizard.mjs`. Si falta Node, explica cómo instalarlo y hace `pause` antes de cerrar — para que la ventana no desaparezca de golpe al hacer doble clic. |
-| `CLAUDEMAX-UNINSTALLER.cmd` | Igual, pero lanza `wizard.mjs --uninstall`. |
+| `CLAUDEMAX-INSTALLER.cmd` | Autosuficiente: comprueba que `node` y Git Bash estén disponibles y, si falta alguno, lo **instala él solo** vía `winget` (con confirmación de una tecla antes) — `OpenJS.NodeJS.LTS` y `Git.Git` respectivamente. Si `winget` tampoco está, explica cómo instalar cada cosa a mano con la URL exacta. Como el PATH de la ventana actual no se refresca tras un `winget install`, vuelve a comprobar rutas conocidas (`%ProgramFiles%\nodejs\node.exe`, `%ProgramFiles%\Git\bin\bash.exe`, etc.) antes de rendirse y pedir que se cierre y reabra la ventana. Pasa todos los argumentos recibidos (`%*`) al wizard, y termina siempre con un mensaje de éxito/error según `%ERRORLEVEL%` seguido de `pause` — la ventana nunca se cierra de golpe. |
+| `CLAUDEMAX-UNINSTALLER.cmd` | Igual arranque autosuficiente, pero lanza `wizard.mjs --uninstall %*`. |
 
-También se puede invocar directo, sin pasar por el `.cmd`: `node bin/wizard/wizard.mjs`.
+También se puede invocar directo, sin pasar por el `.cmd`: `node bin/wizard/wizard.mjs` (aquí sí
+necesitas tener Node y Git Bash ya instalados — el bootstrap automático vive en el `.cmd`).
 
 ### Los 9 pasos
 
@@ -133,12 +134,13 @@ También se puede invocar directo, sin pasar por el `.cmd`: `node bin/wizard/wiz
 
 ### Modo desinstalación
 
-`wizard.mjs --uninstall` (o `CLAUDEMAX-UNINSTALLER.cmd`) muestra qué se va a eliminar y qué se
-conserva (dependencias de sistema, el vault, el volumen de datos del RAG, las reglas que
-pudiste editar) y pide escribir la palabra **`desinstalar`** completa para confirmar — no un
-simple sí/no, precisamente porque es una operación destructiva y un Enter accidental no debe
-bastar. Cualquier otra respuesta cancela sin tocar nada. Confirmado, delega en `bash
-uninstall.sh` con stdio heredado, igual que el paso 8 de la instalación.
+`wizard.mjs --uninstall` (o `CLAUDEMAX-UNINSTALLER.cmd`) muestra una tabla de dos columnas — **Se
+elimina** / **Se conserva** — antes de pedir nada: skills, hooks, MCPs y el binario de rtk en una
+columna; dependencias de sistema, el vault, el volumen de datos del RAG y las reglas que pudiste
+editar en la otra. Solo entonces pide escribir la palabra **`desinstalar`** completa para
+confirmar — no un simple sí/no, precisamente porque es una operación destructiva y un Enter
+accidental no debe bastar. Cualquier otra respuesta cancela sin tocar nada. Confirmado, delega en
+`bash uninstall.sh` con stdio heredado, igual que el paso 8 de la instalación.
 
 ### Flags del propio wizard
 
@@ -214,25 +216,31 @@ No confundir con los flags de `install.sh` (sección [Flags](README.md#flags) de
 
 ### "Hago doble clic en `CLAUDEMAX-INSTALLER.cmd` y la ventana se cierra de golpe"
 
-El `.cmd` termina con `pause`, así que en condiciones normales siempre espera una tecla antes de
-cerrar — incluso si algo falló. Si la ventana se cierra de golpe sin llegar a mostrar ese
-`pause`, es que falta Node.js ≥18 en el PATH: el propio `.cmd` comprueba `where node` al
-arrancar y, si no lo encuentra, imprime el error, hace `pause` y sale con código 1 (ese `pause`
-sí debería verse). Si ni siquiera eso aparece, revisa que el archivo no se esté ejecutando desde
-un antivirus/SmartScreen que lo bloquee antes de arrancar `cmd.exe`. Instala Node desde
-<https://nodejs.org/> (o `winget install -e --id OpenJS.NodeJS.LTS`) y vuelve a intentarlo.
+Ya no debería pasar, en ningún camino: el `.cmd` termina siempre con `pause`, incluso si algo
+falló, así que en condiciones normales siempre espera una tecla antes de cerrar. Antes, si
+faltaba Node.js, el `.cmd` se limitaba a explicarlo y rendirse; ahora, si falta Node.js **o** Git
+Bash, el propio `.cmd` ofrece instalarlos él mismo vía `winget` (`OpenJS.NodeJS.LTS` /
+`Git.Git`, con confirmación de una tecla antes de tocar nada) y, si `winget` no está disponible,
+explica cómo instalar cada cosa a mano con la URL exacta — y sigue haciendo `pause` al final.
+Si la ventana se cierra de golpe sin llegar a mostrar ningún `pause`, es que algo interrumpió
+`cmd.exe` antes de arrancar (revisa que un antivirus/SmartScreen no esté bloqueando el archivo).
 
 ### "El wizard dice que no encuentra bash"
 
-`bin/wizard/detect.mjs` busca bash en este orden: rutas conocidas de Git for Windows
+Desde `CLAUDEMAX-INSTALLER.cmd`/`CLAUDEMAX-UNINSTALLER.cmd` esto ya no debería ocurrir: el propio
+`.cmd` comprueba las rutas de Git for Windows antes de arrancar el wizard y, si no están,
+ofrece instalar Git for Windows vía `winget`. Si aun así ves este mensaje (por ejemplo, invocando
+`node bin/wizard/wizard.mjs` directo sin pasar por el `.cmd`), es que `bin/wizard/detect.mjs` no
+encontró un bash utilizable. Busca en este orden: rutas conocidas de Git for Windows
 (`%ProgramFiles%\Git\bin\bash.exe`, `%LOCALAPPDATA%\Programs\Git\bin\bash.exe`) y, si ninguna
 sirve, el `bash` del PATH. **El bash de WSL no cuenta aunque esté instalado y responda**: WSL
 monta el disco de Windows en `/mnt/c` en vez de `/c`, así que las rutas que el wizard le pasa
 (`RAG_ROOT`, rutas de vault/dump) no resolverían ahí — el wizard valida cada candidato con
 `echo $OSTYPE` y descarta cualquiera que no reporte `msys`/`cygwin` en Windows, precisamente
 para no caer en ese caso. La solución es instalar Git for Windows
-(<https://git-scm.com/download/win>), que trae Git Bash — no hace falta configurar nada más, el
-wizard lo encuentra solo en cuanto está en una de esas dos rutas estándar.
+(<https://git-scm.com/download/win>, o `winget install -e --id Git.Git`), que trae Git Bash — no
+hace falta configurar nada más, el wizard lo encuentra solo en cuanto está en una de esas dos
+rutas estándar.
 
 ### "Quiero reinstalar sin que me pregunte nada"
 

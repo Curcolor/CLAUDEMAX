@@ -68,8 +68,13 @@ export function banner() {
     console.log("  Asistente de instalación — ahorro de tokens + UI/UX + cerebro RAG + análisis.\n");
 }
 
-export function titulo(texto) {
-    console.log(`\n${azul("==>")} ${texto}`);
+// paso/total (opcionales): si se pasan, antepone "Paso N de TOTAL — " al texto, para que el
+// usuario siempre sepa en qué punto del flujo de 9 pasos está. Sin ellos, se comporta como
+// antes (título simple) — lo usan las cabeceras que no forman parte de la numeración, como
+// las del modo desinstalación.
+export function titulo(texto, { paso, total } = {}) {
+    const prefijo = paso !== undefined && total !== undefined ? `Paso ${paso} de ${total} — ` : "";
+    console.log(`\n${azul("==>")} ${prefijo}${texto}`);
 }
 
 // --- Tabla -------------------------------------------------------------------------
@@ -230,9 +235,15 @@ export async function preguntarOculto(texto) {
 }
 
 // Menú de una sola opción: lista numerada, el usuario escribe el número.
-// opciones: [{ id, etiqueta }]. Devuelve el id elegido.
+// opciones: [{ id, etiqueta, detalle? }]. `detalle`, si se pasa, se imprime en gris debajo de
+// la etiqueta — ayuda contextual de qué implica elegir esa opción (los nombres solos no
+// siempre bastan, sobre todo en los modos de vault/RAG: "crear" vs "importar" vs "conectar").
+// Devuelve el id elegido.
 export async function menuSimple(opciones) {
-    opciones.forEach((op, i) => console.log(`  ${i + 1}. ${op.etiqueta}`));
+    opciones.forEach((op, i) => {
+        console.log(`  ${i + 1}. ${op.etiqueta}`);
+        if (op.detalle) console.log(`     ${atenuado(op.detalle)}`);
+    });
     for (;;) {
         process.stdout.write(`Elige una opción [1-${opciones.length}]: `);
         const respuesta = (await siguienteLinea()).trim();

@@ -28,15 +28,19 @@ bash install.sh
 
 ### Vía recomendada: wizard interactivo
 
-Doble clic en `CLAUDEMAX-INSTALLER.cmd` (Windows), o:
+**Doble clic en `CLAUDEMAX-INSTALLER.cmd` (Windows) es todo lo que hace falta** — no necesitas
+tener nada instalado de antemano ni saber nada técnico. El propio `.cmd` comprueba si faltan
+Node.js o Git for Windows (Git Bash) y, si es así, los instala él solo vía `winget` (pidiendo
+confirmación primero); solo si `winget` no está disponible te pide instalar algo a mano, con la
+URL exacta. Nunca se cierra de golpe: siempre espera una tecla al terminar, éxito o error. O,
+si ya tienes Node instalado, invócalo directo:
 
 ```bash
 node bin/wizard/wizard.mjs
 ```
 
-Un asistente de 9 pasos, sin dependencias (Node ≥18, nada de npm install), que **orquesta**
-`install.sh` en vez de reimplementarlo: recoge tus decisiones, te enseña la línea de comando
-exacta que va a ejecutar y solo entonces la lanza.
+Un asistente de 9 pasos que **orquesta** `install.sh` en vez de reimplementarlo: recoge tus
+decisiones, te enseña la línea de comando exacta que va a ejecutar y solo entonces la lanza.
 
 1. Bienvenida.
 2. Destino del workspace — crea la carpeta raíz que elijas (por defecto `WORKSPACE` en tu escritorio); se convierte en `RAG_ROOT`.
@@ -287,9 +291,11 @@ Valida todo el árbol con:
 
 ## Desinstalación
 
-Doble clic en `CLAUDEMAX-UNINSTALLER.cmd` (Windows) — lanza el wizard en modo desinstalación
-(`wizard.mjs --uninstall`), que enseña qué se borra y qué se conserva y exige escribir la
-palabra `desinstalar` completa para confirmar, por ser una operación destructiva. O directo:
+Doble clic en `CLAUDEMAX-UNINSTALLER.cmd` (Windows) — igual de autosuficiente que el instalador
+(instala Node/Git Bash solo si faltan) — lanza el wizard en modo desinstalación
+(`wizard.mjs --uninstall`), que muestra en una tabla de dos columnas qué se borra y qué se
+conserva, y exige escribir la palabra `desinstalar` completa para confirmar, por ser una
+operación destructiva. O directo:
 
 ```bash
 bash uninstall.sh
