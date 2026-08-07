@@ -1,0 +1,25 @@
+name: pmbok
+version: 2.0.0
+kind: knowledge
+triggers:
+  # bilingües: cada concepto en español e inglés
+  - "PMBOK / dirección de proyectos / project management / PMI"
+  - "interesados / stakeholders / involucramiento / engagement"
+  - "cronograma / schedule / estimación / estimation"
+  - "riesgos / risk / amenaza / threat / oportunidad / opportunity"
+  - "alcance / scope / EDT / WBS"
+  - "entregable / deliverable / definición de terminado / definition of done"
+  - "ágil / agile / adaptativo / predictivo / híbrido / hybrid"
+  - "adaptación / tailoring"
+  - "valor / value / valor ganado / earned value / EVM"
+  - "equipo de proyecto / project team / liderazgo / leadership"
+  - "calidad / quality / costo de la calidad / cost of quality"
+  - "medición / measurement / métricas / metrics / KPI"
+  - "incertidumbre / uncertainty / complejidad / complexity / ambigüedad / ambiguity"
+  - "acta de constitución / project charter / caso de negocio / business case"
+  - "adquisiciones / procurement / contrato / contract"
+commands: []
+scripts: []
+dependencies:
+  - swebok
+schema: ./schema.json

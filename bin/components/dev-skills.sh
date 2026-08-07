@@ -2,6 +2,7 @@
 # Instala skills de disciplina de ingeniería:
 #   - superpowers             (clonado de obra/superpowers — meta-skill upstream)
 #   - swebok            (propia/first-party — absorbe la antigua architecture-principles)
+#   - pmbok             (propia/first-party — direccion de proyectos, PMBOK 7)
 #   - book-to-skill     (propia/first-party)
 #   - conventional-commits    (propia/first-party)
 #   - skill-mcp-builder       (propia/first-party — meta-skill: crear skills y MCPs)
@@ -12,10 +13,10 @@
 
 SUPERPOWERS_REPO="https://github.com/obra/superpowers"
 
-FIRST_PARTY_SKILLS=(swebok book-to-skill conventional-commits skill-mcp-builder no-ai-slop rituales)
+FIRST_PARTY_SKILLS=(swebok pmbok book-to-skill conventional-commits skill-mcp-builder no-ai-slop rituales)
 
 ac_component_dev_skills() {
-    ac_step "Skills de ingeniería — superpowers + swebok + book-to-skill + conventional-commits + skill-mcp-builder + no-ai-slop"
+    ac_step "Skills de ingeniería — superpowers + swebok + pmbok + book-to-skill + conventional-commits + skill-mcp-builder + no-ai-slop"
 
     ac_devskills_install_first_party
     ac_devskills_install_superpowers

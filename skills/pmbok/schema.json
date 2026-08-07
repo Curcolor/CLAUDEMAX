@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pmbok",
+  "definitions": {
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "consulta": {
+          "type": "string",
+          "description": "Pregunta en lenguaje natural (español o inglés) sobre dirección de proyectos: interesados, equipo, enfoque de desarrollo, planificación, trabajo del proyecto, entrega, medición, incertidumbre, adaptación (tailoring), o el catálogo de modelos/métodos/artefactos."
+        },
+        "area": {
+          "type": "string",
+          "enum": [
+            "principios",
+            "dominios",
+            "adaptacion",
+            "catalogo"
+          ],
+          "description": "Categoría de la skill a consultar: principios (los 12 principios rectores en principios/), dominios (los 8 dominios de desempeño en dominios/), adaptacion (guía de tailoring en adaptacion.md) o catalogo (modelos, métodos y artefactos en modelos-metodos-artefactos.md). Omitir para que la skill la infiera de la consulta."
+        },
+        "enfoque": {
+          "type": "string",
+          "enum": [
+            "predictivo",
+            "adaptativo",
+            "hibrido"
+          ],
+          "description": "Enfoque de desarrollo del proyecto, cuando es relevante para la consulta (p. ej. para elegir técnica de estimación, cadencia de entrega o método de medición). Omitir si no aplica o es desconocido."
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "respuesta": {
+          "type": "string",
+          "description": "Recomendación o respuesta a la consulta, con su justificación y, cuando aplica, con qué otro principio o dominio entra en tensión y cómo se resuelve"
+        },
+        "fuente": {
+          "type": "string",
+          "description": "Ruta relativa del principio, dominio o referencia consultada dentro de la skill (p. ej. dominios/d04-dominio-de-desempeno-de-la-planificacion.md, principios/p10-optimizar-las-respuestas-a-los-riesgos.md o adaptacion.md)"
+        }
+      },
+      "required": ["respuesta"]
+    }
+  }
+}

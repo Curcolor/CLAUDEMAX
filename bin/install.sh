@@ -231,7 +231,7 @@ ${AC_GREEN}Listo.${AC_NC} Próximos pasos:
   3. Prueba los comandos:
        /ui-ux-pro-max     — (el nombre de la skill puede variar; revisa tu selector de skills)
        /superpowers       — paquete de meta-skills (obra/superpowers)
-       /swebok /conventional-commits /book-to-skill
+       /swebok /pmbok /conventional-commits /book-to-skill
        /mcp → rag            — búsqueda semántica sobre tu V.A.U.L.T (rag_query)
        graphify extract .    — grafo de conocimiento del proyecto (Graphify)
        /ponytail-review      — revisa el diff con la escalera de minimalismo (Ponytail)
