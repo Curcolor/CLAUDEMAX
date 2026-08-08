@@ -101,6 +101,7 @@ ac_uiux_install_audit_hook() {
     ac_info "Instalando hook de auditoría de UI en $hook_dst"
     if [ "${DRY_RUN:-0}" = "1" ]; then
         ac_dim "\$ cp $hook_src $hook_dst"
+        ac_dim "\$ ac_drop_stale_msys_hook $settings $hook_dst  (migración Windows)"
         ac_dim "\$ ac_merge_hook $settings PostToolUse 'node $hook_dst' 'Edit|Write'"
         return 0
     fi
@@ -109,6 +110,7 @@ ac_uiux_install_audit_hook() {
     cp -f "$hook_src" "$hook_dst"
     chmod +x "$hook_dst" 2>/dev/null || true
 
+    ac_drop_stale_msys_hook "$settings" "$hook_dst"
     ac_merge_hook "$settings" "PostToolUse" "node $hook_dst" "Edit|Write"
     ac_info "Hook PostToolUse/Edit|Write registrado → 'node $hook_dst' en $settings"
     ac_dim "  (desactivar sin desinstalar: CLAUDEMAX_UI_AUDIT=0)"
