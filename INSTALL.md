@@ -30,6 +30,7 @@ CLAUDEMAX/
 │       ├── rtk.sh              # encadena la instalación de rtk + `rtk init --global`
 │       ├── figma-mcp.sh        # `claude mcp add --transport http figma ...`
 │       ├── ui-ux.sh            # copia skills/ui-ux-pro-max + registra el MCP magic + npm i + hook ui-audit.mjs
+│       ├── impeccable.sh       # `claude plugin marketplace add` + `install` del plugin impeccable (+ chequeo de Node >= 22)
 │       ├── dev-skills.sh       # clon de superpowers + 7 skills propias (incluidas pmbok, no-ai-slop y rituales)
 │       ├── rag.sh              # vault V.A.U.L.T + stack R.A.G (compose/schema/CLI/MCP) + backend Kaggle opcional + registro MCP
 │       ├── graphify.sh         # instala el CLI de Graphify (pip) y lo registra en Claude Code
@@ -147,7 +148,7 @@ necesitas tener Node y Git Bash ya instalados — el bootstrap automático vive 
 1. **Bienvenida** — banner ASCII (el mismo de `bin/install.sh`), y una frase de qué va a pasar. Enter para continuar, `q` para salir sin tocar nada.
 2. **Destino del workspace** — pregunta dónde crear la carpeta raíz; por defecto `%USERPROFILE%\Desktop\WORKSPACE`. Valida que la ruta sea escribible; si ya existe y no está vacía, pide confirmación explícita antes de seguir. Esta respuesta se convierte en `RAG_ROOT`.
 3. **Chequeo de dependencias** — tabla con estado en vivo (`node`, `git`, `claude`, `docker`, `ollama`, `python`, `java`, `winget`), detectada **ejecutando** `bin/lib/detect.sh` (la misma función `ac_detect_all` que usa `bin/install.sh`), no reimplementando la detección en JS. Para lo que falte, el wizard no instala nada aquí: avisa qué componentes quedarán degradados y deja que cada componente resuelva sus propias dependencias en su momento (`ac_rag_ensure_deps` vía winget, `ac_parsers_ensure_python`).
-4. **Selección de componentes** — lista con casilla marcada por defecto en los diez. La lista se extrae de `ALL_COMPONENTS` en `bin/install.sh` con una expresión regular al arrancar — el wizard nunca mantiene su propia copia (ver más abajo).
+4. **Selección de componentes** — lista con casilla marcada por defecto en los once. La lista se extrae de `ALL_COMPONENTS` en `bin/install.sh` con una expresión regular al arrancar — el wizard nunca mantiene su propia copia (ver más abajo).
 5. **Vault** — tres modos, como ya soporta `rag.sh`: crear desde cero (plantilla con la taxonomía de seis categorías), importar uno existente (`VAULT_SRC`, valida que la ruta exista) o conectar a uno remoto (`VAULT_REMOTE`, URL de git). Se omite si `rag` quedó desmarcado en el paso 4.
 6. **RAG** — los mismos tres modos (`RAG_MODE`, con `RAG_DUMP` / `RAG_REMOTE_URL` según el caso), y después Kaggle opcional: si se acepta, pide usuario y clave (**la clave se lee sin eco en pantalla**, con lectura raw-mode de stdin) y recuerda la verificación telefónica manual de Kaggle. Si se declina, las variables `KAGGLE_*` ni se mencionan en el resumen. Se omite si `rag` quedó desmarcado.
 7. **Resumen y confirmación** — imprime la línea de comando completa con sus variables de entorno (auditable: se ve exactamente qué se va a ejecutar antes de ejecutarlo; la clave de Kaggle se enmascara en pantalla, no en el entorno real del proceso hijo) y ofrece ejecutar de verdad, simular (`--dry-run`) o cancelar.
@@ -198,6 +199,9 @@ No confundir con los flags de `bin/install.sh` (sección [Flags](README.md#flags
 | `<proyecto>/graphify-out/` (`graph.json`, `graph.html`, `GRAPH_REPORT.md`) en cualquier proyecto donde corras `graphify extract` | El propio CLI `graphify`, invocado manualmente por ti | **No** — no es CLAUDEMAX quien lo genera; bórralo a mano en cada proyecto si quieres |
 | Legado: plugin `understand-anything` (en `$CLAUDE_CONFIG_DIR/plugins/cache/`) + marketplace `understand-anything`, de instalaciones de CLAUDEMAX anteriores a este cambio | Ya no lo instala `graphify.sh` — se detecta y se quita como migración (`claude plugin uninstall`/`marketplace remove`, best-effort) | Sí, best-effort — `claude plugin uninstall understand-anything -s user` + `marketplace remove`. Si el CLI falla, hazlo en sesión con `/plugin uninstall understand-anything` |
 | Plugin `ponytail` (marketplace `DietrichGebert/ponytail`, típicamente en `$CLAUDE_CONFIG_DIR/plugins/cache/`) + flags `$CLAUDE_CONFIG_DIR/.ponytail-active` y `.ponytail-statusline-nudged` | ponytail.sh (`claude plugin marketplace add` + `claude plugin install`) | Sí, best-effort — ejecuta primero `node <plugin>/scripts/uninstall.js` (limpia flags/statusLine) si localiza el directorio del plugin, luego `claude plugin uninstall ponytail -s user` + `marketplace remove`, y borra los dos archivos de flag. **No** elimina `~/.config/ponytail/config.json` — puedes haberlo editado a mano |
+| Plugin `impeccable` (marketplace `pbakaus/impeccable`, típicamente en `$CLAUDE_CONFIG_DIR/plugins/cache/`) | impeccable.sh (`claude plugin marketplace add` + `claude plugin install`) | Sí, best-effort — `claude plugin uninstall impeccable -s user` + `marketplace remove`. Sus dos hooks (`PostToolUse` y `Stop`) están declarados **dentro del plugin**, no en tu `settings.json`, así que se van con él: no hay `ac_remove_hook` que hacer |
+| `$HOME/.impeccable/node-unsupported` (flag que escribe el propio hook de Impeccable cuando no encuentra Node ≥ 22) | El hook de Impeccable, no nosotros | Sí — `rm -f` |
+| `<proyecto>/PRODUCT.md`, `<proyecto>/DESIGN.md`, `<proyecto>/.impeccable/` (`config.json`, `design.json`, `critique/*.md`, capturas y estado efímero de `live`) | Las órdenes `/impeccable init`, `document`, `critique`, `live`... que ejecutes tú | **No** — es tu documentación de diseño, igual que `V.A.U.L.T`. Impeccable trae un bloque de `.gitignore` para lo efímero de `.impeccable/` |
 | Registro MCP de Claude: `markitdown` | parsers.sh (`claude mcp add -s user`) | Sí |
 | Paquetes pip `markitdown[all]`, `markitdown-mcp`, `opendataloader-pdf`, `whisper-ctranslate2` | parsers.sh (`pip install`) | **No** — quítalos con `pip uninstall` si quieres |
 | Python 3.12, Temurin JDK 21, Docker Desktop, Ollama | parsers.sh / rag.sh (`winget install`, solo si faltaban) | **No** — son dependencias de sistema; desinstálalas a mano |
@@ -219,13 +223,14 @@ No confundir con los flags de `bin/install.sh` (sección [Flags](README.md#flags
    - El hook PreToolUse/Bash (`rtk hook claude`) se escribe directamente en `~/.claude/settings.json` mediante nuestro merger JSONC — no dependemos del prompt interactivo y/N de `rtk init -g`, que por defecto responde `N` en shells no interactivos.
 2. **figma** — necesita el CLI `claude`; se registra a nivel de **usuario** (`claude mcp add -s user`) para que funcione en todos los proyectos.
 3. **ui-ux** — también necesita `claude` para el MCP magic (también registrado a nivel de **usuario**); muta el cwd vía `npm install` (condicionado). Además de copiar la skill, ahora también copia `hooks/ui-audit.mjs` a `$CLAUDE_CONFIG_DIR/hooks/` y lo registra como `PostToolUse`/`Edit|Write` en `settings.json` (auditoría determinista de anti-patrones de UI; desactivable con `CLAUDEMAX_UI_AUDIT=0`).
-4. **dev-skills** — copia simple de archivos para `swebok` / `pmbok` / `book-to-skill` / `conventional-commits` / `skill-mcp-builder` / `no-ai-slop` / `rituales`; `git clone`/`git pull` para `superpowers`. `pmbok` declara `dependencies: [swebok]` en su `skill.yaml` (complementa al SWEBOK: SWEBOK cubre ingeniería de software, PMBOK cubre dirección de proyectos), pero es una dependencia declarativa que el modelo consulta, no un orden de copiado que `dev-skills.sh` tenga que resolver — ambas se copian en la misma pasada de `FIRST_PARTY_SKILLS`. Sin dependencia de orden con los demás componentes.
-5. **rag** — opt-in (necesita `RAG_ROOT` definido, si no avisa y se omite): copia `templates/vault` (con la taxonomía de 6 categorías) → `<RAG_ROOT>/V.A.U.L.T` y `templates/rag` (incluidas las plantillas de Kaggle en `kaggle/`) → `<RAG_ROOT>/R.A.G`, auto-instala Docker y Ollama vía winget si faltan, levanta el stack Docker Compose `ragdb` + `bge-m3`, hace `npm install` de las dependencias del CLI/MCP, configura el backend opcional de Kaggle si `KAGGLE_USERNAME`/`KAGGLE_KEY` están en el entorno, y registra el MCP `rag` a nivel de **usuario**.
-6. **graphify** — instala el paquete pip `graphifyy` (`uv tool install` / `pipx install` / `pip install --user`, el primero disponible) y ejecuta `graphify claude install` (registro por-proyecto: sección de `CLAUDE.md` + hook `PreToolUse`, sin `--strict`). Antes de instalar nada, hace la migración: si detecta el plugin equivocado de una instalación anterior (`understand-anything`), lo quita. Sin dependencia de orden con los demás — ya no toca la configuración de plugins de `claude`.
-7. **ponytail** — necesita `claude`; sin él avisa con los comandos `/plugin` para hacerlo en sesión y no falla la instalación. Idempotente vía `claude plugin list`. `claude plugin marketplace add DietrichGebert/ponytail` + `claude plugin install ponytail@ponytail`. Sin dependencia de orden con los demás — sus hooks (`SessionStart`/`SubagentStart`/`UserPromptSubmit`) no chocan con el `PreToolUse` de graphify.
-8. **cyber-neo** — `git clone` + `checkout` del commit fijado en `$CLAUDE_CONFIG_DIR/skills/cyber-neo`. Sin dependencia de orden.
-9. **parsers** — auto-instala Python y el JDK vía winget si faltan, luego `pip install` de los tres parsers, registra el MCP `markitdown` a nivel de **usuario**, y barre restos heredados de Context7 / Claude-Mem (entran en conflicto con el cerebro RAG).
-10. **rules** — **último** a propósito: copia `templates/rules/` a `<RAG_ROOT>/.claude/` (requiere `RAG_ROOT`, igual que `rag`; sin él instala solo los hooks y avisa) y registra los cuatro hooks de cumplimiento y contexto en `$CLAUDE_CONFIG_DIR/hooks/`. Va al final porque sus reglas y su hook `session-start` referencian rutas que crean los pasos anteriores (`<RAG_ROOT>/V.A.U.L.T`, `<RAG_ROOT>/R.A.G/rag.mjs`, las skills ya instaladas) — instalarlo antes correría el riesgo de documentar/consultar rutas que todavía no existen.
+4. **impeccable** — necesita `claude`; sin él avisa con los comandos `/plugin` para hacerlo en sesión y no falla la instalación. Idempotente vía `claude plugin list`. `claude plugin marketplace add pbakaus/impeccable` + `claude plugin install impeccable@impeccable`. Va justo después de `ui-ux` porque son el par de diseño y así aparecen juntos en el selector del wizard, pero no hay dependencia real de orden: el plugin es autocontenido y sus hooks (`PostToolUse`/`Edit|Write|MultiEdit` y `Stop`) viven dentro del plugin, no en `settings.json`. Comparte evento y matcher con nuestro `ui-audit.mjs`: los dos son informativos, ninguno bloquea, Claude Code ejecuta ambos (silencia el nuestro con `CLAUDEMAX_UI_AUDIT=0` si el solape molesta). Comprueba además que haya Node ≥ 22 y avisa si no, porque el hook de Impeccable se auto-desactiva en silencio sin él.
+5. **dev-skills** — copia simple de archivos para `swebok` / `pmbok` / `book-to-skill` / `conventional-commits` / `skill-mcp-builder` / `no-ai-slop` / `rituales`; `git clone`/`git pull` para `superpowers`. `pmbok` declara `dependencies: [swebok]` en su `skill.yaml` (complementa al SWEBOK: SWEBOK cubre ingeniería de software, PMBOK cubre dirección de proyectos), pero es una dependencia declarativa que el modelo consulta, no un orden de copiado que `dev-skills.sh` tenga que resolver — ambas se copian en la misma pasada de `FIRST_PARTY_SKILLS`. Sin dependencia de orden con los demás componentes.
+6. **rag** — opt-in (necesita `RAG_ROOT` definido, si no avisa y se omite): copia `templates/vault` (con la taxonomía de 6 categorías) → `<RAG_ROOT>/V.A.U.L.T` y `templates/rag` (incluidas las plantillas de Kaggle en `kaggle/`) → `<RAG_ROOT>/R.A.G`, auto-instala Docker y Ollama vía winget si faltan, levanta el stack Docker Compose `ragdb` + `bge-m3`, hace `npm install` de las dependencias del CLI/MCP, configura el backend opcional de Kaggle si `KAGGLE_USERNAME`/`KAGGLE_KEY` están en el entorno, y registra el MCP `rag` a nivel de **usuario**.
+7. **graphify** — instala el paquete pip `graphifyy` (`uv tool install` / `pipx install` / `pip install --user`, el primero disponible) y ejecuta `graphify claude install` (registro por-proyecto: sección de `CLAUDE.md` + hook `PreToolUse`, sin `--strict`). Antes de instalar nada, hace la migración: si detecta el plugin equivocado de una instalación anterior (`understand-anything`), lo quita. Sin dependencia de orden con los demás — ya no toca la configuración de plugins de `claude`.
+8. **ponytail** — necesita `claude`; sin él avisa con los comandos `/plugin` para hacerlo en sesión y no falla la instalación. Idempotente vía `claude plugin list`. `claude plugin marketplace add DietrichGebert/ponytail` + `claude plugin install ponytail@ponytail`. Sin dependencia de orden con los demás — sus hooks (`SessionStart`/`SubagentStart`/`UserPromptSubmit`) no chocan con el `PreToolUse` de graphify.
+9. **cyber-neo** — `git clone` + `checkout` del commit fijado en `$CLAUDE_CONFIG_DIR/skills/cyber-neo`. Sin dependencia de orden.
+10. **parsers** — auto-instala Python y el JDK vía winget si faltan, luego `pip install` de los tres parsers, registra el MCP `markitdown` a nivel de **usuario**, y barre restos heredados de Context7 / Claude-Mem (entran en conflicto con el cerebro RAG).
+11. **rules** — **último** a propósito: copia `templates/rules/` a `<RAG_ROOT>/.claude/` (requiere `RAG_ROOT`, igual que `rag`; sin él instala solo los hooks y avisa) y registra los cuatro hooks de cumplimiento y contexto en `$CLAUDE_CONFIG_DIR/hooks/`. Va al final porque sus reglas y su hook `session-start` referencian rutas que crean los pasos anteriores (`<RAG_ROOT>/V.A.U.L.T`, `<RAG_ROOT>/R.A.G/rag.mjs`, las skills ya instaladas) — instalarlo antes correría el riesgo de documentar/consultar rutas que todavía no existen.
 
 ## Interacciones entre flags
 
@@ -402,6 +407,39 @@ exactos para hacerlo a mano en una sesión de Claude Code:
 Si `claude plugin list` no muestra `ponytail` después de eso, actualiza el CLI `claude`
 (las versiones antiguas pueden no soportar `plugin marketplace`/`plugin install` de forma
 no interactiva) y vuelve a intentarlo.
+
+### "Instalé `impeccable` pero al editar UI no aparece ningún aviso suyo"
+
+Su hook exige **Node ≥ 22**. Si no lo encuentra, no falla: escribe `$HOME/.impeccable/node-unsupported`,
+avisa una sola vez y se calla para siempre. Las 23 órdenes de `/impeccable` siguen funcionando —
+son prompt, no script—, pero los 59 detectores nunca corren. `bin/components/impeccable.sh` lo
+comprueba durante la instalación y te avisa ahí mismo. Para arreglarlo:
+
+```bash
+node --version   # tiene que ser v22 o superior
+rm -f "$HOME/.impeccable/node-unsupported"
+```
+
+Ese archivo es el que hace que no vuelva a avisar; hay que borrarlo después de actualizar Node.
+
+### "`claude plugin install impeccable@impeccable` falló durante la instalación"
+
+Mismo patrón que ponytail: el componente avisa en vez de romper la instalación y te deja los dos
+comandos para hacerlo a mano en una sesión de Claude Code:
+
+```
+/plugin marketplace add pbakaus/impeccable
+/plugin install impeccable@impeccable
+```
+
+### "Al editar un `.tsx` me salen dos auditorías de UI distintas"
+
+Es lo esperado con `ui-ux` e `impeccable` instalados a la vez: los dos escuchan `PostToolUse` sobre
+`Edit|Write` (`ui-audit.mjs` con ~15 reglas nuestras, Impeccable con sus 59). Claude Code ejecuta
+todos los hooks que coinciden, ninguno bloquea la edición. Si sobra uno, el nuestro se apaga sin
+desinstalar nada con `CLAUDEMAX_UI_AUDIT=0`; el de Impeccable se va solo si quitas el plugin
+(`claude plugin uninstall impeccable -s user`), porque está declarado dentro del plugin y no en tu
+`settings.json`.
 
 ### "`opendataloader-pdf` no procesa nada"
 
