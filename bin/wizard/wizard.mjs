@@ -55,6 +55,7 @@ const DESCRIPCIONES = {
     rtk: "RTK — proxy CLI que reescribe comandos frecuentes (git, npm...) para ahorrar tokens.",
     figma: "MCP de Figma — trae diseños de Figma al contexto de Claude Code.",
     "ui-ux": "Skill UI/UX Pro Max + MCP magic (21st.dev) + hook de auditoría de anti-patrones visuales.",
+    impeccable: "Plugin Impeccable — 23 órdenes de diseño (/impeccable shape, audit, polish, live) + 59 detectores de anti-patrones.",
     "dev-skills": "Skills de disciplina de ingeniería: superpowers, arquitectura, patrones, commits convencionales.",
     rag: "V.A.U.L.T + stack RAG (PGVector + Ollama bge-m3) — memoria semántica del workspace.",
     graphify: "CLI de Graphify — grafo de conocimiento del repo (graphify extract .).",
@@ -572,6 +573,7 @@ async function modoDesinstalar() {
         ["Skills (superpowers, ui-ux-pro-max, cyber-neo, dev-skills, ...)", "Vault (V.A.U.L.T) y volumen de datos del RAG"],
         ["4 hooks: reglas, rituales, auditoría de UI, rtk", "Reglas en <RAG_ROOT>/.claude/ (por si las editaste)"],
         ["MCPs registrados: figma, rag, markitdown, y el plugin Graphify", "Dependencias de sistema (Docker, Ollama, Python, Java)"],
+        ["Plugins de marketplace: ponytail, impeccable", "PRODUCT.md / DESIGN.md / .impeccable/ de tus proyectos"],
         ["El binario de rtk", "RTK.md y la referencia @RTK.md en tu CLAUDE.md"],
     ]);
     console.log("");

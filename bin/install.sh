@@ -54,7 +54,7 @@ ONLY=()
 SKIP=()
 AC_CONFIG_DIR_OVERRIDE=""
 
-ALL_COMPONENTS=(rtk figma ui-ux dev-skills rag graphify ponytail cyber-neo parsers rules)
+ALL_COMPONENTS=(rtk figma ui-ux impeccable dev-skills rag graphify ponytail cyber-neo parsers rules)
 
 usage() {
     cat <<EOF
@@ -167,6 +167,10 @@ component_run() {
             . "$AC_REPO_DIR/bin/components/ui-ux.sh"
             ac_component_ui_ux
             ;;
+        impeccable)
+            . "$AC_REPO_DIR/bin/components/impeccable.sh"
+            ac_component_impeccable
+            ;;
         dev-skills)
             . "$AC_REPO_DIR/bin/components/dev-skills.sh"
             ac_component_dev_skills
@@ -230,6 +234,7 @@ ${AC_GREEN}Listo.${AC_NC} Próximos pasos:
   2. Completa el OAuth de Figma: abre Claude Code → /mcp → selecciona figma → navegador.
   3. Prueba los comandos:
        /ui-ux-pro-max     — (el nombre de la skill puede variar; revisa tu selector de skills)
+       /impeccable init      — contexto de producto; luego /impeccable shape|audit|polish|live (Impeccable)
        /superpowers       — paquete de meta-skills (obra/superpowers)
        /swebok /pmbok /conventional-commits /book-to-skill
        /mcp → rag            — búsqueda semántica sobre tu V.A.U.L.T (rag_query)

@@ -11,8 +11,10 @@
 #   - skill repo-map
 #   - registros de los MCP Figma + magic en Claude Code
 #   - directorio de la skill ui-ux-pro-max + hook PostToolUse de auditoría de UI (ui-audit.mjs)
+#   - plugin impeccable + su marketplace (sus dos hooks viven dentro del plugin, se van con él)
 #
 # NO elimina:
+#   - PRODUCT.md / DESIGN.md / .impeccable/ de tus proyectos — son tu documentación de diseño
 #   - archivos por-repo que el --with-init de una instalación antigua de Caveman pudo haber escrito
 #   - framer-motion / gsap del node_modules de tu proyecto — desinstálalos tú mismo con npm si quieres
 
@@ -155,6 +157,21 @@ fi
 ac_run rm -f "$CLAUDE_CONFIG_DIR/.ponytail-active"
 ac_run rm -f "$CLAUDE_CONFIG_DIR/.ponytail-statusline-nudged"
 ac_dim "  (se conserva: ~/.config/ponytail/config.json — puedes haberlo editado a mano; bórralo tú si quieres.)"
+
+# --- Impeccable (plugin de marketplace de Claude Code)
+# Más simple que ponytail: no trae script de limpieza propio ni escribe flags en
+# $CLAUDE_CONFIG_DIR. Sus dos hooks (PostToolUse y Stop) están declarados dentro del plugin,
+# no en tu settings.json, así que desaparecen con él — no hay ac_remove_hook que hacer.
+ac_step "Impeccable (plugin de marketplace)"
+if [ "$AC_HAS_CLAUDE" = "1" ]; then
+    ac_run claude plugin uninstall impeccable -s user 2>/dev/null || true
+    ac_run claude plugin marketplace remove impeccable 2>/dev/null || true
+else
+    ac_dim "  El CLI claude no está en el PATH — si tenías impeccable instalado, quítalo en sesión: /plugin uninstall impeccable"
+fi
+# Único rastro suyo fuera del plugin: el flag de "no hay Node 22" que escribe su propio hook.
+ac_run rm -f "$HOME/.impeccable/node-unsupported"
+ac_dim "  (se conservan: PRODUCT.md, DESIGN.md y .impeccable/ de tus proyectos — son tu documentación de diseño, no artefactos de CLAUDEMAX)"
 
 # --- Limpieza heredada: plugin equivocado de instalaciones antiguas de CLAUDEMAX (Egonex-AI/Understand-Anything)
 ac_step "Limpieza heredada: plugin understand-anything (versión anterior de este componente)"
