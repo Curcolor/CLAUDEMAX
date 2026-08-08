@@ -79,6 +79,7 @@ ac_rules_hook() {
 
     if [ "${DRY_RUN:-0}" = "1" ]; then
         ac_dim "\$ cp $hook_src $hook_dst"
+        ac_dim "\$ ac_drop_stale_msys_hook $settings $hook_dst  (migración Windows)"
         ac_dim "\$ ac_merge_hook $settings $evento 'node $hook_dst' '$matcher'"
         return 0
     fi
@@ -87,6 +88,7 @@ ac_rules_hook() {
     cp -f "$hook_src" "$hook_dst"
     chmod +x "$hook_dst" 2>/dev/null || true
 
+    ac_drop_stale_msys_hook "$settings" "$hook_dst"
     ac_merge_hook "$settings" "$evento" "node $hook_dst" "$matcher"
     ac_info "Hook $evento${matcher:+/$matcher} registrado → $name"
     ac_dim "  (desactivar sin desinstalar: $escape=0)"

@@ -9,6 +9,9 @@
 #
 # ac_remove_hook <settings.json> <substring>
 #   Elimina cualquier hook cuyo string de comando contenga <substring>.
+#
+# ac_drop_stale_msys_hook <settings.json> <ruta-del-hook>
+#   Migración para instalaciones de Windows anteriores al fix de cygpath.
 
 ac_merge_hook() {
     local file="$1" event="$2" cmd="$3" matcher="${4:-}"
@@ -48,12 +51,31 @@ ac_merge_hook() {
     '
 }
 
+# Una instalación de Windows anterior al fix de cygpath registró el hook con la ruta
+# MSYS (node /c/Users/...), que node resuelve como C:\c\Users\... y falla en cada
+# disparo. ac_merge_hook compara el comando literal, así que registrar la ruta buena
+# deja la vieja conviviendo: hook duplicado, uno de ellos siempre en error. Se quita
+# aquí antes de registrar. No-op donde no hay cygpath (macOS/Linux).
+# El comando bueno ("node C:/Users/...") no contiene el needle ("/c/Users/..."), así
+# que no se autoelimina.
+ac_drop_stale_msys_hook() {
+    local file="$1" hook_path="$2"
+    [ -f "$file" ] || return 0
+    command -v cygpath >/dev/null 2>&1 || return 0
+    ac_remove_hook "$file" "$(cygpath -u "$hook_path")"
+}
+
 ac_remove_hook() {
     local file="$1" needle="$2"
     [ -f "$file" ] || return 0
     cp -f "$file" "$file.bak"
 
-    SETTINGS_FILE="$file" NEEDLE="$needle" node -e '
+    # MSYS2_ENV_CONV_EXCL: en Git Bash, MSYS reescribe toda variable de entorno cuyo
+    # valor empiece por "/" antes de pasarla a un .exe nativo — NEEDLE=/c/Users/... le
+    # llega a node.exe como C:/Users/..., y entonces ac_remove_hook busca justo lo
+    # contrario de lo que se le pidió. Solo afecta al valor completo, no a rutas
+    # embebidas ("node /c/..." pasa intacto), por eso basta con excluir NEEDLE.
+    SETTINGS_FILE="$file" NEEDLE="$needle" MSYS2_ENV_CONV_EXCL="NEEDLE" node -e '
         const fs = require("fs");
         const file = process.env.SETTINGS_FILE;
         const needle = process.env.NEEDLE;
