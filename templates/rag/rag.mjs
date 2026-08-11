@@ -2,7 +2,7 @@
 // CLI de RAG de CLAUDEMAX. Implementación única para ingest/query/status; el
 // wrapper MCP delega en este archivo. Config desde .env junto a este archivo (alternativa: variables de entorno).
 //   node rag.mjs init                 aplica schema.sql
-//   node rag.mjs ingest [path] [--backend ollama|remote|kaggle]
+//   node rag.mjs ingest [path] [--proyecto P] [--categoria C] [--backend ollama|remote|kaggle]
 //   node rag.mjs query "<texto>" [--categoria C] [--proyecto P] [--topk N] [--json]
 //   node rag.mjs reindex [path] [--backend ollama|remote|kaggle]   trunca + ingesta completa
 //   node rag.mjs status
@@ -37,19 +37,36 @@ function loadDotEnv(file) {
 // Ollama sin caerse.
 let avisoKaggleQueryEmitido = false;
 
+// Tamaño de lote por petición a Ollama. Sin trocear, un grafo de Graphify (flattenGraph
+// emite un chunk POR NODO: 11738 en qaforge) se enviaba en un único POST cuyo cuerpo
+// tumbaba la conexión con un escueto "fetch failed", y con él la ingesta entera.
+const EMBED_BATCH = Number(process.env.EMBED_BATCH || 64);
+
 async function embedOllama(texts) {
-    const res = await fetch(`${OLLAMA_URL}/api/embed`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ model: EMBED_MODEL, input: texts })
-    });
-    if (!res.ok) throw new Error(`embed de ollama devolvió HTTP ${res.status}: ${await res.text()}`);
-    const data = await res.json();
-    const vecs = data.embeddings;
-    if (!Array.isArray(vecs) || vecs.length !== texts.length || vecs[0].length !== DIMS) {
-        throw new Error(`forma de embedding inesperada desde ${EMBED_MODEL}`);
+    const out = [];
+    for (let i = 0; i < texts.length; i += EMBED_BATCH) {
+        const lote = texts.slice(i, i + EMBED_BATCH);
+        let res;
+        try {
+            res = await fetch(`${OLLAMA_URL}/api/embed`, {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ model: EMBED_MODEL, input: lote })
+            });
+        } catch (e) {
+            // fetch() sin más contexto solo dice "fetch failed"; sin el rango de lote es
+            // imposible saber si murió al principio o a mitad de un corpus grande.
+            throw new Error(`embed de ollama falló en el lote ${i}–${i + lote.length} de ${texts.length}: ${e.message}`);
+        }
+        if (!res.ok) throw new Error(`embed de ollama devolvió HTTP ${res.status}: ${await res.text()}`);
+        const data = await res.json();
+        const vecs = data.embeddings;
+        if (!Array.isArray(vecs) || vecs.length !== lote.length || vecs[0].length !== DIMS) {
+            throw new Error(`forma de embedding inesperada desde ${EMBED_MODEL}`);
+        }
+        out.push(...vecs);
     }
-    return vecs;
+    return out;
 }
 
 // Despacha al backend efectivo. `backend` (viene de --backend) sobrescribe EMBED_BACKEND
@@ -278,6 +295,12 @@ function* walkSources(dir) {
             if (e.name.startsWith(".") && e.name !== ".ua") continue;
             yield* walkSources(p);
         } else if (e.name.endsWith(".md")) {
+            // Los archivos con prefijo "_" son andamiaje del vault, no notas: `_plantilla.md`
+            // es el molde que se copia para crear una nota. Al ingerirlo, los comentarios de
+            // su frontmatter vacío entran como VALORES y ensucian la taxonomía — quedaban
+            // filas con proyecto "# opcional — clave transversal..." y categoria
+            // "# obligatoria — una de: codigo | proyectos | ...".
+            if (e.name.startsWith("_")) continue;
             yield p;
         } else if (e.name === "knowledge-graph.json" || e.name === "domain-graph.json") {
             yield p;
@@ -338,20 +361,40 @@ async function cmdIngest(root, opts = {}) {
             }
 
             const mtime = fs.statSync(file).mtime;
-            const proyecto = proyectoOf(file, root, meta);
-            const categoria = categoriaOf(file, root, meta);
+            // --proyecto/--categoria actúan como RESPALDO, no como override: solo se usan
+            // cuando la inferencia no da nada. Un repo no tiene la estructura del vault
+            // (Proyectos/<x>, Codigo/<x>) ni frontmatter, así que sin esto todo su contenido
+            // entra con proyecto y categoría NULL y queda fuera de cualquier filtro. El
+            // frontmatter y la inferencia por carpeta siguen mandando.
+            const proyecto = proyectoOf(file, root, meta) || opts.proyecto || null;
+            const categoria = categoriaOf(file, root, meta) || opts.categoria || null;
             const tags = Array.isArray(meta.tags) ? meta.tags : [];
             if (!categoria) sinCategoria++;
             const fresh = [];
+            // El índice chunks_source_hash es UNIQUE(source, content_hash): dos chunks
+            // con contenido idéntico dentro del MISMO archivo colisionan. Como el
+            // pre-check de abajo solo mira la BD, sin `vistos` ambos entrarían a `fresh`
+            // y el segundo INSERT reventaría la ingesta entera. Pasa a diario en repos
+            // de código (cabeceras repetidas, boilerplate, secciones cortas iguales).
+            const vistos = new Set();
+            const hashesDelArchivo = [];
             for (const c of chunks) {
                 const hash = crypto.createHash("sha1").update(c.content).digest("hex");
+                if (vistos.has(hash)) continue;
+                vistos.add(hash);
+                hashesDelArchivo.push(hash);
                 const { rowCount } = await db.query(
                     "SELECT 1 FROM chunks WHERE source=$1 AND content_hash=$2", [file, hash]);
                 if (rowCount) { skipped++; } else { fresh.push({ ...c, hash }); }
             }
             if (fresh.length) {
                 const vecs = await embed(fresh.map(c => c.content), { backend: opts.backend });
-                await db.query("DELETE FROM chunks WHERE source=$1", [file]);
+                // Borra solo los chunks que ya no están en el archivo. El DELETE total
+                // que había aquí se llevaba por delante los chunks contados como
+                // `skipped` (sin cambios, no se reinsertan) y los perdía del índice.
+                await db.query(
+                    "DELETE FROM chunks WHERE source=$1 AND content_hash <> ALL($2::text[])",
+                    [file, hashesDelArchivo]);
                 for (let i = 0; i < fresh.length; i++) {
                     const c = fresh[i];
                     await db.query(
@@ -451,7 +494,8 @@ try {
     else if (cmd === "reindex") await cmdReindex(positional[0], opts);
     else if (cmd === "status") await cmdStatus();
     else {
-        console.log("uso: rag.mjs init | ingest [path] [--backend ollama|remote|kaggle] | query \"<texto>\" [--categoria C] [--proyecto P] [--topk N] [--json] | reindex [path] [--backend ollama|remote|kaggle] | status");
+        console.log("uso: rag.mjs init | ingest [path] [--proyecto P] [--categoria C] [--backend ollama|remote|kaggle] | query \"<texto>\" [--categoria C] [--proyecto P] [--topk N] [--json] | reindex [path] [--backend ollama|remote|kaggle] | status");
+        console.log("     en ingest, --proyecto/--categoria son el respaldo para rutas fuera del vault (repos), donde no hay frontmatter ni carpeta que inferir");
         process.exitCode = cmd ? 1 : 0;
     }
 } catch (e) {
