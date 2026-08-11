@@ -2,7 +2,7 @@
 // CLI de RAG de CLAUDEMAX. Implementación única para ingest/query/status; el
 // wrapper MCP delega en este archivo. Config desde .env junto a este archivo (alternativa: variables de entorno).
 //   node rag.mjs init                 aplica schema.sql
-//   node rag.mjs ingest [path] [--backend ollama|remote|kaggle]
+//   node rag.mjs ingest [path] [--proyecto P] [--categoria C] [--backend ollama|remote|kaggle]
 //   node rag.mjs query "<texto>" [--categoria C] [--proyecto P] [--topk N] [--json]
 //   node rag.mjs reindex [path] [--backend ollama|remote|kaggle]   trunca + ingesta completa
 //   node rag.mjs status
@@ -361,8 +361,13 @@ async function cmdIngest(root, opts = {}) {
             }
 
             const mtime = fs.statSync(file).mtime;
-            const proyecto = proyectoOf(file, root, meta);
-            const categoria = categoriaOf(file, root, meta);
+            // --proyecto/--categoria actúan como RESPALDO, no como override: solo se usan
+            // cuando la inferencia no da nada. Un repo no tiene la estructura del vault
+            // (Proyectos/<x>, Codigo/<x>) ni frontmatter, así que sin esto todo su contenido
+            // entra con proyecto y categoría NULL y queda fuera de cualquier filtro. El
+            // frontmatter y la inferencia por carpeta siguen mandando.
+            const proyecto = proyectoOf(file, root, meta) || opts.proyecto || null;
+            const categoria = categoriaOf(file, root, meta) || opts.categoria || null;
             const tags = Array.isArray(meta.tags) ? meta.tags : [];
             if (!categoria) sinCategoria++;
             const fresh = [];
@@ -489,7 +494,8 @@ try {
     else if (cmd === "reindex") await cmdReindex(positional[0], opts);
     else if (cmd === "status") await cmdStatus();
     else {
-        console.log("uso: rag.mjs init | ingest [path] [--backend ollama|remote|kaggle] | query \"<texto>\" [--categoria C] [--proyecto P] [--topk N] [--json] | reindex [path] [--backend ollama|remote|kaggle] | status");
+        console.log("uso: rag.mjs init | ingest [path] [--proyecto P] [--categoria C] [--backend ollama|remote|kaggle] | query \"<texto>\" [--categoria C] [--proyecto P] [--topk N] [--json] | reindex [path] [--backend ollama|remote|kaggle] | status");
+        console.log("     en ingest, --proyecto/--categoria son el respaldo para rutas fuera del vault (repos), donde no hay frontmatter ni carpeta que inferir");
         process.exitCode = cmd ? 1 : 0;
     }
 } catch (e) {
