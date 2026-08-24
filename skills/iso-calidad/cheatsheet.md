@@ -19,7 +19,7 @@ Reglas de decisión para actuar como auditor, implementador o gerente de calidad
 | 8.7 Salidas no conformes | Registro de no conformidades con disposición, autorización y verificación |
 | 9.1 Seguimiento y medición | Datos de satisfacción del cliente y análisis con conclusiones accionables, no solo recolección |
 | 9.2 Auditoría interna | Programa de auditoría, informes con hallazgos, evidencia de independencia del auditor, cierre de acciones |
-| 9.3 Revisión por la dirección | Actas con las nueve entradas de 9.3.2 tratadas y salidas con decisiones concretas |
+| 9.3 Revisión por la dirección | Actas con las seis entradas de 9.3.2 tratadas (estado de acciones previas, cambios de contexto, desempeño y sus siete tendencias, adecuación de recursos, eficacia de acciones de riesgo, oportunidades de mejora) y salidas con decisiones concretas |
 | 10.2 No conformidad y AC | Corrección + análisis de causa + acción correctiva + verificación de eficacia, para cada no conformidad relevante |
 
 ## No conformidad mayor vs. menor — regla de decisión
