@@ -1,0 +1,20 @@
+name: iso-seguridad
+version: 2.0.0
+kind: knowledge
+triggers:
+  # bilingües: cada concepto en español e inglés
+  - "ISO 27001 / ISO/IEC 27001 / seguridad de la información / information security"
+  - "SGSI / sistema de gestión de seguridad de la información / ISMS / information security management system"
+  - "riesgos de seguridad / security risk / evaluación de riesgos / risk assessment / tratamiento de riesgos / risk treatment"
+  - "controles / controls / Anexo A / Annex A"
+  - "declaración de aplicabilidad / statement of applicability / SoA"
+  - "certificación ISO / ISO certification / auditoría / audit"
+  - "confidencialidad / confidentiality / integridad / integrity / disponibilidad / availability"
+  - "ciberseguridad / cybersecurity / protección de la privacidad / privacy protection"
+  - "política de seguridad / security policy"
+  - "no conformidad / nonconformity / acción correctiva / corrective action"
+commands: []
+scripts: []
+dependencies:
+  - legal-colombia
+schema: ./schema.json
