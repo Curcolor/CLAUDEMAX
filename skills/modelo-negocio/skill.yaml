@@ -1,0 +1,22 @@
+name: modelo-negocio
+version: 2.0.0
+kind: knowledge
+triggers:
+  # bilingües: cada concepto en español e inglés
+  - "modelo de negocio / business model / lienzo / canvas"
+  - "propuesta de valor / value proposition"
+  - "segmento de clientes / customer segment"
+  - "canales / channels / relación con clientes / customer relationships"
+  - "fuentes de ingresos / revenue streams / monetización / monetization / pricing"
+  - "freemium / SaaS / suscripción / subscription"
+  - "cebo y anzuelo / bait and hook / razor and blades"
+  - "plataforma multilateral / multi-sided platform / efecto de red / network effect"
+  - "larga cola / long tail / desagregación / unbundling"
+  - "modelo abierto / open business model / océano azul / blue ocean"
+  - "startup / estrategia / strategy / pivotar / pivot / escalar / scale"
+  - "recursos clave / key resources / actividades clave / key activities / asociaciones clave / key partnerships"
+  - "estructura de costos / cost structure"
+commands: []
+scripts: []
+dependencies: []
+schema: ./schema.json
