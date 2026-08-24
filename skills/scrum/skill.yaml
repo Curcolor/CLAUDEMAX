@@ -1,0 +1,25 @@
+name: scrum
+version: 2.0.0
+kind: knowledge
+triggers:
+  # bilingües: cada concepto en español e inglés
+  - "scrum / marco ágil / agile framework"
+  - "sprint / iteración"
+  - "retrospectiva / retrospective / sprint retrospective"
+  - "daily / daily scrum / scrum diario / standup"
+  - "refinamiento / refinement / backlog refinement"
+  - "backlog / product backlog / sprint backlog / pila del producto"
+  - "product owner / propietario del producto"
+  - "scrum master"
+  - "developers / desarrolladores / equipo de desarrollo"
+  - "incremento / increment"
+  - "definición de terminado / definition of done / DoD"
+  - "planificación de sprint / sprint planning"
+  - "sprint review / revisión del sprint"
+  - "objetivo del sprint / sprint goal / objetivo del producto / product goal"
+  - "ágil / agile / adaptativo / adaptive"
+commands: []
+scripts: []
+dependencies:
+  - pmbok
+schema: ./schema.json
