@@ -1,0 +1,19 @@
+name: normas-pendientes
+version: 2.0.0
+kind: knowledge
+triggers:
+  # bilingües: cada concepto en español e inglés
+  - "ISO 25010 / ISO/IEC 25010 / calidad de producto / product quality / SQuaRE / ISO 25000"
+  - "usabilidad / usability / fiabilidad / reliability / mantenibilidad / maintainability / portabilidad / portability"
+  - "ISO 27002 / ISO/IEC 27002 / guía de implementación / implementation guidance / controles de seguridad / security controls"
+  - "ISO 90003 / ISO/IEC/IEEE 90003 / ISO 9001 para software / ISO 9001 for software"
+  - "ISO 12207 / ISO/IEC 12207 / ciclo de vida del software / software life cycle / procesos del ciclo de vida / life cycle processes"
+  - "norma no disponible / norma pendiente / standard not available / missing standard"
+  - "qué norma comprar / cuál norma comprar / which standard to buy / priorizar compra de norma"
+  - "norma de pago / paid standard / norma escaneada / scanned PDF sin capa de texto"
+commands: []
+scripts: []
+dependencies:
+  - iso-calidad
+  - iso-seguridad
+schema: ./schema.json
