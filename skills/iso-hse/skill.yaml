@@ -1,0 +1,26 @@
+name: iso-hse
+version: 2.0.0
+kind: knowledge
+triggers:
+  # bilingües: cada concepto en español e inglés
+  - "ISO 14001 / gestión ambiental / environmental management / EMS / sistema de gestión ambiental"
+  - "ISO 45001 / seguridad y salud en el trabajo / occupational health and safety / OH&S / OHS / SyST"
+  - "aspecto ambiental / impacto ambiental / environmental aspect / environmental impact"
+  - "peligro / hazard / riesgo laboral / riesgo para SyST / occupational risk"
+  - "jerarquía de controles / hierarchy of controls / eliminación / sustitución / EPP / PPE"
+  - "riesgo psicosocial / psychosocial risk / ergonomía / ergonomics / carga de trabajo / workload"
+  - "consulta y participación de los trabajadores / worker consultation and participation"
+  - "certificación / certification / certificar / auditoría externa / external audit"
+  - "auditoría interna / internal audit / programa de auditoría / audit programme"
+  - "no conformidad / nonconformity / incidente / incident / cuasi-accidente / near miss"
+  - "acción correctiva / corrective action / análisis de causa raíz / root cause analysis"
+  - "mejora continua / continual improvement / PHVA / PDCA / Planificar-Hacer-Verificar-Actuar"
+  - "requisitos legales y otros requisitos / legal and other requirements"
+  - "política ambiental / environmental policy / política de SyST / OH&S policy"
+  - "revisión por la dirección / management review / partes interesadas / interested parties"
+  - "SG-SST / Decreto 1072 / preparación ante emergencias / emergency preparedness and response"
+commands: []
+scripts: []
+dependencies:
+  - legal-colombia
+schema: ./schema.json

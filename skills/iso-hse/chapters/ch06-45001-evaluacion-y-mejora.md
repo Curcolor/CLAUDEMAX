@@ -1,0 +1,49 @@
+# ISO 45001:2018 — Evaluación del desempeño y mejora (cláusulas 9-10)
+
+## Idea central
+Fases "Checar" y "Actuar" del ciclo PHCA. La estructura es casi calcada de la 14001 (9.1 seguimiento y medición, 9.2 auditoría interna, 9.3 revisión por la dirección; 10.1 generalidades, 10.2 no conformidad y acción correctiva, 10.3 mejora continua), pero con dos diferencias que reflejan el objeto distinto de la norma: 10.2 se llama explícitamente "**Incidentes**, no conformidades y acciones correctivas", y la consulta/participación de los trabajadores (5.4) reaparece como entrada obligatoria en 9.3 y como paso explícito en la investigación de 10.2.
+
+## Marcos que introduce
+- **Seguimiento, medición, análisis y evaluación del desempeño (cláusula 9.1.1)**: determinar qué necesita seguimiento y medición, incluyendo el grado de cumplimiento de requisitos legales, las actividades relacionadas con peligros y riesgos identificados, el progreso de los objetivos de SyST, y la efectividad de los controles operacionales. Exige calibrar o verificar el equipo de medición y conservar evidencia documentada.
+- **Evaluación del cumplimiento (cláusula 9.1.2)**: establecer procesos para evaluar el cumplimiento de requisitos legales y otros requisitos, determinando frecuencia y métodos, y conservando información documentada de resultados — estructura idéntica a la 14001.
+- **Auditorías internas (cláusula 9.2)**: 9.2.1 generalidades y 9.2.2 programa de auditorías internas — la norma añade explícitamente que el programa debe incluir la **consulta** (con trabajadores, ver 5.4) entre sus elementos, y que los hallazgos de auditoría pertinentes deben informarse a los trabajadores y sus representantes, no solo a los directivos.
+  - Cómo (Anexo A, A.9.2): el alcance del programa de auditoría debe basarse en la complejidad y el nivel de madurez del sistema; la objetividad se puede lograr separando roles de auditor interno de las funciones habituales, o usando personas externas.
+- **Revisiones directivas (cláusula 9.3)**: las mismas entradas que en la 14001 (estado de acciones previas, cambios de contexto, grado de cumplimiento de política/objetivos, desempeño con tendencias, adecuación de recursos, comunicaciones, oportunidades de mejora) más dos propias de esta norma: los resultados de la **consulta y participación de los trabajadores**, y las salidas deben comunicarse explícitamente a los trabajadores y sus representantes (9.3, literal final).
+- **Incidentes, no conformidades y acciones correctivas (cláusula 10.2)**: ante un incidente o no conformidad, la organización debe reaccionar de manera oportuna, y **evaluar con la participación de los trabajadores y otras partes interesadas pertinentes** la necesidad de acciones correctivas para eliminar causas raíz — investigando el incidente o revisando la no conformidad, determinando causas, y verificando si existen incidentes o no conformidades similares. Debe revisar las evaluaciones existentes de riesgos para SyST cuando sea apropiado, determinar acciones conforme a la jerarquía de controles (8.1.2) y la gestión del cambio (8.1.3), y evaluar los riesgos de peligros nuevos o modificados antes de tomar acciones. Debe comunicar esta información a trabajadores pertinentes y sus representantes.
+  - Cómo (Anexo A, A.10.2): el análisis de causa raíz explora todos los factores asociados a un incidente o no conformidad preguntando qué pasó, cómo pasó y por qué pasó; puede identificar múltiples fallos contribuyentes (comunicación, competencia, fatiga, equipos, procedimientos).
+- **Mejora continua (cláusula 10.3)**: mejorar continuamente conveniencia, adecuación y eficacia del sistema para mejorar el desempeño de SyST, promover una cultura que apoye el sistema, promover la participación de los trabajadores en las acciones de mejora, y comunicar resultados pertinentes a trabajadores y representantes.
+
+## Conceptos clave
+- **Incidente**: suceso que surge del trabajo o en el transcurso del trabajo que podría tener o tiene como resultado lesión y deterioro de la salud (3.35); puede llamarse "accidente" cuando hay lesión, o "cuasi-accidente" cuando no la hay pero existía potencial.
+- **Acción correctiva**: acción para eliminar la causa de una no conformidad **o de un incidente** y prevenir que vuelva a ocurrir (3.36) — la 45001 amplía explícitamente el alcance de este término respecto a la 14001, porque un incidente puede ocurrir sin que exista ninguna no conformidad asociada (nota 3 de la definición 3.35).
+- **Análisis de causa raíz**: práctica de explorar todos los posibles factores asociados a un incidente o no conformidad, con foco en la prevención (Anexo A, A.10.2).
+- **Conveniencia / adecuación / efectividad**: los mismos tres términos técnicos de la 14001, con idéntica definición — cómo se ajusta el sistema a la organización, si se implementa apropiadamente, y si logra los resultados previstos.
+
+## Modelos mentales
+Piensa en 10.2 de la 45001 como una ampliación de la 10.2 de la 14001, no como una cláusula distinta: cubre el mismo proceso (reaccionar, analizar causa, corregir, verificar eficacia) pero sobre dos objetos — no conformidades (incumplimiento de un requisito) e incidentes (sucesos con o sin lesión) — que pueden coexistir o presentarse por separado.
+
+Usa la consulta/participación como criterio de auditoría en sí mismo: cuando evalúes si el sistema de gestión de SyST de una organización es maduro, pregunta no solo si existen procesos de 9.1-9.3, sino si los trabajadores participaron realmente en la investigación de incidentes (10.2) y si conocen los resultados de la revisión por la dirección (9.3) — es un indicador que la 14001 no exige verificar.
+
+## Antipatrones
+- **Investigar un incidente sin involucrar a los trabajadores afectados**: 10.2.b exige explícitamente evaluar la necesidad de acción correctiva "con la participación de los trabajadores" — una investigación hecha solo por gerencia o un consultor externo, sin ese involucramiento, no cumple la cláusula.
+- **Tratar un cuasi-accidente como si no ameritara investigación**: la nota de 3.35 aclara que un incidente puede producirse aunque no haya lesión ni no conformidad asociada — el potencial de daño es motivo suficiente para investigar, no solo el daño materializado.
+- **No comunicar los resultados de la revisión por la dirección a los trabajadores**: a diferencia de la 14001, la 45001 lo exige explícitamente (9.3, literal final) — guardar el acta solo para la alta dirección incumple la cláusula.
+- **Confundir informar con investigar**: reportar un incidente en un registro no sustituye la investigación de causa raíz que exige 10.2.
+
+## Aplicado a una empresa de software
+El seguimiento y medición (9.1) de una empresa de software puede construirse sobre indicadores honestos y accesibles: ausentismo relacionado con salud, encuestas periódicas de carga de trabajo y clima laboral (que capturan riesgo psicosocial), incidencias ergonómicas reportadas, y tiempo de resolución de solicitudes de mejora de puesto de trabajo. No hay equipos industriales que calibrar, pero sí conviene tratar con seriedad métrica las encuestas de clima como "instrumento de medición" en el sentido amplio de la norma. La auditoría interna (9.2) y la revisión por la dirección (9.3) pueden integrarse con el mismo ciclo que ya usa la empresa para `[[iso-calidad]]` o la 14001, dado que comparten estructura de alto nivel — la diferencia real está en incorporar la consulta con trabajadores como insumo explícito, no en duplicar reuniones.
+
+El terreno donde la 45001 aporta más valor genuino en software es 10.2: los "incidentes" relevantes no son accidentes industriales sino, sobre todo, casos de burnout, conflictos interpersonales, acoso o quejas ergonómicas persistentes. Tratarlos con el rigor formal de 10.2 — investigar causa raíz con participación del afectado, determinar si hay casos similares, revisar la evaluación de riesgos psicosociales existente, verificar eficacia de la acción tomada — es exactamente lo que distingue una gestión madura de SyST de una reactiva. La mejora continua (10.3) en este contexto se traduce en revisar periódicamente políticas de carga de trabajo, horario y trabajo remoto a la luz de la experiencia acumulada, no solo en reducir incidentes físicos.
+
+En conjunto, y en contraste deliberado con la valoración de la 14001 (ver ch03): para una empresa de software de oficina, el ciclo evaluación-mejora de la 45001 tiene más sustancia real que gestionar que su equivalente ambiental, porque el riesgo psicosocial y ergonómico es constante y verificable, mientras que el riesgo ambiental de una oficina es, en la mayoría de los casos, marginal.
+
+## Puntos clave
+1. 10.2 amplía el alcance de la acción correctiva a incidentes además de no conformidades, y exige investigarlos con participación de los trabajadores afectados.
+2. Un cuasi-accidente (sin lesión, con potencial) amerita investigación según la propia definición de "incidente" de la norma.
+3. La 45001 exige comunicar los resultados de la revisión por la dirección a los trabajadores — la 14001 no lo exige con ese nivel de explicitud.
+4. En software, los "incidentes" con mayor sustancia real para 10.2 son casos de sobrecarga, conflicto o riesgo ergonómico persistente, no accidentes físicos.
+
+## Conecta con
+- **ch04 (Contexto y planificación)**: los riesgos y peligros identificados en 6.1.2 son lo que 9.1 mide y 10.2 corrige cuando se materializan en incidentes.
+- **ch03 (14001, evaluación y mejora)**: estructura de cláusulas 9-10 casi idéntica; la 45001 añade "incidentes" en 10.2 y exige comunicar resultados de 9.3 a los trabajadores.
+- **`[[legal-colombia]]`**: la investigación de incidentes y accidentes de trabajo que exige el SG-SST del Decreto 1072 tiene el mismo espíritu que 10.2, con el añadido de reporte obligatorio a la ARL que la norma ISO no cubre por ser una obligación legal colombiana específica.
