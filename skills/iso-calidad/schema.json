@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "iso-calidad",
+  "definitions": {
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "consulta": {
+          "type": "string",
+          "description": "Pregunta en lenguaje natural (español o inglés) sobre gestión de la calidad: SGC, certificación ISO 9001, auditoría interna o externa, no conformidad y acción correctiva, mejora continua, PHVA, riesgos y oportunidades, partes interesadas, vocabulario normativo, etc."
+        },
+        "norma": {
+          "type": "string",
+          "enum": ["9000", "9001", "9004", "19011"],
+          "description": "Norma ISO específica a consultar cuando la pregunta ya apunta a una de ellas: 9000 (fundamentos y vocabulario), 9001 (requisitos certificables del SGC), 9004 (gestión para el éxito sostenido), 19011 (directrices para auditar sistemas de gestión). Omitir para que la skill la infiera de la consulta."
+        },
+        "clausula": {
+          "type": "string",
+          "description": "Número de cláusula o apartado de la norma indicada en 'norma' (por ejemplo '8.3', '9.2', '4.1'), cuando la consulta ya identifica el apartado exacto. Omitir para que la skill localice la cláusula pertinente."
+        },
+        "profundidad": {
+          "type": "string",
+          "enum": ["cheatsheet", "capitulo", "glosario"],
+          "description": "Nivel de detalle deseado: cheatsheet (regla de decisión rápida tipo 'si X, haz Y'), capitulo (detalle completo de una cláusula o norma en chapters/), o glosario (definición precisa de un término). Omitir para que la skill elija según la consulta."
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "respuesta": {
+          "type": "string",
+          "description": "Recomendación o respuesta a la consulta, sintetizada con palabras propias y citando el número de cláusula de la norma correspondiente para que quien tenga el texto original pueda verificarlo — nunca como reproducción literal del articulado"
+        },
+        "fuente": {
+          "type": "string",
+          "description": "Ruta relativa del capítulo o archivo de referencia consultado dentro de la skill (p. ej. chapters/ch05-operacion.md o cheatsheet.md)"
+        }
+      },
+      "required": ["respuesta"]
+    }
+  }
+}
