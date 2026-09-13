@@ -66,8 +66,9 @@ ac_rules_install_templates() {
 
 # Copia un hook y lo registra en settings.json. Argumentos:
 #   $1 nombre de archivo   $2 evento   $3 matcher (vacío = sin matcher)   $4 variable de escape
+#   $5 timeout en segundos (opcional)
 ac_rules_hook() {
-    local name="$1" evento="$2" matcher="$3" escape="$4"
+    local name="$1" evento="$2" matcher="$3" escape="$4" timeout="${5:-}"
     local hook_src="$AC_REPO_DIR/hooks/$name"
     local hook_dst="$CLAUDE_CONFIG_DIR/hooks/$name"
     local settings="$CLAUDE_CONFIG_DIR/settings.json"
@@ -79,7 +80,8 @@ ac_rules_hook() {
 
     if [ "${DRY_RUN:-0}" = "1" ]; then
         ac_dim "\$ cp $hook_src $hook_dst"
-        ac_dim "\$ ac_merge_hook $settings $evento 'node $hook_dst' '$matcher'"
+        ac_dim "\$ ac_remove_hook $settings $name"
+        ac_dim "\$ ac_merge_hook $settings $evento 'node $hook_dst' '$matcher' '$timeout'"
         return 0
     fi
 
@@ -87,16 +89,20 @@ ac_rules_hook() {
     cp -f "$hook_src" "$hook_dst"
     chmod +x "$hook_dst" 2>/dev/null || true
 
-    ac_merge_hook "$settings" "$evento" "node $hook_dst" "$matcher"
-    ac_info "Hook $evento${matcher:+/$matcher} registrado → $name"
+    # Un registro por hook: si una instalación anterior lo dejó con otro matcher/timeout, se retira.
+    ac_remove_hook "$settings" "$name"
+    ac_merge_hook "$settings" "$evento" "node $hook_dst" "$matcher" "$timeout"
+    ac_info "Hook $evento${matcher:+/$matcher}${timeout:+ (timeout ${timeout}s)} registrado → $name"
     ac_dim "  (desactivar sin desinstalar: $escape=0)"
 }
 
 ac_rules_install_hooks() {
     ac_info "Instalando hooks de reglas y contexto en $CLAUDE_CONFIG_DIR/hooks/"
 
-    ac_rules_hook "git-footer-guard.mjs" "PreToolUse"       "Bash" "CLAUDEMAX_GIT_GUARD"
-    ac_rules_hook "loop-breaker.mjs"     "PostToolUse"      ""     "CLAUDEMAX_LOOP_BREAKER"
-    ac_rules_hook "skill-suggest.mjs"    "UserPromptSubmit" ""     "CLAUDEMAX_SKILL_SUGGEST"
-    ac_rules_hook "session-start.mjs"    "SessionStart"     ""     "CLAUDEMAX_SESSION_CONTEXT"
+    ac_rules_hook "git-footer-guard.mjs" "PreToolUse"       "Bash"    "CLAUDEMAX_GIT_GUARD"
+    ac_rules_hook "loop-breaker.mjs"     "PostToolUse"      ""        "CLAUDEMAX_LOOP_BREAKER"
+    ac_rules_hook "skill-suggest.mjs"    "UserPromptSubmit" ""        "CLAUDEMAX_SKILL_SUGGEST"
+    # startup solamente (no resume/clear/compact): el reindex incremental del RAG tarda y no
+    # tiene sentido repetirlo al reanudar. 90 s cubre el peor caso; el hook corta a los 60.
+    ac_rules_hook "session-start.mjs"    "SessionStart"     "startup" "CLAUDEMAX_SESSION_CONTEXT" "90"
 }

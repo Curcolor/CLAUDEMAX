@@ -1,8 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
+import { localizarBash } from "../../../bin/wizard/detect.mjs";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const VAULT_TPL = path.join(REPO, "templates", "vault");
@@ -28,4 +31,24 @@ test("templates/vault: carpetas de la taxonomía, 17 archivos en Hubs/, 4 planti
         const t = fs.readFileSync(path.join(VAULT_TPL, "Hubs", h), "utf8");
         assert.ok(!/\b\d+ notas\b/.test(t), `${h}: el conteo se mide, no se escribe`);
     }
+});
+
+test("ac_merge_hook: registra matcher y timeout, y es idempotente", () => {
+    const bash = localizarBash();
+    if (!bash) { console.log("sin bash — se salta"); return; }
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "merge-hook-"));
+    const settings = path.join(tmp, "settings.json");
+    const lib = path.join(REPO, "bin", "lib", "jsonc.sh").replace(/\\/g, "/");
+    const s = settings.replace(/\\/g, "/");
+    const script = `source "${lib}" && ac_merge_hook "${s}" SessionStart "node /x/session-start.mjs" startup 90 && ac_merge_hook "${s}" SessionStart "node /x/session-start.mjs" startup 90`;
+    const r = spawnSync(bash, ["-c", script], { encoding: "utf8" });
+    assert.equal(r.status, 0, r.stderr);
+    const cfg = JSON.parse(fs.readFileSync(settings, "utf8"));
+    assert.equal(cfg.hooks.SessionStart.length, 1, "idempotente: un solo grupo");
+    assert.deepEqual(cfg.hooks.SessionStart[0], { matcher: "startup", hooks: [{ type: "command", command: "node /x/session-start.mjs", timeout: 90 }] });
+    // sin timeout no se añade la clave
+    spawnSync(bash, ["-c", `source "${lib}" && ac_merge_hook "${s}" PostToolUse "node /x/otro.mjs"`], { encoding: "utf8" });
+    const cfg2 = JSON.parse(fs.readFileSync(settings, "utf8"));
+    assert.deepEqual(cfg2.hooks.PostToolUse[0], { hooks: [{ type: "command", command: "node /x/otro.mjs" }] });
+    fs.rmSync(tmp, { recursive: true, force: true });
 });
