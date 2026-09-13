@@ -9,6 +9,7 @@ import {
     parseFrontmatter, extraerFecha, limpiarWikilinks, tituloDe, normalizarReferencia,
     chunkMarkdown, walkVault, indiceDeNotas, resolverNombreNota,
     resolverFuentes, firmaDe,
+    analizarHubs, leerDocumento, formatearResultado, AVISOS_AUTORIDAD, toVec,
 } from "../rag-lib.mjs";
 
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
@@ -208,4 +209,37 @@ test("firmaDe: cambia si cambia el contenido, igual si no, null sin fuentes", ()
     assert.notEqual(firmaDe(rutas, tmp), f1);
     assert.equal(firmaDe([], tmp), null);
     fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+test("analizarHubs: huérfanas (sin enlace desde Hubs/) y enlaces rotos", () => {
+    const archivos = [...walkVault(VAULT)];
+    const { huerfanas, enlacesRotos } = analizarHubs(VAULT, archivos);
+    assert.deepEqual(huerfanas, ["Decisiones/decision-vieja.md"]);
+    assert.deepEqual(enlacesRotos, [{ hub: "Hubs/Codigo.md", destino: "no-existe" }]);
+});
+
+test("leerDocumento: contenido, ruta inválida fuera del vault, inexistente, tope", () => {
+    assert.match(leerDocumento(VAULT, "Decisiones/decision-a.md"), /^---\nproyecto: demo/);
+    assert.equal(leerDocumento(VAULT, "../fuentes/app.txt"), "ruta inválida");
+    assert.equal(leerDocumento(VAULT, "/etc/passwd"), "ruta inválida");
+    assert.equal(leerDocumento(VAULT, "Decisiones/nada.md"), "no existe: Decisiones/nada.md");
+    assert.equal(leerDocumento(VAULT, "Decisiones/decision-a.md", 10).length, 10);
+});
+
+test("formatearResultado: cabecera, aviso de vigencia, aviso de autoridad, contenido", () => {
+    const fila = {
+        source: "Decisiones/decision-a.md", titulo: "Decisión A", coleccion: "decisiones",
+        autoridad: "vigente", fecha: new Date("2026-07-12T00:00:00Z"), estado: "vigente",
+        reemplazada_por: null, revisar: null, heading: "", content: "cuerpo", score: 0.91,
+    };
+    assert.equal(formatearResultado(fila),
+        "[decisiones · vigente · 2026-07-12] Decisiones/decision-a.md — Decisión A\n(decisión o estado vigente)\ncuerpo");
+    assert.match(formatearResultado({ ...fila, estado: "caduca" }), /\n⚠ CADUCA — sus fuentes cambiaron/);
+    assert.match(formatearResultado({ ...fila, estado: "revisar", revisar: "2026-10-08" }), /⚠ REVISAR — venció el 2026-10-08/);
+    assert.match(formatearResultado({ ...fila, estado: "reemplazada", reemplazada_por: "Decisiones/nueva.md" }),
+        /⚠ REEMPLAZADA por \[\[Decisiones\/nueva\]\]/);
+    assert.match(formatearResultado({ ...fila, autoridad: "historica", coleccion: "bitacoras" }),
+        /\(bitácora histórica: la decisión pudo cambiar después\)/);
+    assert.equal(Object.keys(AVISOS_AUTORIDAD).length, 10);
+    assert.equal(toVec([1, 0.5]), "[1,0.5]");
 });

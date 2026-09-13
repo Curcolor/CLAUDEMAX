@@ -287,3 +287,81 @@ export function firmaDe(rutasRel, ragRoot) {
 export function sha256(bytes) {
     return crypto.createHash("sha256").update(bytes).digest("hex");
 }
+
+// --- Salud del vault: hubs, huérfanas y enlaces rotos (spec §3.6) ------------------------
+
+const RE_WIKILINK = /\[\[([^\]]+)\]\]/g;
+
+// Lee todos los hubs (Hubs/*.md, sin los "_") y devuelve las notas indexables sin ningún
+// wikilink entrante desde un hub (Bienvenida se excluye: es la única que puede no tenerlo) y
+// los wikilinks de hubs que no resuelven a ninguna nota.
+export function analizarHubs(vault, archivos) {
+    const indice = indiceDeNotas(archivos);
+    const hubs = archivos.filter(a => a.rel.startsWith("Hubs/"));
+    const enlazadas = new Set();
+    const enlacesRotos = [];
+    for (const hub of hubs) {
+        const texto = fs.readFileSync(hub.abs, "utf8");
+        for (const m of texto.matchAll(RE_WIKILINK)) {
+            const r = resolverNombreNota(m[1], indice);
+            if (r.source) enlazadas.add(r.source);
+            else if (r.error === "no existe") enlacesRotos.push({ hub: hub.rel, destino: normalizarReferencia(m[1]) });
+        }
+    }
+    const huerfanas = archivos
+        .map(a => a.rel)
+        .filter(rel => rel !== "Hubs/Bienvenida.md" && !enlazadas.has(rel))
+        .sort();
+    return { huerfanas, enlacesRotos };
+}
+
+// --- Lectura confinada al vault (spec §3.7, rag_leer) -------------------------------------
+
+export function leerDocumento(vault, ruta, tope = 80_000) {
+    const raiz = path.resolve(vault);
+    const destino = path.resolve(raiz, String(ruta || ""));
+    if (destino !== raiz && !destino.startsWith(raiz + path.sep)) return "ruta inválida";
+    if (!fs.existsSync(destino) || !fs.statSync(destino).isFile()) return `no existe: ${ruta}`;
+    return fs.readFileSync(destino, "utf8").slice(0, tope);
+}
+
+// --- Formato de resultados (spec §3.5) ----------------------------------------------------
+
+export const AVISOS_AUTORIDAD = {
+    "vigente":           "decisión o estado vigente",
+    "oficial":           "documento formal vigente",
+    "diseño-vigente":    "spec de diseño aprobada",
+    "fuente-primaria":   "entrevista: requerimiento dicho por quien es dueño del proceso",
+    "referencia":        "material de referencia",
+    "leccion":           "postmortem: lección aprendida de un error",
+    "personal":          "nota personal de cierre de sesión",
+    "historica":         "bitácora histórica: la decisión pudo cambiar después",
+    "historico-tecnico": "plan o reporte técnico ya ejecutado",
+    "sin-clasificar":    "en Inbox: sin revisar ni clasificar",
+};
+
+function fechaISO(v) {
+    if (!v) return "s/f";
+    if (v instanceof Date) return v.toISOString().slice(0, 10);
+    return String(v).slice(0, 10);
+}
+
+function avisoEstado(fila) {
+    switch (fila.estado) {
+        case "caduca":      return "⚠ CADUCA — sus fuentes cambiaron desde que se escribió; verifica contra el código/grafo antes de confiar.";
+        case "revisar":     return `⚠ REVISAR — venció el ${fechaISO(fila.revisar)}.`;
+        case "reemplazada": return `⚠ REEMPLAZADA por [[${String(fila.reemplazada_por || "").replace(/\.md$/, "")}]].`;
+        default:            return null;
+    }
+}
+
+export function formatearResultado(fila) {
+    const lineas = [`[${fila.coleccion} · ${fila.autoridad} · ${fechaISO(fila.fecha)}] ${fila.source} — ${fila.titulo || path.basename(fila.source, ".md")}`];
+    const v = avisoEstado(fila);
+    if (v) lineas.push(v);
+    lineas.push(`(${AVISOS_AUTORIDAD[fila.autoridad] || fila.autoridad})`);
+    lineas.push(fila.content);
+    return lineas.join("\n");
+}
+
+export function toVec(v) { return `[${v.join(",")}]`; }
