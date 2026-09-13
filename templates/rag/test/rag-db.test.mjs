@@ -142,3 +142,36 @@ test("ingest --silencioso con la BD caída sale 0 y avisa; sin flag sale 1", { s
     const b = await rag(["ingest", fx.vault], caida);
     assert.equal(b.status, 1, b.out);
 });
+
+test("query: sin filtro excluye planes/proceso/inbox y reemplazadas; con --coleccion las incluye", { skip }, async () => {
+    fs.mkdirSync(path.join(fx.vault, "00-Inbox"), { recursive: true });
+    fs.writeFileSync(path.join(fx.vault, "00-Inbox", "captura.md"), "# Captura\nPasos del plan con código literal.\n");
+    await rag(["ingest", fx.vault], ctx());
+    const sin = await rag(["query", "Pasos del plan con código literal", "--json", "--topk", "20"], ctx());
+    assert.equal(sin.status, 0, sin.out);
+    const cols = JSON.parse(sin.out).map(r => r.coleccion);
+    assert.ok(!cols.includes("planes") && !cols.includes("inbox"), cols.join(","));
+    const con = await rag(["query", "Pasos del plan con código literal", "--coleccion", "planes", "--json"], ctx());
+    const filas = JSON.parse(con.out);
+    assert.ok(filas.length >= 1 && filas.every(r => r.coleccion === "planes"));
+    fs.rmSync(path.join(fx.vault, "00-Inbox"), { recursive: true });
+});
+
+test("query: boost — texto idéntico en Decisiones y Bitacoras → la decisión primero; --proyecto filtra", { skip }, async () => {
+    await rag(["ingest", fx.vault], ctx());
+    const r = await rag(["query", "Se eligió PostgreSQL con pgvector para el RAG por ser local y sin coste", "--json", "--topk", "3"], ctx());
+    const filas = JSON.parse(r.out);
+    assert.equal(filas[0].coleccion, "decisiones", JSON.stringify(filas.map(f => [f.coleccion, f.score])));
+    const p = await rag(["query", "PostgreSQL pgvector", "--proyecto", "demo", "--json", "--topk", "10"], ctx());
+    assert.ok(JSON.parse(p.out).every(f => f.proyecto === "demo"));
+});
+
+test("query: salida de texto con cabecera, aviso de autoridad y avisos de vigencia", { skip }, async () => {
+    fs.writeFileSync(path.join(fx.root, "fuentes", "app.txt"), "version 3");
+    await rag(["ingest", fx.vault], ctx());
+    const r = await rag(["query", "Explica la función principal de app.txt", "--coleccion", "codigo"], ctx());
+    assert.match(r.out, /^\[codigo · referencia · \d{4}-\d{2}-\d{2}\] Codigo\/nota-codigo\.md — Nota de código\n⚠ CADUCA/m);
+    assert.match(r.out, /\(material de referencia\)/);
+    const vacio = await rag(["query", "zzzz", "--coleccion", "entrevistas"], ctx());
+    assert.match(vacio.out, /rag: sin resultados/);
+});

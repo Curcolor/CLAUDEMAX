@@ -268,8 +268,44 @@ async function cmdIngest(root, opts = {}) {
     if (!ok && !opts.silencioso) process.exitCode = 1;
 }
 
-// Provisionales — se reemplazan en las tareas 9 y 10.
-async function cmdQuery() { throw new Error("query: pendiente (tarea 9)"); }
+// --- query (spec §3.5) ---------------------------------------------------------------------
+
+async function cmdQuery(text, opts = {}) {
+    if (!text) { console.log(USO); process.exitCode = 1; return; }
+    let vec;
+    try {
+        [vec] = await embed([text], { backend: opts.backend, forQuery: true });
+    } catch (e) {
+        console.log(`${NO_DISPONIBLE} (${e.message})`);
+        process.exitCode = 1;
+        return;
+    }
+    // Sin filtro: fuera las colecciones de ruido y las notas reemplazadas. Con --coleccion:
+    // exactamente esa colección, aunque sea de las excluidas.
+    const params = [lib.toVec(vec), opts.coleccion || null, lib.EXCLUIDAS_POR_DEFECTO];
+    const cond = [`(($2::text IS NULL AND NOT (c.coleccion = ANY($3::text[])) AND d.estado <> 'reemplazada') OR c.coleccion = $2)`];
+    if (opts.proyecto) { params.push(opts.proyecto); cond.push(`c.proyecto = $${params.length}`); }
+    params.push(lib.CON_BOOST);
+    const iBoost = params.length;
+    const topk = Number(opts.topk) > 0 ? Number(opts.topk) : 5;
+    const sql = `SELECT c.source, d.titulo, c.coleccion, c.autoridad, c.proyecto, d.fecha, d.estado,
+                        d.reemplazada_por, d.revisar, c.heading, c.content, 1 - (c.embedding <=> $1) AS score
+                 FROM chunks c JOIN documentos d USING (source)
+                 WHERE ${cond.join(" AND ")}
+                 ORDER BY (c.embedding <=> $1) - CASE WHEN c.coleccion = ANY($${iBoost}::text[]) THEN ${lib.BOOST} ELSE 0 END
+                 LIMIT ${topk}`;
+    let rows;
+    try {
+        rows = await withDb(db => db.query(sql, params).then(r => r.rows));
+    } catch (e) {
+        console.log(`${NO_DISPONIBLE} (${e.message})`);
+        process.exitCode = 1;
+        return;
+    }
+    if (opts.json) { console.log(JSON.stringify(rows, null, 2)); return; }
+    if (!rows.length) { console.log("rag: sin resultados"); return; }
+    console.log(rows.map(lib.formatearResultado).join("\n\n---\n\n"));
+}
 async function cmdReindex() { throw new Error("reindex: pendiente (tarea 10)"); }
 async function cmdSalud() { throw new Error("salud: pendiente (tarea 10)"); }
 
