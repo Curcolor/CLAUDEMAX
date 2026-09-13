@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawn } from "node:child_process";
 import {
     clasificar, EXCLUIDAS_POR_DEFECTO, CON_BOOST,
     parseFrontmatter, extraerFecha, limpiarWikilinks, tituloDe, normalizarReferencia,
@@ -242,4 +243,19 @@ test("formatearResultado: cabecera, aviso de vigencia, aviso de autoridad, conte
         /\(bitácora histórica: la decisión pudo cambiar después\)/);
     assert.equal(Object.keys(AVISOS_AUTORIDAD).length, 10);
     assert.equal(toVec([1, 0.5]), "[1,0.5]");
+});
+
+test("mcp-server: arranca y responde a tools/list con las tres tools", async () => {
+    const srv = spawn(process.execPath, [path.join(FIXTURES, "..", "..", "mcp-server.mjs")], { stdio: ["pipe", "pipe", "pipe"] });
+    let salida = "";
+    srv.stdout.on("data", d => { salida += d; });
+    const enviar = obj => srv.stdin.write(JSON.stringify(obj) + "\n");
+    enviar({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "test", version: "0" } } });
+    enviar({ jsonrpc: "2.0", method: "notifications/initialized" });
+    enviar({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} });
+    await new Promise(r => setTimeout(r, 1500));
+    srv.kill();
+    const nombres = salida.split("\n").filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } })
+        .filter(m => m && m.id === 2).flatMap(m => m.result.tools.map(t => t.name));
+    assert.deepEqual(nombres.sort(), ["rag_leer", "rag_query", "rag_status"]);
 });
