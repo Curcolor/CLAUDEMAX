@@ -130,8 +130,145 @@ async function cmdStatus() {
     }
 }
 
-// Provisionales — se reemplazan en las tareas 8, 9 y 10.
-async function cmdIngest() { throw new Error("ingest: pendiente (tarea 8)"); }
+// --- ingest (spec §3.2 y §3.4) -------------------------------------------------------------
+
+// Devuelve { ok, resumen } e imprime el resumen (o la línea de "no disponible").
+async function ejecutarIngest(vault, opts = {}) {
+    const resumen = { indexados: 0, sinCambios: 0, fallidos: [], desconocidas: [], sinFuentes: [], avisos: [] };
+    let db;
+    try {
+        db = await conectar();
+        await pingOllama();
+    } catch (e) {
+        if (db) await db.end().catch(() => {});
+        console.log(`${NO_DISPONIBLE} (${e.message})`);
+        return { ok: false, resumen };
+    }
+    try {
+        const archivos = [...lib.walkVault(vault)];
+        const vistos = new Set(archivos.map(a => a.rel));
+        const indice = lib.indiceDeNotas(archivos);
+
+        // 1. Borrar lo que ya no existe en disco.
+        for (const r of (await db.query("SELECT source FROM documentos")).rows) {
+            if (vistos.has(r.source)) continue;
+            await db.query("DELETE FROM chunks WHERE source=$1", [r.source]);
+            await db.query("DELETE FROM documentos WHERE source=$1", [r.source]);
+        }
+
+        // 2. Cada nota: sin cambios → solo vigencia; cambiada o nueva → reembeber en una transacción.
+        const reemplazos = [];
+        for (const { abs, rel } of archivos) {
+            try {
+                const bytes = fs.readFileSync(abs);
+                const hash = lib.sha256(bytes);
+                const { meta, body, aviso } = lib.parseFrontmatter(bytes.toString("utf8"));
+                if (aviso) resumen.avisos.push(`${rel}: ${aviso}`);
+                const clas = lib.clasificar(rel);
+                if (!clas.conocida) resumen.desconocidas.push(rel);
+                const fuentes = Array.isArray(meta.fuentes) ? meta.fuentes : [];
+                if (clas.coleccion === "codigo" && !fuentes.length) resumen.sinFuentes.push(rel);
+                const rutasFuente = lib.resolverFuentes(fuentes, RAG_ROOT);
+                if (fuentes.length && !rutasFuente.length) resumen.avisos.push(`${rel}: fuentes sin coincidencias`);
+                const firmaActual = lib.firmaDe(rutasFuente, RAG_ROOT);
+                const revisar = /^\d{4}-\d{2}-\d{2}$/.test(meta.revisar || "") ? meta.revisar : null;
+                if (Array.isArray(meta.reemplaza) && meta.reemplaza.length) reemplazos.push({ desde: rel, refs: meta.reemplaza });
+
+                const prev = (await db.query("SELECT content_hash, firma_origen FROM documentos WHERE source=$1", [rel])).rows[0];
+                if (prev && prev.content_hash === hash) {
+                    resumen.sinCambios++;
+                    // La nota no cambió: caduca si declara fuentes y su firma ya no coincide (o no queda ninguna).
+                    const caduca = fuentes.length > 0 && (firmaActual === null || firmaActual !== prev.firma_origen);
+                    await db.query("UPDATE documentos SET estado=$2, revisar=$3, fuentes=$4 WHERE source=$1",
+                        [rel, caduca ? "caduca" : "vigente", revisar, fuentes]);
+                    continue;
+                }
+
+                const titulo = lib.tituloDe(body, rel);
+                const fecha = lib.extraerFecha(path.basename(rel), meta, fs.statSync(abs).mtimeMs);
+                const tags = Array.isArray(meta.tags) ? meta.tags : [];
+                const proyecto = meta.proyecto || null;
+                const trozos = lib.chunkMarkdown(lib.limpiarWikilinks(body));
+                const vecs = [];
+                for (let i = 0; i < trozos.length; i += 16) {
+                    vecs.push(...await embed(trozos.slice(i, i + 16).map(t => t.content), { backend: opts.backend }));
+                }
+                // La nota cambió: se bendice contra sus fuentes de hoy. Solo queda caduca si declara
+                // fuentes y ninguna existe.
+                const estado = fuentes.length > 0 && firmaActual === null ? "caduca" : "vigente";
+                await db.query("BEGIN");
+                try {
+                    await db.query("DELETE FROM chunks WHERE source=$1", [rel]);
+                    for (let i = 0; i < trozos.length; i++) {
+                        await db.query(
+                            `INSERT INTO chunks (source, coleccion, autoridad, proyecto, heading, orden, content, embedding)
+                             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+                            [rel, clas.coleccion, clas.autoridad, proyecto, trozos[i].heading, trozos[i].orden, trozos[i].content, lib.toVec(vecs[i])]);
+                    }
+                    await db.query(
+                        `INSERT INTO documentos (source, titulo, coleccion, autoridad, proyecto, tags, fecha, content_hash,
+                                                 fuentes, firma_origen, estado, reemplazada_por, revisar, actualizado)
+                         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NULL,$12,now())
+                         ON CONFLICT (source) DO UPDATE SET titulo=EXCLUDED.titulo, coleccion=EXCLUDED.coleccion,
+                             autoridad=EXCLUDED.autoridad, proyecto=EXCLUDED.proyecto, tags=EXCLUDED.tags,
+                             fecha=EXCLUDED.fecha, content_hash=EXCLUDED.content_hash, fuentes=EXCLUDED.fuentes,
+                             firma_origen=EXCLUDED.firma_origen, estado=EXCLUDED.estado, reemplazada_por=NULL,
+                             revisar=EXCLUDED.revisar, actualizado=now()`,
+                        [rel, titulo, clas.coleccion, clas.autoridad, proyecto, tags, fecha, hash, fuentes, firmaActual, estado, revisar]);
+                    await db.query("COMMIT");
+                } catch (e) {
+                    await db.query("ROLLBACK");
+                    throw e;
+                }
+                resumen.indexados++;
+            } catch (e) {
+                resumen.fallidos.push(`${rel}: ${e.message}`);
+            }
+        }
+
+        // 3. `reemplaza:` se recalcula desde cero en cada ingest, así el orden de archivos no
+        //    importa y una nota que reemplazaba y desapareció libera a la reemplazada.
+        await db.query("UPDATE documentos SET reemplazada_por = NULL WHERE reemplazada_por IS NOT NULL");
+        for (const { desde, refs } of reemplazos) {
+            for (const ref of refs) {
+                const r = lib.resolverNombreNota(ref, indice);
+                if (r.error) { resumen.avisos.push(`${desde}: reemplaza "${lib.normalizarReferencia(ref)}" — ${r.error}`); continue; }
+                if (r.source === desde) continue;
+                await db.query("UPDATE documentos SET reemplazada_por=$2 WHERE source=$1", [r.source, desde]);
+            }
+        }
+
+        // 4. Estado final con precedencia: reemplazada > caduca > revisar > vigente.
+        await db.query(`UPDATE documentos SET estado = CASE
+            WHEN reemplazada_por IS NOT NULL THEN 'reemplazada'
+            WHEN estado = 'caduca' THEN 'caduca'
+            WHEN revisar IS NOT NULL AND revisar < CURRENT_DATE THEN 'revisar'
+            ELSE 'vigente' END`);
+    } finally {
+        await db.end().catch(() => {});
+    }
+
+    console.log(`indexados: ${resumen.indexados} | sin cambios: ${resumen.sinCambios} | fallidos: ${resumen.fallidos.length}`);
+    for (const f of resumen.fallidos) console.log(`  FALLO ${f}`);
+    for (const a of resumen.avisos) console.log(`  aviso ${a}`);
+    if (resumen.desconocidas.length) {
+        console.log("  carpetas desconocidas (coleccion=otros; mueve la nota a una carpeta de la taxonomía):");
+        for (const d of resumen.desconocidas) console.log(`    ${d}`);
+    }
+    if (resumen.sinFuentes.length) {
+        console.log("  Codigo/ sin fuentes (no se puede detectar si caducó; añade `fuentes:` al frontmatter):");
+        for (const s of resumen.sinFuentes) console.log(`    ${s}`);
+    }
+    return { ok: resumen.fallidos.length === 0, resumen };
+}
+
+async function cmdIngest(root, opts = {}) {
+    const vault = path.resolve(root || VAULT_DEFAULT);
+    const { ok } = await ejecutarIngest(vault, opts);
+    if (!ok && !opts.silencioso) process.exitCode = 1;
+}
+
+// Provisionales — se reemplazan en las tareas 9 y 10.
 async function cmdQuery() { throw new Error("query: pendiente (tarea 9)"); }
 async function cmdReindex() { throw new Error("reindex: pendiente (tarea 10)"); }
 async function cmdSalud() { throw new Error("salud: pendiente (tarea 10)"); }
