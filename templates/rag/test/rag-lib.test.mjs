@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
     clasificar, EXCLUIDAS_POR_DEFECTO, CON_BOOST,
     parseFrontmatter, extraerFecha, limpiarWikilinks, tituloDe, normalizarReferencia,
+    chunkMarkdown,
 } from "../rag-lib.mjs";
 
 test("clasificar: tabla completa de carpetas → colección y autoridad", () => {
@@ -113,4 +114,34 @@ test("limpiarWikilinks y tituloDe", () => {
     assert.equal(limpiarWikilinks("ver [[Nota|el alias]] y [[Otra]]"), "ver el alias y Otra");
     assert.equal(tituloDe("intro\n# Mi título \nmás", "Carpeta/archivo.md"), "Mi título");
     assert.equal(tituloDe("sin encabezado", "Carpeta/archivo.md"), "archivo");
+});
+
+test("chunkMarkdown: corta en # ## ### y no en ####; empaqueta bloques cortos; heading y orden", () => {
+    const body = "intro\n# A\ntexto a\n## B\ntexto b\n#### D\nsub d\n### C\ntexto c";
+    const out = chunkMarkdown(body, { max: 30, solape: 10 });
+    // intro (5) + "# A\ntexto a" (11) caben juntos (18 ≤ 30); "## B…#### D…" (25) ya no cabe con
+    // ellos y forma otro; "### C\ntexto c" (13) tampoco cabe con B (25+2+13 > 30) → tercero
+    assert.equal(out.length, 3);
+    assert.equal(out[0].heading, "");
+    assert.match(out[0].content, /^intro\n\n# A/);
+    assert.equal(out[1].heading, "B");
+    assert.match(out[1].content, /#### D/);
+    assert.equal(out[2].heading, "C");
+    assert.deepEqual(out.map(c => c.orden), [0, 1, 2]);
+});
+
+test("chunkMarkdown: un bloque largo se parte con solape y conserva su heading", () => {
+    const largo = "# Largo\n" + "x".repeat(250);
+    const out = chunkMarkdown(largo, { max: 100, solape: 20 });
+    assert.ok(out.length >= 3);
+    assert.ok(out.every(c => c.heading === "Largo"));
+    assert.ok(out.every(c => c.content.length <= 100));
+    // el solape hace que el final de un trozo aparezca al principio del siguiente
+    assert.equal(out[1].content.slice(0, 20), out[0].content.slice(-20));
+});
+
+test("chunkMarkdown: por defecto max 2400 y no devuelve trozos vacíos", () => {
+    assert.deepEqual(chunkMarkdown("\n\n   \n"), []);
+    const uno = chunkMarkdown("# T\n" + "y".repeat(2000));
+    assert.equal(uno.length, 1);
 });

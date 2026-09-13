@@ -142,3 +142,41 @@ export function tituloDe(body, rel) {
     const m = body.match(/^# (.+)$/m);
     return m ? m[1].trim() : path.basename(rel, ".md");
 }
+
+// --- Troceado ----------------------------------------------------------------------------
+
+// Corta en encabezados de nivel 1–3 (los niveles 4–6 son subdivisiones internas, no unidades
+// de sentido), empaqueta bloques consecutivos hasta `max` caracteres (~600 tokens de bge-m3
+// con 2400) y parte con solape solo los bloques que por sí solos exceden `max`. `heading` es
+// el encabezado del bloque con el que arranca el trozo; `orden` es su posición en la nota.
+export function chunkMarkdown(body, { max = 2400, solape = 200 } = {}) {
+    const partes = body.split(/(?=^#{1,3} )/m).filter(p => p.trim());
+    let ultimoHeading = "";
+    const bloques = partes.map(p => {
+        const h = p.match(/^#{1,3} (.*)$/m);
+        if (h && /^#{1,3} /.test(p)) ultimoHeading = h[1].trim();
+        return { heading: ultimoHeading, texto: p.trim() };
+    });
+    const out = [];
+    let acumulado = null;
+    const cerrar = () => {
+        if (acumulado && acumulado.texto.trim()) out.push({ heading: acumulado.heading, content: acumulado.texto.trim() });
+        acumulado = null;
+    };
+    for (const b of bloques) {
+        if (acumulado && acumulado.texto.length + 2 + b.texto.length <= max) {
+            acumulado.texto += "\n\n" + b.texto;
+            continue;
+        }
+        cerrar();
+        if (b.texto.length <= max) { acumulado = { heading: b.heading, texto: b.texto }; continue; }
+        let resto = b.texto;
+        while (resto.length > max) {
+            out.push({ heading: b.heading, content: resto.slice(0, max) });
+            resto = resto.slice(max - solape);
+        }
+        acumulado = { heading: b.heading, texto: resto };
+    }
+    cerrar();
+    return out.map((c, i) => ({ ...c, orden: i }));
+}
