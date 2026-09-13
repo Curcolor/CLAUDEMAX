@@ -170,58 +170,55 @@ function cmdInitProyecto(rutaArg, opts) {
         }
     }
 
-    // 3. Nota de índice del proyecto en el vault, con frontmatter de taxonomía.
-    const notaDir = path.join(vaultDir, "Proyectos", proyecto);
-    fs.mkdirSync(notaDir, { recursive: true });
-    const notaPath = path.join(notaDir, "00-indice.md");
-    if (fs.existsSync(notaPath)) {
-        console.log(`ritual: ${notaPath} ya existe — se respeta, no se sobrescribe.`);
+    // 3. Hub del proyecto en Hubs/<Proyecto>.md desde Hubs/_proyecto.md (plantilla del vault).
+    const hubsDir = path.join(vaultDir, "Hubs");
+    fs.mkdirSync(hubsDir, { recursive: true });
+    const hubPath = path.join(hubsDir, `${proyecto}.md`);
+    if (fs.existsSync(hubPath)) {
+        console.log(`ritual: ${hubPath} ya existe — se respeta, no se sobrescribe.`);
     } else {
-        const nota = [
-            "---",
-            "categoria: proyectos",
-            `proyecto: ${proyecto}`,
-            "tags: []",
-            `fecha: ${fecha}`,
-            "---",
-            "",
-            `# ${proyecto}`,
-            "",
-            descripcion,
-            "",
-            `Inicializado por \`ritual.mjs init-proyecto\` el ${fecha}.`,
-            "",
-        ].join("\n");
-        fs.writeFileSync(notaPath, nota, "utf8");
-        console.log(`ritual: creada ${notaPath}`);
+        const plantillaHub = path.join(hubsDir, "_proyecto.md");
+        let contenido;
+        if (fs.existsSync(plantillaHub)) {
+            contenido = sustituirMarcadores(fs.readFileSync(plantillaHub, "utf8"), {
+                PROYECTO: proyecto, FECHA: fecha, DESCRIPCION: descripcion, RUTA: ruta,
+            });
+        } else {
+            contenido = [
+                "---", "tags: [hub]", `titulo: ${proyecto}`, `actualizado: ${fecha}`, "---", "",
+                `# ${proyecto}`, "", descripcion, "", `Ruta: \`${ruta}\`. Inicializado el ${fecha}.`, "",
+                "## Notas del proyecto", "-", "", "Relacionado: [[Bienvenida]]", "",
+            ].join("\n");
+        }
+        fs.writeFileSync(hubPath, contenido, "utf8");
+        console.log(`ritual: creado el hub ${hubPath} — enlázalo desde Hubs/Bienvenida.md (sección Negocio).`);
     }
 
     console.log(`ritual: init-proyecto completo para "${proyecto}".`);
 }
 
 // --- fin-sesion (ritual menor) --------------------------------------------------------------
-// Continuidad entre sesiones de Claude Code: qué se hizo y qué sigue. Escribe en 00-Inbox/
-// (categoria: personal, tag personal/sesion) — no en Journal/, que es la bitácora del día
+// Continuidad entre sesiones de Claude Code: qué se hizo y qué sigue. Escribe en
+// Superpowers/Sesiones/ (colección sesiones) — no en Bitacoras/, que es el diario del día
 // completo (fin-dia). Ver skills/rituales para la diferencia completa entre ambos.
 
 function cmdFinSesion(opts) {
     const vaultDir = resolveVault(opts.vault);
     const fecha = hoyISO();
     const hora = horaHHMM();
-    const inboxDir = path.join(vaultDir, "00-Inbox");
-    fs.mkdirSync(inboxDir, { recursive: true });
+    const sesionesDir = path.join(vaultDir, "Superpowers", "Sesiones");
+    fs.mkdirSync(sesionesDir, { recursive: true });
 
     const proyecto = opts.proyecto || detectarProyectoActual();
     const base = `${fecha}-${horaHHMMCompacta()}-${proyecto}`;
-    const archivo = rutaLibre(inboxDir, base);
+    const archivo = rutaLibre(sesionesDir, base);
 
     const queSeHizo = opts.resumen ? opts.resumen : "_(sin resumen — completa esto a mano)_";
 
     const partes = [
         "---",
-        "categoria: personal",
         `proyecto: ${proyecto}`,
-        "tags: [personal/sesion]",
+        "tags: [sesion]",
         `fecha: ${fecha}`,
         "---",
         "",
@@ -243,7 +240,7 @@ function cmdFinSesion(opts) {
     } else {
         console.log(`ritual: creado ${archivo} con una plantilla vacía (sin --resumen) — complétala a mano.`);
     }
-    console.log("ritual: fin-sesion NO reindexa el RAG ni reconstruye Graphify (igual que fin-dia — ver skills/rituales). El contenido se indexará en el próximo `rag.mjs ingest`.");
+    console.log("ritual: enlaza la nota desde Hubs/Superpowers-Sesiones.md. fin-sesion NO reindexa el RAG (lo hará el arranque de la próxima sesión).");
 }
 
 // --- fin-dia (ritual menor) -----------------------------------------------------------------
@@ -252,9 +249,9 @@ function cmdFinDia(opts) {
     const vaultDir = resolveVault(opts.vault);
     const fecha = hoyISO();
     const hora = horaHHMM();
-    const journalDir = path.join(vaultDir, "Journal");
-    fs.mkdirSync(journalDir, { recursive: true });
-    const archivo = path.join(journalDir, `${fecha}.md`);
+    const bitacorasDir = path.join(vaultDir, "Bitacoras");
+    fs.mkdirSync(bitacorasDir, { recursive: true });
+    const archivo = path.join(bitacorasDir, `${fecha}.md`);
 
     const entrada = opts.resumen
         ? `## ${hora}\n\n${opts.resumen}\n`
@@ -263,13 +260,11 @@ function cmdFinDia(opts) {
     if (!fs.existsSync(archivo)) {
         const cabecera = [
             "---",
-            "categoria: personal",
-            "proyecto: journal",
-            "tags: [personal/bitacora]",
+            "tags: [bitacora]",
             `fecha: ${fecha}`,
             "---",
             "",
-            `# Journal — ${fecha}`,
+            `# Bitácora — ${fecha}`,
             "",
         ].join("\n");
         fs.writeFileSync(archivo, cabecera + "\n" + entrada, "utf8");
@@ -281,7 +276,7 @@ function cmdFinDia(opts) {
         console.log(`ritual: añadida una nueva entrada (${hora}) a ${archivo}.`);
     }
 
-    console.log("ritual: fin-dia NO reindexa el RAG ni reconstruye Graphify (a propósito — ver skills/rituales). El contenido se indexará en el próximo `rag.mjs ingest`.");
+    console.log("ritual: enlaza la bitácora desde Hubs/Bitacoras.md. fin-dia NO reindexa el RAG (lo hará el arranque de la próxima sesión).");
 }
 
 // --- fin-ciclo (ritual mayor, con confirmación) --------------------------------------------
@@ -308,10 +303,10 @@ function contarNotas(dir) {
 function imprimirPlanFinCiclo(ciclo, proyecto, vaultDir) {
     const backend = process.env.EMBED_BACKEND || "ollama";
     console.log("ritual: fin-ciclo — plan (nada se ha tocado todavía; añade --si para ejecutarlo):");
-    console.log(`  1. Escribir la nota de cierre en ${path.join(vaultDir, "Proyectos", proyecto, "ciclos", ciclo + ".md")}`);
-    console.log(`  2. Ejecutar rag.mjs reindex sobre ${vaultDir} (backend actual: ${backend})`);
-    console.log("  3. Recordar ejecutar 'graphify extract .' en los repos activos y volver a ingerir sus grafos");
-    console.log("  4. Imprimir un resumen final de documentos indexados por categoría");
+    console.log(`  1. Escribir la nota de cierre en ${path.join(vaultDir, "Superpowers", "Sesiones", "cierre-" + ciclo + ".md")}`);
+    console.log(`  2. Ejecutar rag.mjs reindex sobre ${vaultDir} (backend actual: ${backend}) y rag.mjs salud`);
+    console.log("  3. Recordar ejecutar 'graphify extract .' en los repos activos");
+    console.log("  4. Imprimir un resumen final de documentos indexados por colección y estado");
     console.log("ritual: no se conectó a la base de datos ni se modificó ningún archivo.");
 }
 
@@ -328,17 +323,16 @@ async function cmdFinCiclo(opts) {
 
     // --- Ejecución confirmada ---------------------------------------------------------
     const fecha = hoyISO();
-    const ciclosDir = path.join(vaultDir, "Proyectos", proyecto, "ciclos");
-    fs.mkdirSync(ciclosDir, { recursive: true });
-    const notaPath = path.join(ciclosDir, `${ciclo}.md`);
+    const sesionesDir = path.join(vaultDir, "Superpowers", "Sesiones");
+    fs.mkdirSync(sesionesDir, { recursive: true });
+    const notaPath = path.join(sesionesDir, `cierre-${ciclo}.md`);
     if (fs.existsSync(notaPath)) {
         console.log(`ritual: ${notaPath} ya existe — se respeta, no se sobrescribe la nota de cierre.`);
     } else {
         const nota = [
             "---",
-            "categoria: proyectos",
             `proyecto: ${proyecto}`,
-            "tags: []",
+            "tags: [sesion, cierre-ciclo]",
             `fecha: ${fecha}`,
             "---",
             "",
@@ -371,9 +365,11 @@ async function cmdFinCiclo(opts) {
         } else {
             console.log("ritual: reindexado completo.");
         }
+        const res2 = spawnSync(process.execPath, [ragScript, "salud", vaultDir], { stdio: "inherit" });
+        if (res2.error) console.warn("ritual: aviso — no se pudo ejecutar rag.mjs salud.");
     }
 
-    console.log("ritual: recuerda ejecutar 'graphify extract .' en cada repo activo para regenerar sus grafos de Graphify, y luego rag.mjs ingest para volver a indexarlos.");
+    console.log("ritual: recuerda ejecutar 'graphify extract .' en cada repo activo para regenerar sus grafos de Graphify.");
 
     // Resumen final por categoría (best-effort): si la BD no responde, se avisa y se omite
     // solo esta parte — el resto del ritual ya se ejecutó.
@@ -384,9 +380,9 @@ async function cmdFinCiclo(opts) {
         await client.connect();
         try {
             const { rows } = await client.query(
-                "SELECT coalesce(categoria,'(sin categoría)') cat, count(*) c FROM chunks GROUP BY 1 ORDER BY 2 DESC");
-            console.log("ritual: resumen final — documentos indexados por categoría:");
-            for (const r of rows) console.log(`  ${r.cat}: ${r.c} chunks`);
+                "SELECT coleccion, estado, count(*)::int AS c FROM documentos GROUP BY 1, 2 ORDER BY 1, 2");
+            console.log("ritual: resumen final — documentos indexados por colección y estado:");
+            for (const r of rows) console.log(`  ${r.coleccion} · ${r.estado}: ${r.c}`);
         } finally {
             await client.end();
         }
