@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clasificar, EXCLUIDAS_POR_DEFECTO, CON_BOOST } from "../rag-lib.mjs";
+import {
+    clasificar, EXCLUIDAS_POR_DEFECTO, CON_BOOST,
+    parseFrontmatter, extraerFecha, limpiarWikilinks, tituloDe, normalizarReferencia,
+} from "../rag-lib.mjs";
 
 test("clasificar: tabla completa de carpetas → colección y autoridad", () => {
     const casos = [
@@ -44,4 +47,70 @@ test("clasificar: carpeta desconocida → otros/referencia y conocida=false", ()
 test("constantes de ranking", () => {
     assert.deepEqual(EXCLUIDAS_POR_DEFECTO, ["planes", "proceso", "inbox"]);
     assert.deepEqual(CON_BOOST, ["decisiones", "hubs"]);
+});
+
+test("parseFrontmatter: escalares, listas en línea y en bloque, wikilinks en reemplaza", () => {
+    const texto = [
+        "---",
+        "proyecto: claudemax   # comentario",
+        "tags: [rag, pgvector]",
+        "fecha: 2026-09-13",
+        "fuentes:",
+        "  - MiRepo/src/*.cs",
+        "  - MiRepo/README.md",
+        "reemplaza: [[Bitrix-vs-GCP]]",
+        "revisar: 2026-10-08",
+        "---",
+        "",
+        "# Título",
+        "cuerpo",
+    ].join("\n");
+    const { meta, body, aviso } = parseFrontmatter(texto);
+    assert.equal(aviso, null);
+    assert.equal(meta.proyecto, "claudemax");
+    assert.deepEqual(meta.tags, ["rag", "pgvector"]);
+    assert.equal(meta.fecha, "2026-09-13");
+    assert.deepEqual(meta.fuentes, ["MiRepo/src/*.cs", "MiRepo/README.md"]);
+    assert.deepEqual(meta.reemplaza.map(normalizarReferencia), ["Bitrix-vs-GCP"]);
+    assert.equal(meta.revisar, "2026-10-08");
+    assert.equal(body, "\n# Título\ncuerpo");
+});
+
+test("parseFrontmatter: reemplaza escalar se vuelve lista; sin frontmatter → meta vacío", () => {
+    assert.deepEqual(parseFrontmatter("---\nreemplaza: vieja\n---\nx").meta.reemplaza, ["vieja"]);
+    const sin = parseFrontmatter("# Solo cuerpo\n");
+    assert.deepEqual(sin.meta, {});
+    assert.equal(sin.body, "# Solo cuerpo\n");
+    assert.equal(sin.aviso, null);
+});
+
+test("parseFrontmatter: frontmatter sin cierre → aviso y se indexa el texto entero", () => {
+    const roto = "---\nproyecto: x\n# Título\ncuerpo";
+    const r = parseFrontmatter(roto);
+    assert.deepEqual(r.meta, {});
+    assert.equal(r.body, roto);
+    assert.match(r.aviso, /sin cierre/);
+});
+
+test("normalizarReferencia: quita [[ ]], alias, ancla y .md", () => {
+    assert.equal(normalizarReferencia("[[Nota|alias]]"), "Nota");
+    assert.equal(normalizarReferencia("[[Nota#seccion]]"), "Nota");
+    assert.equal(normalizarReferencia("Decisiones/Nota.md"), "Decisiones/Nota");
+    assert.equal(normalizarReferencia("[Nota]"), "Nota");
+});
+
+test("extraerFecha: frontmatter > yyyy-mm-dd en el nombre > dd-mm-yyyy en el nombre > mtime", () => {
+    const mtime = Date.UTC(2026, 0, 15);
+    assert.equal(extraerFecha("x.md", { fecha: "2026-09-13" }, mtime), "2026-09-13");
+    assert.equal(extraerFecha("2026-09-13-1530-proyecto.md", {}, mtime), "2026-09-13");
+    assert.equal(extraerFecha("bitacora-01-07-2026.md", {}, mtime), "2026-07-01");
+    assert.equal(extraerFecha("nota.md", {}, mtime), "2026-01-15");
+    // una fecha inválida en el frontmatter se ignora
+    assert.equal(extraerFecha("nota.md", { fecha: "ayer" }, mtime), "2026-01-15");
+});
+
+test("limpiarWikilinks y tituloDe", () => {
+    assert.equal(limpiarWikilinks("ver [[Nota|el alias]] y [[Otra]]"), "ver el alias y Otra");
+    assert.equal(tituloDe("intro\n# Mi título \nmás", "Carpeta/archivo.md"), "Mi título");
+    assert.equal(tituloDe("sin encabezado", "Carpeta/archivo.md"), "archivo");
 });

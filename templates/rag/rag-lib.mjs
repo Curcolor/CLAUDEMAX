@@ -58,3 +58,87 @@ export function clasificar(rel) {
     }
     return { coleccion: "otros", autoridad: "referencia", conocida: false };
 }
+
+// --- Frontmatter -------------------------------------------------------------------------
+
+// Quita un comentario en línea (" # ...") y las comillas envolventes de un escalar YAML.
+function stripYamlComment(value) {
+    const i = value.search(/\s#/);
+    let v = (i >= 0 ? value.slice(0, i) : value).trim();
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+    return v;
+}
+
+// Claves cuyo valor siempre se normaliza a lista (en línea "[a, b]", en bloque "- a", o escalar).
+const CLAVES_LISTA = new Set(["tags", "fuentes", "reemplaza"]);
+
+// Extrae el frontmatter YAML inicial sin dependencias. Devuelve { meta, body, aviso }:
+// `body` es el texto sin frontmatter (lo que se trocea); `aviso` es null salvo que haya un
+// "---" de apertura sin cierre — entonces no se confía en nada y se indexa el texto entero.
+export function parseFrontmatter(text) {
+    if (!/^---\r?\n/.test(text)) return { meta: {}, body: text, aviso: null };
+    const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---(\r?\n|$)/);
+    if (!m) return { meta: {}, body: text, aviso: "frontmatter sin cierre (---); se indexa sin metadatos" };
+    const meta = {};
+    const lines = m[1].split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+        const kv = lines[i].match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
+        if (!kv) continue;
+        const [, key, rawValue] = kv;
+        const value = stripYamlComment(rawValue);
+        if (CLAVES_LISTA.has(key)) {
+            if (value.startsWith("[") && !value.startsWith("[[")) {
+                meta[key] = value.replace(/^\[/, "").replace(/\]$/, "").split(",").map(s => stripYamlComment(s)).filter(Boolean);
+            } else if (!value) {
+                const items = [];
+                let j = i + 1;
+                while (j < lines.length && /^\s*-\s+/.test(lines[j])) {
+                    items.push(stripYamlComment(lines[j].replace(/^\s*-\s+/, "")));
+                    j++;
+                }
+                meta[key] = items;
+                i = j - 1;
+            } else {
+                meta[key] = [value];
+            }
+        } else {
+            meta[key] = value;
+        }
+    }
+    return { meta, body: text.slice(m[0].length), aviso: null };
+}
+
+// "[[Nota|alias]]", "[[Nota#ancla]]", "Carpeta/Nota.md" → "Nota" / "Carpeta/Nota".
+export function normalizarReferencia(ref) {
+    return String(ref).trim()
+        .replace(/^\[+|\]+$/g, "")
+        .replace(/[|#].*$/, "")
+        .replace(/\.md$/i, "")
+        .replace(/\\/g, "/")
+        .trim();
+}
+
+// Fecha de la nota: frontmatter válido > yyyy-mm-dd en el nombre > dd-mm-yyyy en el nombre >
+// mtime. yyyy-mm-dd se prueba antes que dd-mm-yyyy porque un nombre como
+// "2026-09-13-1530-x" contiene "09-13-1530", que el patrón dd-mm-yyyy tomaría por fecha.
+export function extraerFecha(nombreArchivo, meta, mtimeMs) {
+    if (meta && /^\d{4}-\d{2}-\d{2}$/.test(meta.fecha || "")) return meta.fecha;
+    let m = nombreArchivo.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (m && Number(m[2]) <= 12) return `${m[1]}-${m[2]}-${m[3]}`;
+    m = nombreArchivo.match(/(\d{2})-(\d{2})-(\d{4})/);
+    if (m && Number(m[2]) <= 12) return `${m[3]}-${m[2]}-${m[1]}`;
+    return new Date(mtimeMs).toISOString().slice(0, 10);
+}
+
+// Antes de embeber: [[a|b]] → b, [[a]] → a. Los corchetes no aportan semántica al vector.
+export function limpiarWikilinks(texto) {
+    return texto
+        .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2")
+        .replace(/\[\[([^\]]+)\]\]/g, "$1");
+}
+
+// Primer "# " del cuerpo; si no hay, el nombre del archivo sin extensión.
+export function tituloDe(body, rel) {
+    const m = body.match(/^# (.+)$/m);
+    return m ? m[1].trim() : path.basename(rel, ".md");
+}
