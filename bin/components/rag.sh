@@ -44,13 +44,10 @@ ac_rag_vault() {
                 ac_warn "VAULT_MODE=import necesita VAULT_SRC=<carpeta existente> — se omite el vault."
                 return 0
             fi
-            ac_info "Vault: importar $VAULT_SRC → $dst (notas intactas, config agregada si falta)"
+            ac_info "Vault: importar $VAULT_SRC → $dst (notas intactas, hubs/plantillas/config agregados si faltan)"
             ac_run mkdir -p "$dst"
             ac_run cp -R "$VAULT_SRC/." "$dst/"
-            if [ ! -f "$dst/.obsidian/graph.json" ]; then
-                ac_run mkdir -p "$dst/.obsidian"
-                ac_run cp "$AC_REPO_DIR/templates/vault/.obsidian/graph.json" "$dst/.obsidian/graph.json"
-            fi
+            ac_rag_vault_completar "$dst"
             ;;
         connect)
             if [ -z "${VAULT_REMOTE:-}" ]; then
@@ -63,9 +60,29 @@ ac_rag_vault() {
             else
                 ac_run git clone "$VAULT_REMOTE" "$dst"
             fi
+            ac_rag_vault_completar "$dst"
             ;;
         *) ac_warn "VAULT_MODE desconocido '$mode' (create|import|connect)"; return 0 ;;
     esac
+}
+
+# Con un vault importado o clonado, añade los hubs, las plantillas y la config de Obsidian
+# que falten — sin pisar nada que ya exista (las notas del usuario son suyas).
+ac_rag_vault_completar() {
+    local dst="$1" f rel
+    for f in "$AC_REPO_DIR"/templates/vault/Hubs/*.md "$AC_REPO_DIR"/templates/vault/Plantillas/*.md; do
+        rel="${f#"$AC_REPO_DIR"/templates/vault/}"
+        if [ ! -f "$dst/$rel" ]; then
+            ac_run mkdir -p "$(dirname "$dst/$rel")"
+            ac_run cp "$f" "$dst/$rel"
+        fi
+    done
+    for f in graph.json templates.json; do
+        if [ ! -f "$dst/.obsidian/$f" ]; then
+            ac_run mkdir -p "$dst/.obsidian"
+            ac_run cp "$AC_REPO_DIR/templates/vault/.obsidian/$f" "$dst/.obsidian/$f"
+        fi
+    done
 }
 
 # Instala y arranca automáticamente las dependencias de sistema (Docker Desktop
@@ -142,7 +159,7 @@ ac_rag_stack() {
     ac_info "Stack RAG: $mode en $dst"
     ac_run mkdir -p "$dst"
     # Copia las plantillas sin sobrescribir un .env existente
-    for f in docker-compose.yml schema.sql .env.example package.json .gitignore rag.mjs mcp-server.mjs kaggle-embed.mjs ritual.mjs; do
+    for f in docker-compose.yml schema.sql .env.example package.json .gitignore rag.mjs rag-lib.mjs mcp-server.mjs kaggle-embed.mjs ritual.mjs; do
         ac_run cp "$AC_REPO_DIR/templates/rag/$f" "$dst/$f"
     done
     # Backend Kaggle (Bloque 2, subproyecto F): plantillas del kernel que corre en la nube
