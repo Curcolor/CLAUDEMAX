@@ -227,3 +227,63 @@ export function resolverNombreNota(ref, indice) {
     if (candidatos.length > 1) return { error: "ambiguo: usa la ruta" };
     return { source: candidatos[0] };
 }
+
+// --- Fuentes y firma de origen (spec §3.4a) ------------------------------------------------
+
+// Glob propio de "*", "?" y "**" (sin fs.glob: es experimental en Node 22 y avisa por stderr).
+// Solo recorre a partir del prefijo sin comodines del patrón, y salta node_modules y .git.
+function globManual(patron, root) {
+    const p = patron.replace(/\\/g, "/").replace(/^\.\//, "");
+    const segmentos = p.split("/");
+    const fijos = [];
+    for (const s of segmentos) { if (/[*?]/.test(s)) break; fijos.push(s); }
+    const base = path.join(root, ...fijos);
+    if (!fs.existsSync(base)) return [];
+    if (fijos.length === segmentos.length) return fs.statSync(base).isFile() ? [p] : [];
+    const esc = s => s.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+    const cuerpo = p.split("**").map(tramo =>
+        tramo.split("*").map(x => x.split("?").map(esc).join("[^/]")).join("[^/]*")
+    ).join(".*");
+    const re = new RegExp(`^${cuerpo}$`);
+    const out = [];
+    const walk = dir => {
+        for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+            if (e.name === "node_modules" || e.name === ".git") continue;
+            const abs = path.join(dir, e.name);
+            if (e.isDirectory()) walk(abs);
+            else {
+                const rel = path.relative(root, abs).replace(/\\/g, "/");
+                if (re.test(rel)) out.push(rel);
+            }
+        }
+    };
+    walk(fs.statSync(base).isDirectory() ? base : path.dirname(base));
+    return out;
+}
+
+// Resuelve los globs de `fuentes:` (relativos a RAG_ROOT) a rutas de archivo únicas y ordenadas.
+export function resolverFuentes(fuentes, ragRoot) {
+    const rutas = new Set();
+    for (const patron of fuentes || []) {
+        let coincidencias = [];
+        try { coincidencias = globManual(String(patron), ragRoot); } catch { coincidencias = []; }
+        for (const c of coincidencias) rutas.add(c);
+    }
+    return [...rutas].sort();
+}
+
+// sha256 de "ruta:hash-del-contenido" por cada fuente, en orden. null si no hay fuentes:
+// así una nota cuyas fuentes desaparecieron queda distinta de una que nunca declaró ninguna.
+export function firmaDe(rutasRel, ragRoot) {
+    if (!rutasRel || !rutasRel.length) return null;
+    const h = crypto.createHash("sha256");
+    for (const r of rutasRel) {
+        const hf = crypto.createHash("sha256").update(fs.readFileSync(path.join(ragRoot, r))).digest("hex");
+        h.update(`${r}:${hf}\n`);
+    }
+    return h.digest("hex");
+}
+
+export function sha256(bytes) {
+    return crypto.createHash("sha256").update(bytes).digest("hex");
+}

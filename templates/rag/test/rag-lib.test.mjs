@@ -1,11 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
     clasificar, EXCLUIDAS_POR_DEFECTO, CON_BOOST,
     parseFrontmatter, extraerFecha, limpiarWikilinks, tituloDe, normalizarReferencia,
     chunkMarkdown, walkVault, indiceDeNotas, resolverNombreNota,
+    resolverFuentes, firmaDe,
 } from "../rag-lib.mjs";
 
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
@@ -179,4 +182,30 @@ test("resolverNombreNota: por nombre, por ruta, inexistente y ambiguo", () => {
     const dup = indiceDeNotas([{ rel: "A/x.md" }, { rel: "B/x.md" }]);
     assert.deepEqual(resolverNombreNota("x", dup), { error: "ambiguo: usa la ruta" });
     assert.deepEqual(resolverNombreNota("B/x", dup), { source: "B/x.md" });
+});
+
+test("resolverFuentes: rutas exactas, comodines * y **, sin coincidencias, orden estable", () => {
+    assert.deepEqual(resolverFuentes(["fuentes/app.txt"], FIXTURES), ["fuentes/app.txt"]);
+    assert.deepEqual(resolverFuentes(["fuentes/*.txt"], FIXTURES), ["fuentes/app.txt"]);
+    assert.deepEqual(resolverFuentes(["**/app.txt"], FIXTURES), ["fuentes/app.txt"]);
+    assert.deepEqual(resolverFuentes(["fuentes/nada-*.txt"], FIXTURES), []);
+    assert.deepEqual(resolverFuentes(["vault/Codigo/*.md", "fuentes/app.txt"], FIXTURES),
+        ["fuentes/app.txt", "vault/Codigo/nota-codigo.md", "vault/Codigo/sin-fuentes.md"]);
+    // separador de Windows en el patrón
+    assert.deepEqual(resolverFuentes(["fuentes\\app.txt"], FIXTURES), ["fuentes/app.txt"]);
+});
+
+test("firmaDe: cambia si cambia el contenido, igual si no, null sin fuentes", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "firma-"));
+    fs.mkdirSync(path.join(tmp, "src"));
+    fs.writeFileSync(path.join(tmp, "src", "a.txt"), "uno");
+    fs.writeFileSync(path.join(tmp, "src", "b.txt"), "dos");
+    const rutas = resolverFuentes(["src/*.txt"], tmp);
+    const f1 = firmaDe(rutas, tmp);
+    assert.match(f1, /^[0-9a-f]{64}$/);
+    assert.equal(firmaDe(rutas, tmp), f1);
+    fs.writeFileSync(path.join(tmp, "src", "b.txt"), "dos-cambiado");
+    assert.notEqual(firmaDe(rutas, tmp), f1);
+    assert.equal(firmaDe([], tmp), null);
+    fs.rmSync(tmp, { recursive: true, force: true });
 });
