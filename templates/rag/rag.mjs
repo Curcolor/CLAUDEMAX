@@ -306,8 +306,77 @@ async function cmdQuery(text, opts = {}) {
     if (!rows.length) { console.log("rag: sin resultados"); return; }
     console.log(rows.map(lib.formatearResultado).join("\n\n---\n\n"));
 }
-async function cmdReindex() { throw new Error("reindex: pendiente (tarea 10)"); }
-async function cmdSalud() { throw new Error("salud: pendiente (tarea 10)"); }
+// --- salud (spec §3.6) ---------------------------------------------------------------------
+
+async function recogerSalud(vault) {
+    const archivos = [...lib.walkVault(vault)];
+    const { huerfanas, enlacesRotos } = lib.analizarHubs(vault, archivos);
+    const sinFuentes = archivos
+        .filter(a => lib.clasificar(a.rel).coleccion === "codigo")
+        .filter(a => !(lib.parseFrontmatter(fs.readFileSync(a.abs, "utf8")).meta.fuentes || []).length)
+        .map(a => a.rel);
+    const salud = { huerfanas, enlacesRotos, caducas: [], revisar: [], reemplazadas: [], reemplazadasEnlazadas: [], sinFuentes, bd: true };
+    try {
+        await withDb(async db => {
+            const { rows } = await db.query("SELECT source, estado, reemplazada_por, revisar FROM documentos WHERE estado <> 'vigente' ORDER BY source");
+            for (const r of rows) {
+                if (r.estado === "caduca") salud.caducas.push(r.source);
+                else if (r.estado === "revisar") salud.revisar.push({ source: r.source, revisar: String(r.revisar instanceof Date ? r.revisar.toISOString() : r.revisar).slice(0, 10) });
+                else if (r.estado === "reemplazada") salud.reemplazadas.push({ source: r.source, por: r.reemplazada_por });
+            }
+        });
+        const huerf = new Set(huerfanas);
+        salud.reemplazadasEnlazadas = salud.reemplazadas.filter(r => !huerf.has(r.source)).map(r => r.source);
+    } catch {
+        salud.bd = false;
+    }
+    return salud;
+}
+
+function resumenSalud(s) {
+    const partes = [];
+    if (s.caducas.length) partes.push(`${s.caducas.length} caducas`);
+    if (s.revisar.length) partes.push(`${s.revisar.length} a revisar`);
+    if (s.huerfanas.length) partes.push(`${s.huerfanas.length} huérfanas`);
+    if (s.enlacesRotos.length) partes.push(`${s.enlacesRotos.length} enlaces rotos`);
+    if (s.reemplazadasEnlazadas.length) partes.push(`${s.reemplazadasEnlazadas.length} reemplazadas aún enlazadas`);
+    if (s.sinFuentes.length) partes.push(`${s.sinFuentes.length} Codigo/ sin fuentes`);
+    if (!s.bd) partes.push("sin BD");
+    return partes.length ? `salud: ${partes.join(" · ")}` : "salud: sin avisos";
+}
+
+async function cmdSalud(root, opts = {}) {
+    const vault = path.resolve(root || VAULT_DEFAULT);
+    const s = await recogerSalud(vault);
+    if (opts.json) { console.log(JSON.stringify(s, null, 2)); return; }
+    if (opts.resumen) { console.log(resumenSalud(s)); return; }
+    const seccion = (titulo, items, fmt = x => x) => {
+        if (!items.length) return;
+        console.log(`${titulo} (${items.length}):`);
+        for (const i of items) console.log(`  ${fmt(i)}`);
+    };
+    seccion("huérfanas", s.huerfanas);
+    seccion("enlaces rotos", s.enlacesRotos, e => `${e.hub} → ${e.destino}`);
+    seccion("caducas", s.caducas);
+    seccion("a revisar", s.revisar, r => `${r.source} (venció ${r.revisar})`);
+    seccion("reemplazadas aún enlazadas desde un hub", s.reemplazadasEnlazadas);
+    seccion("Codigo/ sin fuentes", s.sinFuentes);
+    if (!s.bd) console.log("(sin BD: no se pudieron leer los estados caduca/revisar/reemplazada)");
+    console.log(resumenSalud(s));
+}
+
+// --- reindex -------------------------------------------------------------------------------
+
+async function cmdReindex(root, opts = {}) {
+    try {
+        await withDb(db => db.query("TRUNCATE chunks, documentos"));
+    } catch (e) {
+        console.log(`${NO_DISPONIBLE} (${e.message})`);
+        process.exitCode = 1;
+        return;
+    }
+    await cmdIngest(root, opts);
+}
 
 // --- Despacho ------------------------------------------------------------------------------
 

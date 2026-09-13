@@ -175,3 +175,42 @@ test("query: salida de texto con cabecera, aviso de autoridad y avisos de vigenc
     const vacio = await rag(["query", "zzzz", "--coleccion", "entrevistas"], ctx());
     assert.match(vacio.out, /rag: sin resultados/);
 });
+
+test("salud: huérfanas, enlaces rotos, caducas, Codigo sin fuentes; --resumen en una línea; exit 0", { skip }, async () => {
+    await rag(["ingest", fx.vault], ctx());
+    const r = await rag(["salud", fx.vault], ctx());
+    assert.equal(r.status, 0, r.out);
+    assert.match(r.out, /huérfanas \(1\):\n\s+Decisiones\/decision-vieja\.md/);
+    assert.match(r.out, /enlaces rotos \(1\):\n\s+Hubs\/Codigo\.md → no-existe/);
+    assert.match(r.out, /caducas \(1\):\n\s+Codigo\/nota-codigo\.md/);
+    assert.match(r.out, /Codigo\/ sin fuentes \(1\):\n\s+Codigo\/sin-fuentes\.md/);
+    const res = await rag(["salud", fx.vault, "--resumen"], ctx());
+    assert.equal(res.out.trim(), "salud: 1 caducas · 1 huérfanas · 1 enlaces rotos · 1 Codigo/ sin fuentes");
+    const j = JSON.parse((await rag(["salud", fx.vault, "--json"], ctx())).out);
+    assert.deepEqual(j.huerfanas, ["Decisiones/decision-vieja.md"]);
+    assert.equal(j.caducas.length, 1);
+});
+
+test("salud sin BD: informa lo que sale del disco y avisa que faltan los estados", { skip }, async () => {
+    const caida = { ...ctx(), env: { PG_URL: "postgres://rag:rag@127.0.0.1:1/nada" } };
+    const r = await rag(["salud", fx.vault, "--resumen"], caida);
+    assert.equal(r.status, 0, r.out);
+    assert.match(r.out, /salud: 1 huérfanas · 1 enlaces rotos · 1 Codigo\/ sin fuentes · sin BD/);
+});
+
+test("salud: una reemplazada que sigue enlazada desde su hub se lista aparte", { skip }, async () => {
+    const nueva = path.join(fx.vault, "Decisiones", "decision-b.md");
+    fs.writeFileSync(nueva, "---\nreemplaza: [decision-a]\n---\n# Decisión B\nSustituye a la A.\n");
+    await rag(["ingest", fx.vault], ctx());
+    const r = await rag(["salud", fx.vault], ctx());
+    // decision-a sigue enlazada desde Hubs/Decisiones.md → hay que quitar el enlace o apuntarlo a la B
+    assert.match(r.out, /reemplazadas aún enlazadas desde un hub \(1\):\n\s+Decisiones\/decision-a\.md/);
+    fs.rmSync(nueva);
+    await rag(["ingest", fx.vault], ctx());
+});
+
+test("reindex: trunca y vuelve a indexar todo", { skip }, async () => {
+    const r = await rag(["reindex", fx.vault], ctx());
+    assert.equal(r.status, 0, r.out);
+    assert.match(r.out, /indexados: 11 \| sin cambios: 0/);
+});
