@@ -180,3 +180,50 @@ export function chunkMarkdown(body, { max = 2400, solape = 200 } = {}) {
     cerrar();
     return out.map((c, i) => ({ ...c, orden: i }));
 }
+
+// --- Recorrido del vault -----------------------------------------------------------------
+
+// Notas indexables: .md bajo el vault, saltando CARPETAS_NO_INDEXADAS y cualquier entrada
+// cuyo nombre empiece por "." o "_" (plantillas como Hubs/_proyecto.md). Devuelve
+// { abs, rel } con `rel` en formato POSIX relativo al vault.
+export function* walkVault(vault, dir = vault) {
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+        if (e.name.startsWith(".") || e.name.startsWith("_")) continue;
+        const abs = path.join(dir, e.name);
+        if (e.isDirectory()) {
+            if (CARPETAS_NO_INDEXADAS.has(e.name)) continue;
+            yield* walkVault(vault, abs);
+        } else if (e.name.toLowerCase().endsWith(".md")) {
+            yield { abs, rel: path.relative(vault, abs).replace(/\\/g, "/") };
+        }
+    }
+}
+
+// Índice para resolver referencias: nombre sin extensión → [rel...], y el conjunto de rutas.
+export function indiceDeNotas(archivos) {
+    const porNombre = new Map();
+    const rutas = new Set();
+    for (const { rel } of archivos) {
+        rutas.add(rel);
+        const nombre = path.basename(rel, ".md");
+        if (!porNombre.has(nombre)) porNombre.set(nombre, []);
+        porNombre.get(nombre).push(rel);
+    }
+    return { porNombre, rutas };
+}
+
+// Resuelve "[[nota]]", "nota" o "Carpeta/nota(.md)" a la ruta de una nota del índice.
+export function resolverNombreNota(ref, indice) {
+    const n = normalizarReferencia(ref);
+    if (!n) return { error: "no existe" };
+    if (n.includes("/")) {
+        const conExt = n.endsWith(".md") ? n : `${n}.md`;
+        return indice.rutas.has(conExt) ? { source: conExt } : { error: "no existe" };
+    }
+    const candidatos = indice.porNombre.get(n) || [];
+    if (candidatos.length === 0) return { error: "no existe" };
+    if (candidatos.length > 1) return { error: "ambiguo: usa la ruta" };
+    return { source: candidatos[0] };
+}

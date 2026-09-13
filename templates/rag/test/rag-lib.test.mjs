@@ -1,10 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
     clasificar, EXCLUIDAS_POR_DEFECTO, CON_BOOST,
     parseFrontmatter, extraerFecha, limpiarWikilinks, tituloDe, normalizarReferencia,
-    chunkMarkdown,
+    chunkMarkdown, walkVault, indiceDeNotas, resolverNombreNota,
 } from "../rag-lib.mjs";
+
+const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
+const VAULT = path.join(FIXTURES, "vault");
 
 test("clasificar: tabla completa de carpetas → colección y autoridad", () => {
     const casos = [
@@ -144,4 +149,34 @@ test("chunkMarkdown: por defecto max 2400 y no devuelve trozos vacíos", () => {
     assert.deepEqual(chunkMarkdown("\n\n   \n"), []);
     const uno = chunkMarkdown("# T\n" + "y".repeat(2000));
     assert.equal(uno.length, 1);
+});
+
+test("walkVault: solo .md, excluye Plantillas/, .obsidian y nombres con _ o .", () => {
+    const rels = [...walkVault(VAULT)].map(a => a.rel).sort();
+    assert.deepEqual(rels, [
+        "Bitacoras/bitacora-01-07-2026.md",
+        "Codigo/nota-codigo.md",
+        "Codigo/sin-fuentes.md",
+        "Decisiones/decision-a.md",
+        "Decisiones/decision-vieja.md",
+        "Hubs/Bienvenida.md",
+        "Hubs/Bitacoras.md",
+        "Hubs/Codigo.md",
+        "Hubs/Decisiones.md",
+        "Hubs/Superpowers-Planes.md",
+        "Superpowers/Planes/plan-1.md",
+    ]);
+    assert.ok([...walkVault(VAULT)].every(a => path.isAbsolute(a.abs)));
+});
+
+test("resolverNombreNota: por nombre, por ruta, inexistente y ambiguo", () => {
+    const indice = indiceDeNotas([...walkVault(VAULT)]);
+    assert.deepEqual(resolverNombreNota("decision-a", indice), { source: "Decisiones/decision-a.md" });
+    assert.deepEqual(resolverNombreNota("[[decision-a|alias]]", indice), { source: "Decisiones/decision-a.md" });
+    assert.deepEqual(resolverNombreNota("Decisiones/decision-a.md", indice), { source: "Decisiones/decision-a.md" });
+    assert.deepEqual(resolverNombreNota("no-existe", indice), { error: "no existe" });
+    // dos notas con el mismo nombre en carpetas distintas → ambiguo
+    const dup = indiceDeNotas([{ rel: "A/x.md" }, { rel: "B/x.md" }]);
+    assert.deepEqual(resolverNombreNota("x", dup), { error: "ambiguo: usa la ruta" });
+    assert.deepEqual(resolverNombreNota("B/x", dup), { source: "B/x.md" });
 });
