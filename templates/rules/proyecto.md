@@ -1,45 +1,35 @@
+---
+proyecto: {{PROYECTO}}
+ruta: {{RUTA}}
+descripcion: {{DESCRIPCION}}
+inicializado: {{FECHA}}
+---
 <!--
-    Plantilla de reglas por proyecto. La instancia el ritual `init-proyecto` (script fuera
-    del alcance de este archivo, ver docs/superpowers/specs/2026-08-01-reglas-rituales-design.md
-    bloque D2) copiando este archivo a `<proyecto>/.claude/CLAUDEMAX.md` y sustituyendo los
-    marcadores de abajo. Ningún marcador debe quedar sin reemplazar en el archivo final.
-
-    Marcadores disponibles:
-      {{PROYECTO}}     nombre del proyecto (por defecto, el nombre de la carpeta del repo)
-      {{FECHA}}        fecha de inicialización del proyecto, formato YYYY-MM-DD
-      {{VAULT}}        ruta absoluta a V.A.U.L.T/ del workspace CLAUDEMAX
-      {{RAG}}          ruta absoluta a R.A.G/ del workspace CLAUDEMAX
-      {{DESCRIPCION}}  una línea libre describiendo el proyecto ("(sin descripción)" si no se aportó)
+    Contexto de {{PROYECTO}} para Claude Code. Lo creó `ritual.mjs init-proyecto` desde
+    templates/rules/proyecto.md y desde ese momento es TUYO: la reinstalación no lo toca.
+    Lo carga toda sesión del workspace vía .claude/CLAUDEMAX.md → proyectos/_indice.md.
+    Rellena las secciones consultando el grafo (codebase-memory get_architecture, graphify
+    query_graph), nunca de memoria; deja vacía la que no tenga nada real todavía. Tope ~150
+    líneas: lo largo va al vault (Codigo/ con fuentes:) y se enlaza desde aquí.
+    Claude Code elimina estos comentarios al cargar el archivo: no cuestan contexto.
 -->
+# {{PROYECTO}}
 
-# Reglas de CLAUDEMAX — {{PROYECTO}}
+{{DESCRIPCION}}. Ruta: `{{RUTA}}` (`{{RUTA_ABS}}`). Notas del vault con `proyecto: {{PROYECTO}}`;
+hub `Hubs/{{PROYECTO}}.md`. Grafo: `graphify-out/graph.json` del repo (regenerar con
+`graphify extract . --code-only`); índice de codebase-memory: `index_repository` sobre `{{RUTA_ABS}}`.
 
-Este proyecto hereda las reglas operativas completas de la raíz del workspace
-(`<RAG_ROOT>/.claude/CLAUDEMAX.md`): idioma, política de modelos, cortacircuitos de 3
-intentos, commits sin footer de IA, búsqueda de skills, memoria vía RAG y taxonomía del
-vault. No se duplican aquí — si necesitas el texto completo de cada regla con su
-justificación, ábrelas en ese archivo. Resumen rápido para esta sesión:
+## Estructura
+<!-- carpetas de primer nivel y qué vive en cada una; capas/proyectos y quién depende de quién -->
 
-1. Todo en español (docs, comentarios, mensajes, commits); identificadores de código y
-   tipos de Conventional Commits en inglés.
-2. Subagentes de desarrollo con `model: "sonnet"` explícito; revisiones de código nunca
-   se delegan.
-3. Al 3er intento fallido con el mismo error, PARA y pregunta al usuario.
-4. Conventional Commits, subject en español, sin `Co-authored-by: Claude` ni atribución
-   de IA equivalente.
-5. Tecnología nueva sin skill instalada → pregunta si crear/buscar una Skill 2.0.
-6. El RAG es la única memoria entre sesiones; no reinstales Context7 ni Claude-Mem.
-7. Toda nota nueva en el vault nace de `Plantillas/nota.md`, va en la carpeta de su género,
-   se enlaza desde su hub, y declara `fuentes:` si describe código y `reemplaza:` si sustituye
-   a otra.
+## Comandos
+<!-- build, test, run: los exactos, con las banderas que importan -->
 
-## Contexto de {{PROYECTO}}
+## Estado
+<!-- qué está desplegado y dónde, con fecha; decisiones vigentes que condicionan el trabajo -->
 
-- **Proyecto:** {{PROYECTO}}
-- **Inicializado:** {{FECHA}}
-- **Vault:** {{VAULT}}
-- **RAG:** {{RAG}}
-- **Descripción:** {{DESCRIPCION}}
+## Trampas que ya costaron tiempo
+<!-- una viñeta por trampa: síntoma, causa, qué hacer; con la fecha en que costó -->
 
-Al escribir notas de este proyecto en el vault, usa `proyecto: {{PROYECTO}}` en el
-frontmatter para que queden relacionadas entre categorías (código, decisiones, journal...).
+## Convenciones
+<!-- idioma del dominio, patrones obligatorios (MVVM, DI…), qué no se commitea -->

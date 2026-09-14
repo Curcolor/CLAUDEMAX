@@ -1,11 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { parseFrontmatter } from "../rag-lib.mjs";
 import {
     slugProyecto, rutaParaIndice, sustituirMarcadores, marcadoresSinSustituir,
     leerProyecto, generarIndice, CABECERA_INDICE,
     completarGitignore, COMENTARIO_GITIGNORE, esClaudemaxViejo,
 } from "../proyectos-lib.mjs";
+
+const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
 test("slugProyecto: espacios, tildes, símbolos, extremos y vacío", () => {
     assert.equal(slugProyecto("MiRepo"), "MiRepo");
@@ -66,4 +71,16 @@ test("esClaudemaxViejo: cabecera de init-proyecto v1 con o sin comentario HTML",
     assert.equal(esClaudemaxViejo("<!--\n nota\n-->\n\n# Reglas de CLAUDEMAX — X\n"), true);
     assert.equal(esClaudemaxViejo("# Mis reglas\n"), false);
     assert.equal(esClaudemaxViejo(""), false);
+});
+
+test("templates/rules/proyecto.md v2: frontmatter, cinco secciones, marcadores conocidos; ya no resume las reglas", () => {
+    const tpl = fs.readFileSync(path.join(REPO, "templates", "rules", "proyecto.md"), "utf8").replace(/\r\n/g, "\n");
+    const { meta } = parseFrontmatter(tpl);
+    assert.deepEqual(Object.keys(meta).sort(), ["descripcion", "inicializado", "proyecto", "ruta"]);
+    for (const s of ["## Estructura", "## Comandos", "## Estado", "## Trampas que ya costaron tiempo", "## Convenciones"]) {
+        assert.ok(tpl.includes(`\n${s}\n`), s);
+    }
+    assert.deepEqual(marcadoresSinSustituir(tpl).sort(), ["{{DESCRIPCION}}", "{{FECHA}}", "{{PROYECTO}}", "{{RUTA_ABS}}", "{{RUTA}}"].sort());
+    assert.ok(!/Reglas de CLAUDEMAX|Conventional Commits/.test(tpl), "ya no resume las reglas");
+    assert.ok(tpl.split("\n").length < 60, "esqueleto corto");
 });
