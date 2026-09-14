@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFile } from "node:child_process";
 import {
     parseRecordatorio, globARegex, textoDelTool, coincide,
     buscarDirectorios, cargarRecordatorios,
@@ -170,4 +171,56 @@ test("estado por sesión: dispara una vez, no repite, se resetea al cambiar de s
     fs.writeFileSync(rutaEstado(env), "{corrupto");
     assert.deepEqual(leerEstado(env), { sessionId: null, disparados: [] });
     fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+const HOOK = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "recordar.mjs");
+
+// Ejecuta el hook con un evento por stdin; devuelve { status, stdout, stderr }.
+function correrHook(evento, env = {}) {
+    return new Promise(resolve => {
+        const child = execFile(process.execPath, [HOOK], { env: { ...process.env, ...env }, timeout: 10_000 },
+            (err, stdout, stderr) => resolve({ status: err ? (err.code ?? 1) : 0, stdout, stderr }));
+        child.stdin.end(evento === null ? "" : JSON.stringify(evento));
+    });
+}
+
+test("hook: Bash con ls dispara a.md y b.md del fixture (b del proyecto), en orden alfabético", async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "recordar-e2e-"));
+    const cwd = path.join(FIX, "ws", "proy", "src");
+    const r = await correrHook({ tool_name: "Bash", tool_input: { command: "ls -la" }, cwd, session_id: "s1" }, { CLAUDE_CONFIG_DIR: tmp });
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(r.stderr, "");
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.hookSpecificOutput.hookEventName, "PreToolUse");
+    assert.equal(out.hookSpecificOutput.additionalContext, "A DEL WORKSPACE\n\nB DEL PROYECTO");
+    assert.equal(out.suppressOutput, true);
+    // b.md es una_vez_por_sesion: la segunda vez solo sale a.md
+    const r2 = await correrHook({ tool_name: "Bash", tool_input: { command: "ls" }, cwd, session_id: "s1" }, { CLAUDE_CONFIG_DIR: tmp });
+    assert.equal(JSON.parse(r2.stdout).hookSpecificOutput.additionalContext, "A DEL WORKSPACE");
+    // el roto quedó anotado en el log, no en stderr
+    assert.match(fs.readFileSync(path.join(tmp, "state", "recordar.log"), "utf8"), /roto\.md: falta `tools`/);
+    fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+test("hook: sin coincidencia, stdin vacío, JSON roto y CLAUDEMAX_RECORDAR=0 → exit 0 sin salida", async () => {
+    const cwd = path.join(FIX, "ws", "proy", "src");
+    // Ojo: en el fixture b.md no tiene patrones, así que casa con CUALQUIER Bash; por eso el
+    // caso "sin coincidencia" usa Grep, que ningún recordatorio del fixture declara.
+    for (const [evento, env] of [
+        [{ tool_name: "Grep", tool_input: { pattern: "x" }, cwd }, {}],
+        [null, {}],
+        [{ tool_name: "Bash", tool_input: { command: "ls" }, cwd }, { CLAUDEMAX_RECORDAR: "0" }],
+        [{ tool_name: "Bash", tool_input: { command: "ls" }, cwd: "/no/existe/en/ningun/sitio" }, {}],
+    ]) {
+        const r = await correrHook(evento, env);
+        assert.equal(r.status, 0);
+        assert.equal(r.stdout, "");
+        assert.equal(r.stderr, "");
+    }
+    // JSON roto por stdin
+    const roto = await new Promise(resolve => {
+        const child = execFile(process.execPath, [HOOK], { timeout: 10_000 }, (err, stdout, stderr) => resolve({ status: err ? 1 : 0, stdout, stderr }));
+        child.stdin.end("{no es json");
+    });
+    assert.deepEqual(roto, { status: 0, stdout: "", stderr: "" });
 });
