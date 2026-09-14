@@ -85,7 +85,9 @@ un error opaco. El envoltorio nunca escribe por stderr salvo `GRAPHIFY_AUTO_DEBU
 
 1. `npm install -g codebase-memory-mcp` (idempotente: si `codebase-memory-mcp --version` responde y
    no hay `--force`, omite). Sin `npm` → avisa y omite.
-2. `claude mcp add -s user codebase-memory -- codebase-memory-mcp`. Nombre `codebase-memory`: el
+2. `claude mcp add -s user codebase-memory -- node <npm root -g>/codebase-memory-mcp/bin.js` (el lanzador
+   Node del paquete: Claude Code lanza el comando sin shell y en Windows el `codebase-memory-mcp` del
+   PATH es un `.cmd` que no conecta — visto al verificar). Nombre `codebase-memory`: el
    que usan los recordatorios y el setup de trabajo. Ya registrado: `--force` reemplaza; sin él,
    avisa y respeta. Sin CLI `claude` → avisa con el comando manual.
 3. **No indexa nada** en la instalación: el indexado es por proyecto y lo disparan `init-proyecto`

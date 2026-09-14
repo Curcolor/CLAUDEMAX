@@ -236,7 +236,7 @@ No confundir con los flags de `bin/install.sh` (sección [Flags](README.md#flags
 4. **dev-skills** — copia simple de archivos para `swebok` / `pmbok` / `book-to-skill` / `conventional-commits` / `skill-mcp-builder` / `no-ai-slop` / `rituales`; `git clone`/`git pull` para `superpowers`. `pmbok` declara `dependencies: [swebok]` en su `skill.yaml` (complementa al SWEBOK: SWEBOK cubre ingeniería de software, PMBOK cubre dirección de proyectos), pero es una dependencia declarativa que el modelo consulta, no un orden de copiado que `dev-skills.sh` tenga que resolver — ambas se copian en la misma pasada de `FIRST_PARTY_SKILLS`. Sin dependencia de orden con los demás componentes.
 5. **rag** — opt-in (necesita `RAG_ROOT` definido, si no avisa y se omite): copia `templates/vault` (con la taxonomía de 6 categorías) → `<RAG_ROOT>/V.A.U.L.T` y `templates/rag` (incluidas las plantillas de Kaggle en `kaggle/`) → `<RAG_ROOT>/R.A.G`, auto-instala Docker y Ollama vía winget si faltan, levanta el stack Docker Compose `ragdb` + `bge-m3`, hace `npm install` de las dependencias del CLI/MCP, configura el backend opcional de Kaggle si `KAGGLE_USERNAME`/`KAGGLE_KEY` están en el entorno, y registra el MCP `rag` a nivel de **usuario**.
 6. **graphify** — instala el paquete pip `graphifyy` (`uv tool install` / `pipx install` / `pip install --user`, el primero disponible), copia `templates/mcp/graphify-auto{,-lib}.mjs` a `$CLAUDE_CONFIG_DIR/mcp/` y registra `claude mcp add -s user graphify -- node …/graphify-auto.mjs`. El envoltorio localiza en cada sesión el `graphify-out/graph.json` del proyecto (`CLAUDE_PROJECT_DIR`) y lanza el servidor real; sin grafo o sin graphify sirve la tool `graphify_estado`. Si una instalación anterior dejó `## graphify` en `CLAUDE.md` o el hook `graphify hook-guard` en `.claude/settings.json` del repo, los retira. Idempotente vía `graphify --version` y `claude mcp list`.
-7. **codebase-memory** — `npm install -g codebase-memory-mcp` + `claude mcp add -s user codebase-memory -- codebase-memory-mcp`. No indexa nada al instalar; el índice de cada proyecto se crea con `codebase-memory-mcp cli index_repository --repo-path <abs> --mode moderate` y vive en `~/.cache/codebase-memory-mcp/` (nunca `--persistence`). Sin `npm` avisa y omite.
+7. **codebase-memory** — `npm install -g codebase-memory-mcp` + `claude mcp add -s user codebase-memory -- node <npm root -g>/codebase-memory-mcp/bin.js` (el lanzador Node del paquete: Claude Code lanza el comando sin shell y en Windows el `codebase-memory-mcp` del PATH es un `.cmd` que no conecta). No indexa nada al instalar; el índice de cada proyecto se crea con `codebase-memory-mcp cli index_repository --repo-path <abs> --mode moderate` y vive en `~/.cache/codebase-memory-mcp/` (nunca `--persistence`). Sin `npm` avisa y omite.
 8. **ponytail** — necesita `claude`; sin él avisa con los comandos `/plugin` para hacerlo en sesión y no falla la instalación. Idempotente vía `claude plugin list`. `claude plugin marketplace add DietrichGebert/ponytail` + `claude plugin install ponytail@ponytail`. Sin dependencia de orden con los demás — sus hooks (`SessionStart`/`SubagentStart`/`UserPromptSubmit`) no chocan con el `PreToolUse` de graphify.
 9. **cyber-neo** — `git clone` + `checkout` del commit fijado en `$CLAUDE_CONFIG_DIR/skills/cyber-neo`. Sin dependencia de orden.
 10. **parsers** — auto-instala Python y el JDK vía winget si faltan, luego `pip install` de los tres parsers, registra el MCP `markitdown` a nivel de **usuario**, y barre restos heredados de Context7 / Claude-Mem (entran en conflicto con el cerebro RAG).
@@ -489,6 +489,32 @@ Es el envoltorio diciendo que le falta algo: llama a `graphify_estado` y te dir�
 dentro del repo) o si graphify no está instalado (`uv tool install graphifyy`). Después reinicia la
 sesión: el envoltorio decide al arrancar.
 
+### `codebase-memory` aparece "Failed to connect" y al lanzarlo a mano dice "DACL entry N grants mutation rights to untrusted identity"
+
+El binario se niega a arrancar como servidor si en la ACL de tu carpeta de usuario (`C:\Users\<tú>`) hay una
+identidad con permisos de escritura que no reconoce — típicamente un **SID huérfano** de una cuenta borrada
+(`S-1-5-21-…`), que `icacls` no puede quitar porque no lo resuelve. Guarda la ACL y quítalo por SID desde
+PowerShell (propaga la herencia a todo el perfil; tarda unos minutos):
+
+```powershell
+icacls "$env:USERPROFILE" /save "$env:USERPROFILE\acl-home-backup.txt"
+$sid = 'S-1-5-21-…-1004'   # el que nombra el mensaje
+$di = Get-Item -LiteralPath $env:USERPROFILE
+$sec = $di.GetAccessControl([System.Security.AccessControl.AccessControlSections]::Access)
+$sec.Access | Where-Object { $_.IdentityReference.Value -eq $sid -and -not $_.IsInherited } | ForEach-Object { [void]$sec.RemoveAccessRule($_) }
+$di.SetAccessControl($sec)
+```
+
+`Set-Acl` no sirve aquí (pide `SeSecurityPrivilege`); `GetAccessControl('Access')` solo toca la DACL. Visto el
+2026-09-13 en la máquina del autor.
+
+### `codebase-memory` no indexa `bin/` ni `docs/`
+
+Excluye por defecto directorios que suelen ser salida de compilación o documentación (`bin/`, `docs/`, `.git/`,
+`node_modules/`…) y los archivos que casan con sus listas rápidas (por ejemplo `*.test.mjs`). Si en tu repo
+`bin/` es código (como en CLAUDEMAX), crea un `.cbmignore` en la raíz para ajustar las exclusiones y reindexa.
+El nombre del proyecto en `--project` lo deriva de la ruta absoluta (`C-Users-…-CLAUDEMAX`); `list_projects` lo
+muestra.
 ### `search_graph` de codebase-memory no encuentra algo que acabo de escribir
 
 El índice no se refresca solo aunque `index_status` diga `ready` (`ready` = hay un índice, no que esté

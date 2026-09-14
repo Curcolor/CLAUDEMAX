@@ -46,13 +46,26 @@ ac_cbm_install() {
     hash -r 2>/dev/null || true
 }
 
+# Claude Code lanza el comando del MCP SIN shell: en Windows el `codebase-memory-mcp` que deja
+# npm en el PATH es un .cmd y falla al conectar. Se registra el lanzador Node del paquete
+# (`<npm root -g>/codebase-memory-mcp/bin.js`), que funciona igual en todos los SO.
+ac_cbm_lanzador() {
+    local raiz
+    raiz="$(npm root -g 2>/dev/null)" || return 1
+    [ -f "$raiz/codebase-memory-mcp/bin.js" ] || return 1
+    ac_ruta_nativa "$raiz/codebase-memory-mcp/bin.js"
+}
+
 ac_cbm_register_mcp() {
-    if [ "${DRY_RUN:-0}" != "1" ] && ! command -v codebase-memory-mcp >/dev/null 2>&1; then
-        ac_warn "codebase-memory-mcp no está en el PATH — se omite el registro del MCP."
+    local lanzador
+    if [ "${DRY_RUN:-0}" = "1" ]; then
+        lanzador="$(ac_cbm_lanzador 2>/dev/null || printf '%s' "<npm root -g>/codebase-memory-mcp/bin.js")"
+    elif ! lanzador="$(ac_cbm_lanzador)"; then
+        ac_warn "No se encontró <npm root -g>/codebase-memory-mcp/bin.js — se omite el registro del MCP."
         return 0
     fi
     if [ "$AC_HAS_CLAUDE" != "1" ]; then
-        ac_warn "El CLI claude no está en el PATH — registra el MCP a mano: claude mcp add -s user codebase-memory -- codebase-memory-mcp"
+        ac_warn "El CLI claude no está en el PATH — registra el MCP a mano: claude mcp add -s user codebase-memory -- node \"$lanzador\""
         return 0
     fi
     if claude mcp list 2>/dev/null | grep -qi '^codebase-memory\b'; then
@@ -63,6 +76,6 @@ ac_cbm_register_mcp() {
             return 0
         fi
     fi
-    ac_run claude mcp add -s user codebase-memory -- codebase-memory-mcp \
+    ac_run claude mcp add -s user codebase-memory -- node "$lanzador" \
         || ac_warn "claude mcp add falló para codebase-memory — agrégalo manualmente."
 }

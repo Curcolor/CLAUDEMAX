@@ -64,12 +64,7 @@ ac_graphify_limpiar_claude_install() {
     fi
 }
 
-# Ruta nativa para argumentos que Claude Code ejecutará sin shell (en Git Bash, /c/... no
-# sirve para node.exe). cygpath existe en Git Bash/MSYS; en otros SO la ruta ya es nativa.
-ac_ruta_nativa() {
-    if command -v cygpath >/dev/null 2>&1; then cygpath -w "$1"; else printf '%s' "$1"; fi
-}
-
+# ac_ruta_nativa (ruta Windows para el comando del MCP) vive en bin/lib/claude-config.sh.
 ac_graphify_install_mcp() {
     local dst="$CLAUDE_CONFIG_DIR/mcp"
     ac_run mkdir -p "$dst"
