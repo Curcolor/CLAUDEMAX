@@ -54,7 +54,7 @@ ONLY=()
 SKIP=()
 AC_CONFIG_DIR_OVERRIDE=""
 
-ALL_COMPONENTS=(rtk figma ui-ux dev-skills rag graphify ponytail cyber-neo parsers rules)
+ALL_COMPONENTS=(rtk figma ui-ux dev-skills rag graphify codebase-memory ponytail cyber-neo parsers rules)
 
 usage() {
     cat <<EOF
@@ -179,6 +179,10 @@ component_run() {
             . "$AC_REPO_DIR/bin/components/graphify.sh"
             ac_component_graphify
             ;;
+        codebase-memory)
+            . "$AC_REPO_DIR/bin/components/codebase-memory.sh"
+            ac_component_codebase_memory
+            ;;
         ponytail)
             . "$AC_REPO_DIR/bin/components/ponytail.sh"
             ac_component_ponytail
@@ -234,7 +238,8 @@ ${AC_GREEN}Listo.${AC_NC} Próximos pasos:
        /swebok /pmbok /legal-colombia /iso-calidad /iso-seguridad /iso-hse
        /modelo-negocio /scrum /conventional-commits /book-to-skill
        /mcp → rag            — búsqueda semántica sobre tu V.A.U.L.T (rag_query)
-       graphify extract .    — grafo de conocimiento del proyecto (Graphify)
+       graphify extract . --code-only   — grafo de conocimiento del proyecto (lo sirve el MCP graphify)
+       codebase-memory-mcp cli index_repository --repo-path <ruta> --mode moderate   — índice de código para search_graph/trace_path
        /ponytail-review      — revisa el diff con la escalera de minimalismo (Ponytail)
        /ponytail-audit       — audita el repo completo con la misma escalera (Ponytail)
        /cyber-neo <ruta>     — auditoría de seguridad OWASP/CWE

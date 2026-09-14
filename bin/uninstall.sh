@@ -11,8 +11,13 @@
 #   - skill repo-map
 #   - registros de los MCP Figma + magic en Claude Code
 #   - directorio de la skill ui-ux-pro-max + hook PostToolUse de auditoría de UI (ui-audit.mjs)
+#   - los cinco hooks de `rules` + recordar-lib.mjs + su estado (las reglas y recordatorios del
+#     workspace se conservan)
+#   - los MCP `graphify` (envoltorio en $CLAUDE_CONFIG_DIR/mcp/) y `codebase-memory`
+#     (`npm uninstall -g codebase-memory-mcp`)
 #
 # NO elimina:
+#   - el paquete pip graphifyy ni los índices de ~/.cache/codebase-memory-mcp/
 #   - archivos por-repo que el --with-init de una instalación antigua de Caveman pudo haber escrito
 #   - framer-motion / gsap del node_modules de tu proyecto — desinstálalos tú mismo con npm si quieres
 
@@ -119,15 +124,19 @@ ac_run rm -f "$CLAUDE_CONFIG_DIR/state/recordar.json"
 ac_run rm -f "$CLAUDE_CONFIG_DIR/state/recordar.log"
 ac_dim "  (se conservan: las reglas y los recordatorios de <RAG_ROOT>/.claude/ — puedes haberlos editado)"
 
-# --- Graphify (registro en Claude Code: sección de CLAUDE.md + hook PreToolUse, por-proyecto)
-ac_step "Graphify (registro en Claude Code)"
-if command -v graphify >/dev/null 2>&1; then
-    ac_run bash -c "cd '$AC_REPO_DIR' && graphify claude uninstall" \
-        || ac_warn "graphify claude uninstall falló — quita a mano la sección '## graphify' de CLAUDE.md y el hook PreToolUse de .claude/settings.json en cada proyecto donde lo hayas activado."
+# --- Graphify (MCP envoltorio a nivel usuario) y codebase-memory (npm -g + MCP)
+ac_step "Graphify y codebase-memory (MCPs)"
+if [ "$AC_HAS_CLAUDE" = "1" ]; then
+    ac_run claude mcp remove graphify || true
+    ac_run claude mcp remove codebase-memory || true
 else
-    ac_warn "El binario graphify no está en el PATH — no se puede desregistrar automáticamente. Si lo instalaste con pip --user, revisa INSTALL.md > Troubleshooting."
+    ac_warn "El CLI claude no está en el PATH — quita a mano los MCP 'graphify' y 'codebase-memory' (claude mcp remove ...)."
 fi
-ac_dim "  (se conserva: el paquete pip graphifyy — es una dependencia de sistema, igual que los parsers. Desinstálalo a mano con 'pip uninstall graphifyy' si quieres.)"
+ac_run rm -f "$CLAUDE_CONFIG_DIR/mcp/graphify-auto.mjs" "$CLAUDE_CONFIG_DIR/mcp/graphify-auto-lib.mjs"
+if command -v npm >/dev/null 2>&1; then
+    ac_run npm uninstall -g codebase-memory-mcp || ac_warn "npm uninstall -g codebase-memory-mcp falló — hazlo a mano."
+fi
+ac_dim "  (se conservan: el paquete pip graphifyy —dependencia de sistema, 'pip uninstall graphifyy' si quieres— y los índices de ~/.cache/codebase-memory-mcp/)"
 
 # --- Ponytail (plugin de marketplace de Claude Code)
 # Orden importa: el script de limpieza (flags + statusLine) vive DENTRO del plugin, así
