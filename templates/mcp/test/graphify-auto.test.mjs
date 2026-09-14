@@ -64,9 +64,11 @@ test("textoEstado: sin grafo, sin servidor, ambos", () => {
 const WRAPPER = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "graphify-auto.mjs");
 
 // Lanza el envoltorio, le manda mensajes JSON-RPC por stdin y devuelve las respuestas parseadas.
-function hablar(mensajes, env) {
+// cwd = un directorio SIN graphify-out/ (el repo de CLAUDEMAX puede tener el suyo y la caída al
+// cwd lo encontraría, rompiendo el aislamiento de la prueba).
+function hablar(mensajes, env, cwd = os.tmpdir()) {
     return new Promise(resolve => {
-        const child = spawn(process.execPath, [WRAPPER], { env: { ...process.env, ...env }, stdio: ["pipe", "pipe", "pipe"] });
+        const child = spawn(process.execPath, [WRAPPER], { cwd, env: { ...process.env, ...env }, stdio: ["pipe", "pipe", "pipe"] });
         let out = "", err = "";
         child.stdout.on("data", d => { out += d; });
         child.stderr.on("data", d => { err += d; });
