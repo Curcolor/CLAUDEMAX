@@ -89,3 +89,54 @@ export function parseRecordatorio(texto, nombre) {
         cuerpo,
     };
 }
+
+// --- Coincidencia (spec §1) -----------------------------------------------------------------
+
+// Glob → RegExp sobre rutas normalizadas a "/": "**/" = cualquier prefijo de directorios
+// (incluido ninguno), "**" = cualquier cosa, "*" = un segmento, "?" = un carácter.
+export function globARegex(glob) {
+    const g = String(glob).replace(/\\/g, "/");
+    const esc = s => s.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+    let out = "";
+    for (let i = 0; i < g.length; i++) {
+        if (g.startsWith("**/", i)) { out += "(?:.*/)?"; i += 2; continue; }
+        if (g.startsWith("**", i)) { out += ".*"; i += 1; continue; }
+        if (g[i] === "*") { out += "[^/]*"; continue; }
+        if (g[i] === "?") { out += "[^/]"; continue; }
+        out += esc(g[i]);
+    }
+    return new RegExp(`^${out}$`, "i");
+}
+
+// Texto contra el que se prueban los `patrones` de un recordatorio, según la tool.
+export function textoDelTool(tool, input = {}) {
+    const norm = v => String(v ?? "").replace(/\\/g, "/");
+    switch (tool) {
+        case "Bash":
+        case "PowerShell":
+            return String(input.command ?? "");
+        case "Grep":
+            return [input.pattern, input.path].filter(Boolean).map(String).join(" ");
+        case "Glob":
+            return String(input.pattern ?? "");
+        case "Edit":
+        case "Write":
+        case "MultiEdit":
+        case "Read":
+            return norm(input.file_path);
+        default:
+            return "";
+    }
+}
+
+export function coincide(rec, tool, input = {}) {
+    if (!rec.ok || !rec.activo) return false;
+    if (!rec.tools.includes(tool)) return false;
+    if (rec.siempre.includes(tool)) return true;
+    if (!rec.patrones.length && !rec.rutas.length) return true;
+    const texto = textoDelTool(tool, input);
+    if (rec.patrones.some(re => re.test(texto))) return true;
+    const ruta = String(input.file_path ?? "").replace(/\\/g, "/");
+    if (ruta && rec.rutas.some(g => globARegex(g).test(ruta))) return true;
+    return false;
+}
