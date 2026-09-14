@@ -242,9 +242,9 @@ test("hook: sin coincidencia, stdin vacío, JSON roto y CLAUDEMAX_RECORDAR=0 →
 const TPL = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "templates", "recordatorios");
 
 test("templates/recordatorios: archivos exactos, los de fábrica válidos y activos, los ejemplos válidos e inactivos, sin 'Maestra' en los genéricos", () => {
-    assert.deepEqual(fs.readdirSync(TPL).sort(), ["_plantilla.md", "editar-vault.md", "ejemplos", "estandares-dotnet.md", "orden-herramientas.md", "pruebas-dotnet.md", "tocar-produccion.md"]);
+    assert.deepEqual(fs.readdirSync(TPL).sort(), ["_plantilla.md", "contexto-fuera-del-repo.md", "editar-vault.md", "ejemplos", "estandares-dotnet.md", "orden-herramientas.md", "pruebas-dotnet.md", "tocar-produccion.md"]);
     assert.deepEqual(fs.readdirSync(path.join(TPL, "ejemplos", "maestrasuite")).sort(), ["despliegue.md", "estandares-maestrasuite.md", "orden-busqueda.md", "rojos-suite-api.md"]);
-    for (const f of ["editar-vault.md", "estandares-dotnet.md", "orden-herramientas.md", "pruebas-dotnet.md", "tocar-produccion.md"]) {
+    for (const f of ["contexto-fuera-del-repo.md", "editar-vault.md", "estandares-dotnet.md", "orden-herramientas.md", "pruebas-dotnet.md", "tocar-produccion.md"]) {
         const texto = fs.readFileSync(path.join(TPL, f), "utf8");
         const r = parseRecordatorio(texto, f);
         assert.equal(r.ok, true, `${f}: ${r.motivo}`);
@@ -274,6 +274,9 @@ test("de fábrica: disparan con los eventos que deben", async () => {
         [{ tool_name: "Edit", tool_input: { file_path: "C:/repo/src/Main.xaml" } }, /ESTÁNDARES \.NET/],
         [{ tool_name: "Bash", tool_input: { command: "dotnet test tests/Api.Tests" } }, /VAS A CORRER UNA SUITE \.NET/],
         [{ tool_name: "PowerShell", tool_input: { command: "./db/probar-api.ps1" } }, /VAS A CORRER UNA SUITE \.NET/],
+        [{ tool_name: "Write", tool_input: { file_path: "C:\\w\\MiRepo\\CLAUDE.md" } }, /CONTEXTO FUERA DEL REPO/],
+        [{ tool_name: "Edit", tool_input: { file_path: "C:/w/MiRepo/.claude/CLAUDE.md" } }, /CONTEXTO FUERA DEL REPO/],
+        [{ tool_name: "Edit", tool_input: { file_path: "C:\\w\\V.A.U.L.T\\Decisiones\\x.md" } }, /NOTA DEL VAULT \(regla 9\)/],
     ];
     for (const [evento, re] of casos) {
         const r = await correrHook({ ...evento, cwd: TPL }, env);
@@ -283,6 +286,9 @@ test("de fábrica: disparan con los eventos que deben", async () => {
     for (const evento of [
         { tool_name: "Bash", tool_input: { command: "git status" } },
         { tool_name: "Edit", tool_input: { file_path: "C:/repo/README.md" } },
+        { tool_name: "Edit", tool_input: { file_path: "C:/w/.claude/proyectos/MiRepo.md" } },
+        { tool_name: "Write", tool_input: { file_path: "C:/Users/u/.claude/projects/p/memory/x.md" } },
+        { tool_name: "Edit", tool_input: { file_path: "C:/w/MiRepo/.claude/settings.local.json" } },
     ]) {
         const r = await correrHook({ ...evento, cwd: TPL }, env);
         assert.equal(r.stdout, "", JSON.stringify(evento));
