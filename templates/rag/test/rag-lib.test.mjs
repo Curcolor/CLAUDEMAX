@@ -220,7 +220,8 @@ test("analizarHubs: huérfanas (sin enlace desde Hubs/) y enlaces rotos", () => 
 });
 
 test("leerDocumento: contenido, ruta inválida fuera del vault, inexistente, tope", () => {
-    assert.match(leerDocumento(VAULT, "Decisiones/decision-a.md"), /^---\nproyecto: demo/);
+    // \r? porque con core.autocrlf=true el checkout deja el fixture en CRLF
+    assert.match(leerDocumento(VAULT, "Decisiones/decision-a.md"), /^---\r?\nproyecto: demo/);
     assert.equal(leerDocumento(VAULT, "../fuentes/app.txt"), "ruta inválida");
     assert.equal(leerDocumento(VAULT, "/etc/passwd"), "ruta inválida");
     assert.equal(leerDocumento(VAULT, "Decisiones/nada.md"), "no existe: Decisiones/nada.md");
