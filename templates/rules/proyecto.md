@@ -29,8 +29,9 @@ justificación, ábrelas en ese archivo. Resumen rápido para esta sesión:
    de IA equivalente.
 5. Tecnología nueva sin skill instalada → pregunta si crear/buscar una Skill 2.0.
 6. El RAG es la única memoria entre sesiones; no reinstales Context7 ni Claude-Mem.
-7. Toda nota nueva en el vault lleva el frontmatter de `categoria` (y `proyecto` cuando
-   aplique) de `V.A.U.L.T/_plantilla.md`.
+7. Toda nota nueva en el vault nace de `Plantillas/nota.md`, va en la carpeta de su género,
+   se enlaza desde su hub, y declara `fuentes:` si describe código y `reemplaza:` si sustituye
+   a otra.
 
 ## Contexto de {{PROYECTO}}
 

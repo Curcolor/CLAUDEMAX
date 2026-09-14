@@ -92,22 +92,24 @@ CLAUDEMAX/
 │   └── validate-skills.mjs  # verificador del contrato Skills 2.0 — ejecutar tras cualquier edición de skill
 └── templates/
     ├── vault/                   # semilla del vault de Obsidian V.A.U.L.T (se copia a <RAG_ROOT>/V.A.U.L.T)
-    │   ├── .obsidian/graph.json # un grupo de color por categoría + ejemplos de subcolor
-    │   ├── 00-Inbox/            # capturas sin clasificar (los parsers escriben aquí)
-    │   ├── Codigo/, Proyectos/, Organizacion/, Investigacion/, Aprendizaje/, Journal/
-    │   ├── _plantilla.md        # nota vacía con el frontmatter de taxonomía listo para copiar
-    │   └── README.md            # taxonomía de las 6 categorías
+    │   ├── .obsidian/           # graph.json (color por carpeta) + templates.json (carpeta Plantillas)
+    │   ├── Hubs/                # Bienvenida, Pendientes, un hub por carpeta, _proyecto.md (plantilla por proyecto)
+    │   ├── 00-Inbox/, Bitacoras/, Decisiones/, Conocimiento/, Aprendizaje/, Entrevistas/, Revisiones/,
+    │   │   Codigo/, Procesos/, Formales/, Superpowers/{Specs,Planes,Tareas,Sesiones}/
+    │   └── Plantillas/          # nota.md, bitacora.md, sesion.md, hub.md (fuera del índice)
     ├── rag/                     # semilla del stack R.A.G (se copia a <RAG_ROOT>/R.A.G)
     │   ├── docker-compose.yml   # pgvector/pgvector:pg17, puerto 5433
-    │   ├── schema.sql           # tabla chunks (+ categoria/proyecto/tags) + índices + hnsw
+    │   ├── schema.sql           # tablas documentos (vigencia) y chunks + migración + hnsw
     │   ├── .env.example, package.json, .gitignore
-    │   ├── rag.mjs              # CLI: init/ingest/query/reindex/status; taxonomía + backends conmutables
-    │   ├── ritual.mjs           # rituales manuales: init-proyecto / fin-dia / fin-ciclo (se instala junto a rag.mjs)
+    │   ├── rag.mjs              # CLI: init/ingest/query/reindex/status/salud
+    │   ├── rag-lib.mjs          # funciones puras (clasificación, frontmatter, troceado, firma, salud) — probadas en test/
+    │   ├── ritual.mjs           # rituales manuales: init-proyecto / fin-sesion / fin-dia / fin-ciclo (se instala junto a rag.mjs)
     │   ├── kaggle-embed.mjs     # backend de embeddings por lotes vía Kaggle (importado dinámicamente)
     │   ├── kaggle/              # plantillas del kernel que corre en Kaggle
     │   │   ├── kernel-metadata.json   # enable_gpu/enable_internet, dataset_sources
     │   │   └── embed_kernel.py        # BAAI/bge-m3 vía FlagEmbedding, corre en el T4 gratuito
-    │   └── mcp-server.mjs       # wrapper MCP stdio (rag_query/rag_status, con categoria/proyecto)
+    │   ├── mcp-server.mjs       # wrapper MCP stdio (rag_query/rag_leer/rag_status, con coleccion/proyecto)
+    │   └── test/                # node --test: unitarias + integración (se saltan sin Postgres)
     └── rules/                   # semilla de las reglas operativas (se copia a <RAG_ROOT>/.claude/)
         ├── CLAUDEMAX.md         # las 7 reglas operativas — se sobrescribe en cada instalación
         ├── CLAUDE.md            # archivo raíz mínimo (`@CLAUDEMAX.md`) — nunca pisa uno existente
@@ -451,7 +453,7 @@ Ejecuta el ritual de inicialización sobre esa carpeta — nunca sobrescribe nad
 node R.A.G/ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto]
 ```
 
-Crea `<ruta>/.claude/CLAUDEMAX.md` (la plantilla `templates/rules/proyecto.md` con sus marcadores sustituidos), `<ruta>/.claude/CLAUDE.md` (o le añade `@CLAUDEMAX.md` si el archivo ya existía) y la nota índice `V.A.U.L.T/Proyectos/<nombre>/00-indice.md`.
+Crea `<ruta>/.claude/CLAUDEMAX.md` (la plantilla `templates/rules/proyecto.md` con sus marcadores sustituidos), `<ruta>/.claude/CLAUDE.md` (o le añade `@CLAUDEMAX.md` si el archivo ya existía) y el hub del proyecto `V.A.U.L.T/Hubs/<nombre>.md` (desde `Hubs/_proyecto.md`).
 
 ### "Kaggle no arranca los kernels"
 

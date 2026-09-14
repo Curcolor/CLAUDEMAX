@@ -65,23 +65,24 @@ El cerebro RAG (`R.A.G/`) es la única fuente de retención de contexto entre se
 reinstales ni sugieras Context7 ni Claude-Mem: quedaron obsoletos frente al RAG propio de
 CLAUDEMAX y reintroducirlos duplica funcionalidad sin aportar nada.
 
-## 7. Taxonomía del vault
+## 7. Taxonomía y vigencia del vault
 
-Toda nota nueva que escribas en `V.A.U.L.T/` lleva el frontmatter de categoría definido
-en `V.A.U.L.T/_plantilla.md`: `categoria` (obligatoria, una de las seis oficiales) y
-`proyecto` (opcional, clave transversal que relaciona notas de distintas categorías). Sin
-ese frontmatter la nota queda mal clasificada en el grafo y en las búsquedas del RAG.
-Clasifica según qué es la nota, no según dónde ocurrió la conversación:
+Toda nota nueva en `V.A.U.L.T/` nace de `Plantillas/nota.md`. La **colección y la autoridad las da
+la carpeta**, no el frontmatter — guarda la nota donde corresponda a su género (`Decisiones/`,
+`Conocimiento/`, `Codigo/`, `Superpowers/Sesiones/`…; el hub de cada carpeta en `Hubs/` dice qué
+va y qué no). El frontmatter lleva `proyecto` (eje transversal) y `tags` libres.
 
-- `00-Inbox/` (`personal`, tag `personal/sesion`): continuidad entre sesiones de Claude
-  Code — qué se hizo, en qué punto se quedó, qué sigue. La escribe el ritual `fin-sesion`.
-- `Journal/` (`personal`, tag `personal/bitacora`): bitácora cronológica del trabajo
-  diario. La escribe el ritual `fin-dia`.
-- `Aprendizaje/` (`aprendizaje`): errores cometidos y su lección — postmortems de qué
-  falló, por qué, y cómo evitarlo. NO son apuntes de tecnologías ni tutoriales.
-- `Investigacion/` (`investigacion`): lo que se pregunta e investiga para decidir algo —
-  comparativas de herramientas, estilos de diseño, papers, PDFs parseados, transcripciones.
-- `Organizacion/` (`organizacion`): parte legal y conceptual de la organización — miembros
-  y roles, estatutos, contratos, marca, procesos internos, clientes.
-- `Codigo/` (`codigo`): repos, arquitectura, snippets, grafos de Graphify.
-- `Proyectos/` (`proyectos`): planes, decisiones, sprints, specs.
+Tres obligaciones al escribir:
+
+- **Enlázala desde su hub** en `Hubs/` — una nota sin enlace entrante es huérfana y `rag.mjs
+  salud` la lista.
+- **Si describe código o un documento, declara `fuentes:`** (rutas o globs relativos a la raíz
+  del workspace): así el RAG la marca CADUCA cuando esas fuentes cambian y la prosa no. Toda nota
+  de `Codigo/` lleva `fuentes:`.
+- **Si sustituye a una decisión o spec, declara `reemplaza: [nombre-de-la-vieja]`**; la vieja
+  no se borra, pero sale de la búsqueda por defecto. Si algo vence, `revisar: YYYY-MM-DD`.
+
+Al leer un resultado del RAG con `⚠ CADUCA`, verifica contra el código o el grafo antes de
+confiar; con `⚠ REEMPLAZADA`, lee la nota que la reemplaza. Regla de conflicto entre fuentes:
+decisiones > docs_formales/specs > entrevistas > conocimiento/aprendizaje/codigo > planes >
+bitacoras — gana la autoridad, no la fecha.
