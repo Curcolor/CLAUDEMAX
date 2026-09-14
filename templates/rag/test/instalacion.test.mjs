@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { localizarBash } from "../../../bin/wizard/detect.mjs";
+import { CABECERA_INDICE } from "../proyectos-lib.mjs";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const VAULT_TPL = path.join(REPO, "templates", "vault");
@@ -67,4 +68,21 @@ test("templates/rules/CLAUDEMAX.md v3: diez reglas, termina importando el índic
     // ningún @ fuera de backticks salvo el import final (Claude Code lo tomaría como import)
     const sinCodigo = t.replace(/`[^`\n]*`/g, "").replace(/<!--[\s\S]*?-->/g, "");
     assert.deepEqual(sinCodigo.match(/(^|\s)@\S+/gm).map(s => s.trim()), ["@proyectos/_indice.md"]);
+});
+
+test("rules.sh: ac_rules_install_templates crea proyectos/_indice.md con la cabecera del índice y no lo pisa", () => {
+    const bash = localizarBash();
+    if (!bash) { console.log("sin bash — se salta"); return; }
+    const ws = fs.mkdtempSync(path.join(os.tmpdir(), "rules-tpl-"));
+    const u = p => p.replace(/\\/g, "/");
+    const script = `export AC_REPO_DIR="${u(REPO)}" RAG_ROOT="${u(ws)}" && source "${u(REPO)}/bin/lib/log.sh" && source "${u(REPO)}/bin/components/rules.sh" && ac_rules_install_templates`;
+    const r = spawnSync(bash, ["-c", script], { encoding: "utf8" });
+    assert.equal(r.status, 0, r.stderr + r.stdout);
+    const indice = path.join(ws, ".claude", "proyectos", "_indice.md");
+    assert.equal(fs.readFileSync(indice, "utf8"), CABECERA_INDICE);
+    assert.ok(fs.existsSync(path.join(ws, ".claude", "CLAUDEMAX.md")));
+    fs.writeFileSync(indice, "EDITADO");
+    assert.equal(spawnSync(bash, ["-c", script], { encoding: "utf8" }).status, 0);
+    assert.equal(fs.readFileSync(indice, "utf8"), "EDITADO");
+    fs.rmSync(ws, { recursive: true, force: true });
 });

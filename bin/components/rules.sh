@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Reglas operativas + rituales de ciclo de vida (subproyectos E y D).
 #
-#   1. Copia templates/rules/ a <RAG_ROOT>/.claude/ (reglas del workspace).
+#   1. Copia templates/rules/ a <RAG_ROOT>/.claude/ (reglas del workspace) y crea
+#      .claude/proyectos/_indice.md si falta (el contexto por proyecto, que importa CLAUDEMAX.md).
 #      Nunca pisa un CLAUDE.md existente: solo le añade la línea @CLAUDEMAX.md si falta.
 #   2. Copia y registra los cinco hooks de cumplimiento y contexto:
 #        PreToolUse/Bash   → git-footer-guard.mjs  (bloquea footers de atribución IA)
@@ -47,6 +48,7 @@ ac_rules_install_templates() {
         ac_dim "\$ mkdir -p $dst"
         ac_dim "\$ cp $src/CLAUDEMAX.md $src/proyecto.md $dst/"
         ac_dim "\$ (CLAUDE.md: se crea si falta; si existe, solo se le añade '@CLAUDEMAX.md')"
+        ac_dim "\$ mkdir -p $dst/proyectos  (+ _indice.md con la cabecera, solo si falta)"
         return 0
     fi
 
@@ -65,6 +67,16 @@ ac_rules_install_templates() {
     else
         printf '\n@CLAUDEMAX.md\n' >> "$dst/CLAUDE.md"
         ac_info "  CLAUDE.md existente: se le añadió la línea @CLAUDEMAX.md al final."
+    fi
+
+    # Contexto por proyecto (spec reglas-contexto §1): proyectos/ es del usuario. El índice se crea
+    # con la cabecera si falta —CLAUDEMAX.md lo importa— y lo regenera `ritual.mjs init-proyecto`.
+    mkdir -p "$dst/proyectos"
+    if [ ! -f "$dst/proyectos/_indice.md" ]; then
+        printf '%s\n' "# Proyectos del workspace" "" 'Un archivo por proyecto en `.claude/proyectos/`. Para añadir uno: `node R.A.G/ritual.mjs init-proyecto <ruta>`.' > "$dst/proyectos/_indice.md"
+        ac_info "  proyectos/_indice.md creado (se llena con cada init-proyecto)"
+    else
+        ac_dim "  proyectos/ ya existe — se respeta"
     fi
 }
 

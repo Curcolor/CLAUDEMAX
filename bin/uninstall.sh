@@ -122,7 +122,7 @@ ac_run rm -f "$CLAUDE_CONFIG_DIR/state/loop-breaker.json"
 ac_run rm -f "$CLAUDE_CONFIG_DIR/state/skill-suggest.json"
 ac_run rm -f "$CLAUDE_CONFIG_DIR/state/recordar.json"
 ac_run rm -f "$CLAUDE_CONFIG_DIR/state/recordar.log"
-ac_dim "  (se conservan: las reglas y los recordatorios de <RAG_ROOT>/.claude/ — puedes haberlos editado)"
+ac_dim "  (se conservan: las reglas, los recordatorios y el contexto por proyecto (proyectos/) de <RAG_ROOT>/.claude/ — son tuyos)"
 
 # --- Graphify (MCP envoltorio a nivel usuario) y codebase-memory (npm -g + MCP)
 ac_step "Graphify y codebase-memory (MCPs)"

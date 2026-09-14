@@ -572,7 +572,7 @@ async function modoDesinstalar() {
     ui.tabla([
         ["Se elimina", "Se conserva"],
         ["Skills (superpowers, ui-ux-pro-max, cyber-neo, dev-skills, ...)", "Vault (V.A.U.L.T) y volumen de datos del RAG"],
-        ["4 hooks: reglas, rituales, auditoría de UI, rtk", "Reglas en <RAG_ROOT>/.claude/ (por si las editaste)"],
+        ["4 hooks: reglas, rituales, auditoría de UI, rtk", "Reglas, recordatorios y contexto por proyecto en <RAG_ROOT>/.claude/"],
         ["MCPs registrados: figma, rag, markitdown, y el plugin Graphify", "Dependencias de sistema (Docker, Ollama, Python, Java)"],
         ["El binario de rtk", "RTK.md y la referencia @RTK.md en tu CLAUDE.md"],
     ]);
