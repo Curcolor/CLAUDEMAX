@@ -13,49 +13,83 @@
 # Paquete PyPI: graphifyy (doble "y" — "graphify" a secas ya estaba tomado en PyPI).
 # Upstream: https://github.com/Graphify-Labs/graphify (Apache-2.0). Requiere Python 3.10+.
 #
-# `graphify claude install` registra Graphify POR PROYECTO, no globalmente: escribe una
-# sección "## graphify" en ./CLAUDE.md y un hook PreToolUse (matchers Bash|Grep y
-# Read|Glob → `graphify hook-guard search|read`) en ./.claude/settings.json del
-# directorio DESDE el que se ejecuta el comando — a diferencia del resto de componentes
-# de CLAUDEMAX, que escriben en $CLAUDE_CONFIG_DIR (global, para todos los proyectos).
-# Aquí lo ejecutamos en $AC_REPO_DIR (el propio repo de CLAUDEMAX, destino determinista
-# sin importar cómo se invocó bin/install.sh); para activarlo en cualquier otro proyecto,
-# ejecuta `graphify claude install` dentro de ese proyecto (ver README/INSTALL).
-# Instalado SIN --strict: el hook solo sugiere consultar el grafo antes de leer/grepear
-# en crudo, nunca bloquea una herramienta.
+# Registro en Claude Code: UN solo MCP `graphify` a nivel usuario, que apunta al envoltorio
+# templates/mcp/graphify-auto.mjs (copiado a $CLAUDE_CONFIG_DIR/mcp/). El envoltorio localiza
+# en cada sesión el graphify-out/graph.json del proyecto actual (CLAUDE_PROJECT_DIR, que Claude
+# Code pasa al MCP) y lanza el servidor real de graphify; sin grafo o sin graphify, sirve una
+# única tool `graphify_estado` que dice cómo arreglarlo. Ya NO se ejecuta `graphify claude
+# install`: su hook PreToolUse duplicaba al recordatorio `orden-herramientas` y escribía
+# CLAUDE.md + .claude/settings.json DENTRO del repo, contra la regla "contexto fuera de los
+# repos". Ver docs/superpowers/specs/2026-09-13-grafo-en-vivo-design.md.
 
 GRAPHIFY_PKG="graphifyy"
 GRAPHIFY_OLD_PLUGIN="understand-anything"
 
 ac_component_graphify() {
-    ac_step "Graphify — grafo de conocimiento del codebase (graphify-out/graph.json + graph.html)"
+    ac_step "Graphify — grafo de conocimiento del codebase + MCP graphify (envoltorio por proyecto)"
 
     ac_graphify_migrar_plugin_viejo
+    ac_graphify_limpiar_claude_install
 
     ac_graphify_ensure_python
     if ! ac_graphify_has_pip; then
-        ac_warn "pip no disponible — se omite Graphify. Instala Python y re-ejecuta --only graphify."
-        return 0
-    fi
-
-    ac_graphify_install_cli
-
-    if [ "${DRY_RUN:-0}" != "1" ] && ! command -v graphify >/dev/null 2>&1; then
-        ac_warn "graphify no está disponible en el PATH tras el intento de instalación — se omite el registro en Claude Code."
-        return 0
-    fi
-
-    ac_warn "Graphify registra un hook PreToolUse (matchers Bash|Grep y Read|Glob -> 'graphify hook-guard search|read') que SUGIERE consultar el grafo antes de leer/grepear en crudo. Se instala SIN --strict: nunca bloquea una herramienta, solo avisa."
-    ac_run bash -c "cd '$AC_REPO_DIR' && graphify claude install" \
-        || ac_warn "graphify claude install falló — ejecútalo manualmente dentro del proyecto que quieras integrar."
-    # El verbo cambia según el modo: en dry-run nada se ha escrito todavía, y afirmarlo
-    # sería mentirle al usuario sobre el estado real de su disco.
-    if [ "${DRY_RUN:-0}" = "1" ]; then
-        ac_dim "  Registro por-proyecto: escribiría en $AC_REPO_DIR/CLAUDE.md y $AC_REPO_DIR/.claude/settings.json."
+        ac_warn "pip no disponible — se omite la instalación del CLI de Graphify. El MCP se registra igual: dirá cómo instalarlo."
     else
-        ac_info "Registro por-proyecto: escrito en $AC_REPO_DIR/CLAUDE.md y $AC_REPO_DIR/.claude/settings.json."
+        ac_graphify_install_cli
     fi
-    ac_dim "  Para activarlo en otro proyecto: 'graphify claude install' dentro de él, y 'graphify extract .' para generar su grafo."
+
+    ac_graphify_install_mcp
+    ac_dim "  Genera el grafo de cada proyecto con 'graphify extract . --code-only' dentro del repo (sin API key de LLM, 'graphify .' falla con los .md)."
+}
+
+# Instalaciones anteriores de CLAUDEMAX corrían `graphify claude install` en el propio repo:
+# dejaba una sección "## graphify" en CLAUDE.md y un hook PreToolUse en .claude/settings.json.
+# Se retiran si están; si no, no se dice nada.
+ac_graphify_limpiar_claude_install() {
+    local md="$AC_REPO_DIR/CLAUDE.md" settings="$AC_REPO_DIR/.claude/settings.json"
+    if [ -f "$md" ] && grep -q '^## graphify' "$md"; then
+        ac_info "Retirando la sección '## graphify' que dejó 'graphify claude install' en $md"
+        if [ "${DRY_RUN:-0}" != "1" ]; then
+            MD_FILE="$md" node -e '
+                const fs = require("fs"); const f = process.env.MD_FILE;
+                const t = fs.readFileSync(f, "utf8");
+                const sin = t.replace(/^## graphify[\s\S]*?(?=^## |(?![\s\S]))/m, "").replace(/\n{3,}/g, "\n\n");
+                if (sin.trim()) fs.writeFileSync(f, sin); else fs.unlinkSync(f);
+            '
+        fi
+    fi
+    if [ -f "$settings" ] && grep -q 'graphify hook-guard' "$settings"; then
+        ac_info "Retirando el hook 'graphify hook-guard' de $settings"
+        [ "${DRY_RUN:-0}" = "1" ] || ac_remove_hook "$settings" "graphify hook-guard"
+    fi
+}
+
+# Ruta nativa para argumentos que Claude Code ejecutará sin shell (en Git Bash, /c/... no
+# sirve para node.exe). cygpath existe en Git Bash/MSYS; en otros SO la ruta ya es nativa.
+ac_ruta_nativa() {
+    if command -v cygpath >/dev/null 2>&1; then cygpath -w "$1"; else printf '%s' "$1"; fi
+}
+
+ac_graphify_install_mcp() {
+    local dst="$CLAUDE_CONFIG_DIR/mcp"
+    ac_run mkdir -p "$dst"
+    ac_run cp -f "$AC_REPO_DIR/templates/mcp/graphify-auto.mjs" "$dst/graphify-auto.mjs"
+    ac_run cp -f "$AC_REPO_DIR/templates/mcp/graphify-auto-lib.mjs" "$dst/graphify-auto-lib.mjs"
+
+    if [ "$AC_HAS_CLAUDE" != "1" ]; then
+        ac_warn "El CLI claude no está en el PATH — registra el MCP a mano: claude mcp add -s user graphify -- node $(ac_ruta_nativa "$dst/graphify-auto.mjs")"
+        return 0
+    fi
+    if claude mcp list 2>/dev/null | grep -qi '^graphify\b'; then
+        if [ "${FORCE:-0}" = "1" ]; then
+            ac_run claude mcp remove graphify || true
+        else
+            ac_info "El MCP graphify ya está registrado; se omite. Usa --force para re-agregarlo con el envoltorio."
+            return 0
+        fi
+    fi
+    ac_run claude mcp add -s user graphify -- node "$(ac_ruta_nativa "$dst/graphify-auto.mjs")" \
+        || ac_warn "claude mcp add falló para graphify — agrégalo manualmente."
 }
 
 # Best-effort: si el plugin equivocado de una instalación anterior de CLAUDEMAX sigue
