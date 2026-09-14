@@ -10,6 +10,11 @@ __pycache__/
 # .gitignore; esto cubre el caso de que alguien instale dentro del repo por error).
 node_modules/
 .env
+# Lo deja `npm install` al correr las pruebas de templates/rag; el instalador no lo copia.
+templates/rag/package-lock.json
+
+# Volcado que deja Git Bash al abortar.
+bash.exe.stackdump
 
 # Respaldos que deja el merger JSONC al tocar settings.json, y temporales de editor.
 *.bak
