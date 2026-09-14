@@ -98,10 +98,11 @@ if [ -f "$CLAUDE_CONFIG_DIR/settings.json" ]; then
     fi
 fi
 
-# --- Reglas y rituales: los cuatro hooks de cumplimiento y contexto.
-# Las reglas del workspace (<RAG_ROOT>/.claude/) NO se borran: el usuario pudo editarlas.
+# --- Reglas y rituales: los cinco hooks de cumplimiento y contexto.
+# Las reglas y los recordatorios del workspace (<RAG_ROOT>/.claude/) NO se borran: el usuario
+# pudo editarlos.
 ac_step "Reglas y rituales (hooks)"
-for h in git-footer-guard loop-breaker skill-suggest session-start; do
+for h in git-footer-guard loop-breaker skill-suggest session-start recordar; do
     ac_run rm -f "$CLAUDE_CONFIG_DIR/hooks/$h.mjs"
     if [ -f "$CLAUDE_CONFIG_DIR/settings.json" ]; then
         if [ "$DRY_RUN" = "1" ]; then
@@ -111,9 +112,12 @@ for h in git-footer-guard loop-breaker skill-suggest session-start; do
         fi
     fi
 done
+ac_run rm -f "$CLAUDE_CONFIG_DIR/hooks/recordar-lib.mjs"
 ac_run rm -f "$CLAUDE_CONFIG_DIR/state/loop-breaker.json"
 ac_run rm -f "$CLAUDE_CONFIG_DIR/state/skill-suggest.json"
-ac_dim "  (se conservan: las reglas de <RAG_ROOT>/.claude/ — puedes haberlas editado)"
+ac_run rm -f "$CLAUDE_CONFIG_DIR/state/recordar.json"
+ac_run rm -f "$CLAUDE_CONFIG_DIR/state/recordar.log"
+ac_dim "  (se conservan: las reglas y los recordatorios de <RAG_ROOT>/.claude/ — puedes haberlos editado)"
 
 # --- Graphify (registro en Claude Code: sección de CLAUDE.md + hook PreToolUse, por-proyecto)
 ac_step "Graphify (registro en Claude Code)"
