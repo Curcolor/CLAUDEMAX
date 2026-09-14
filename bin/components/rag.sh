@@ -277,6 +277,7 @@ ac_rag_register_mcp() {
             return 0
         fi
     fi
-    ac_run claude mcp add -s user rag -- node "$RAG_ROOT/R.A.G/mcp-server.mjs" \
+    # Ruta nativa: Claude Code lanza el comando sin shell (ac_ruta_nativa, bin/lib/claude-config.sh).
+    ac_run claude mcp add -s user rag -- node "$(ac_ruta_nativa "$RAG_ROOT/R.A.G/mcp-server.mjs")" \
         || ac_warn "claude mcp add falló para rag — agrégalo manualmente."
 }
