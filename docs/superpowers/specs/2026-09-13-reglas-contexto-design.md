@@ -26,8 +26,9 @@ orden de herramientas de contexto.
   al lanzar desde un subdirectorio se cargan "that directory's plus every ancestor's" `CLAUDE.md`;
   `@import` acepta rutas relativas al archivo que importa, hasta 4 saltos; los comentarios HTML
   de bloque se eliminan antes de entrar al contexto. Así una sesión en `<RAG_ROOT>/MiRepo/` carga
-  `<RAG_ROOT>/.claude/CLAUDE.md` → `@CLAUDEMAX.md` → `@proyectos/_indice.md` → `@proyectos/MiRepo.md`
-  (3 saltos), sin hook ni configuración por repo.
+  `<RAG_ROOT>/.claude/CLAUDE.md` → `@CLAUDEMAX.md` → `@proyectos/_indice.md` → `@MiRepo.md`
+  (3 saltos; el último relativo a `proyectos/`, porque `@ruta` se resuelve desde el archivo que
+  importa), sin hook ni configuración por repo.
 - **Un archivo por proyecto, no una sección:** el `CLAUDE.md` único del setup de trabajo mezcla
   reglas, layout del workspace y cinco secciones de MaestraSuite; separar reglas (`CLAUDEMAX.md`,
   del instalador) de contexto (`proyectos/<n>.md`, del usuario) permite reinstalar sin pisar nada.
@@ -63,9 +64,12 @@ orden de herramientas de contexto.
 
   Un archivo por proyecto en `.claude/proyectos/`. Para añadir uno: `node R.A.G/ritual.mjs init-proyecto <ruta>`.
 
-  - **MiRepo** — `MiRepo/` — API de catálogos en .NET 8. @proyectos/MiRepo.md
-  - **otro-repo** — `Herramientas/otro-repo/` — (sin descripción). @proyectos/otro-repo.md
+  - **MiRepo** — `MiRepo` — API de catálogos en .NET 8. @MiRepo.md
+  - **otro-repo** — `Herramientas/otro-repo` — (sin descripción) @otro-repo.md
   ```
+
+  Los imports van **sin** `proyectos/`: Claude Code resuelve `@ruta` relativa al archivo que la
+  contiene, y `_indice.md` ya vive en `proyectos/`.
 
   El instalador crea `proyectos/` y un `_indice.md` con solo la cabecera si faltan, para que el
   import de `CLAUDEMAX.md` nunca apunte a un archivo inexistente.
@@ -132,7 +136,9 @@ node R.A.G/ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion te
                                           [--sin-indexar] [--sin-gitignore] [--vault ruta]
 ```
 
-`RAG_ROOT` = el padre del directorio del script (`R.A.G/..`), misma convención que el vault.
+`RAG_ROOT` = `resolverRagRoot(HERE)` de `rag-lib.mjs` (variable `RAG_ROOT` o el padre de `R.A.G/`),
+igual que `rag.mjs`. Las funciones puras (slug, marcadores, índice, `.gitignore`, detección del
+diseño anterior) viven en `templates/rag/proyectos-lib.mjs` para probarlas sin procesos.
 Pasos, en orden; cada uno imprime una línea `ritual: …` diciendo qué hizo o por qué no:
 
 1. **`proyectos/<slug>.md`** desde `proyecto.md` (localizada como hoy: `<RAG_ROOT>/.claude/proyecto.md`
@@ -144,8 +150,11 @@ Pasos, en orden; cada uno imprime una línea `ritual: …` diciendo qué hizo o 
 3. **`Hubs/<Proyecto>.md`** desde `Hubs/_proyecto.md` — igual que hoy (se respeta si existe).
 4. **`.gitignore` del repo** (solo si `<ruta>/.git` existe y no se pasó `--sin-gitignore`):
    añade al final, bajo el comentario `# CLAUDEMAX: el contexto de Claude vive en el workspace, no en el repo`,
-   las líneas `CLAUDE.md`, `CLAUDE.local.md` y `.claude/` que falten (comparación por línea
-   exacta, sin duplicar el comentario si ya está). Idempotente. Crea el `.gitignore` si no existe.
+   las líneas `/CLAUDE.md`, `/CLAUDE.local.md` y `/.claude/` que falten — **ancladas a la raíz**:
+   sin ancla, `CLAUDE.md` ignoraría también archivos legítimos en subcarpetas (el propio CLAUDEMAX
+   versiona `templates/rules/CLAUDE.md`). Una línea equivalente sin ancla ya presente (`CLAUDE.md`,
+   `.claude/`, `.claude`) cuenta como hecha. Sin duplicar el comentario. Idempotente. Crea el
+   `.gitignore` si no existe.
 5. **Layout viejo:** si existe `<ruta>/.claude/CLAUDEMAX.md` y su primera línea de contenido
    empieza por `# Reglas de CLAUDEMAX —` (cabecera de la plantilla vieja), avisa: "diseño
    anterior: el contexto va ahora en `<RAG_ROOT>/.claude/proyectos/<slug>.md`; copia lo que
@@ -184,6 +193,9 @@ export function extraerGraphify(rutaRepo, { env, spawn })        // { ok, codigo
   `-c "import graphify"`, como hace `graphify-auto-lib.mjs`) → `null`.
 - Los ejecutores reciben `spawn` inyectable (por defecto `spawnSync`) para probar sin lanzar nada
   real; devuelven `aviso` con el texto de instalación cuando el resolver da `null`.
+- En Windows `buscarEnPath` solo acepta `.exe`/`.cmd`/`.bat` (un archivo sin extensión, como los
+  shims de pip, no se puede lanzar desde Node), y `resolverCodebaseMemory` prefiere `node bin.js`
+  a un `.cmd` para no pasar por el shell.
 - `buscarEnPath` se duplica desde `graphify-auto-lib.mjs` (12 líneas): esa lib se instala en
   `$CLAUDE_CONFIG_DIR/mcp/` y esta en `R.A.G/`; no comparten directorio y ninguna puede depender
   del repo.
@@ -237,6 +249,11 @@ excluir:
   - "**/.claude/hooks/**"
   - "**/.claude/skills/**"
   - "**/.claude/mcp/**"
+  - "**/.claude/projects/**"      # memoria nativa de Claude Code: dispararía en cada memoria
+  - "**/.claude/plans/**"
+  - "**/.claude/state/**"
+  - "**/.claude/agents/**"
+  - "**/.claude/commands/**"
   - "**/.claude/settings*.json"
   - "**/.claude/CLAUDEMAX.md"
   - "**/.claude/proyecto.md"
@@ -255,11 +272,13 @@ dispara — ni con `siempre`. `_plantilla.md` lo documenta. `parseRecordatorio` 
 
 ### 6.2 `session-start.mjs`
 
-Tras detectar el proyecto: si el cwd está dentro de un repo git cuyo ancestro (hasta 4 niveles)
-tiene `.claude/proyectos/` y no existe `proyectos/<slug>.md`, añade al bloque de contexto una
-línea: `Sin contexto de proyecto para "<n>": corre node <RAG_ROOT>/R.A.G/ritual.mjs init-proyecto .`.
+Tras detectar el proyecto: si el cwd está dentro de un repo git cuyo ancestro (hasta 4 niveles,
+sin contar la raíz del propio repo) tiene `.claude/proyectos/`, y ningún archivo de ahí describe
+el repo — ni `proyectos/<slug>.md` ni un `proyectos/*.md` cuyo `ruta:` sea la del repo (relativa
+al workspace o absoluta; cubre `init-proyecto --proyecto otro-nombre`) —, añade al bloque de
+contexto una línea: `Sin contexto de proyecto para "<n>": corre node <RAG_ROOT>/R.A.G/ritual.mjs init-proyecto <ruta>`.
 Sin `.claude/proyectos/` arriba (workspace sin instalar) no dice nada. El slug se calcula con la
-misma función que `ritual.mjs` (duplicada: el hook no importa de `R.A.G/`).
+misma función que `proyectos-lib.mjs` (duplicada: el hook no importa de `R.A.G/`).
 
 ### 6.3 Skill `rituales` §2
 
@@ -275,7 +294,7 @@ se dejan vacías** hasta que haya algo real — no inventar. Recordar el tope de
   <RAG_ROOT>/.claude/proyectos` y crea `_indice.md` con la cabecera de la sección 1 si falta
   (nunca lo pisa: lo regenera `init-proyecto`). `ac_rules_recordatorios` ya copia cualquier `.md`
   nuevo de `templates/recordatorios/` si falta — el recordatorio 6.1 entra sin cambios.
-- `bin/components/rag.sh`: copia `indices-lib.mjs` junto a `rag-lib.mjs` y `ritual.mjs`.
+- `bin/components/rag.sh`: copia `proyectos-lib.mjs` e `indices-lib.mjs` junto a `rag-lib.mjs` y `ritual.mjs`.
 - `bin/uninstall.sh`: no toca `proyectos/` (contenido del usuario); lo dice en el resumen final
   junto al vault.
 - Sin componente nuevo; `ALL_COMPONENTS` no cambia.
@@ -283,13 +302,13 @@ se dejan vacías** hasta que haya algo real — no inventar. Recordar el tope de
 ## 8. Pruebas (`node:test`, sin base de datos, sin red)
 
 - **`templates/rag/test/ritual.test.mjs`** — workspace temporal `ws/` con `R.A.G/` (copia de
-  `ritual.mjs`, `rag-lib.mjs`, `indices-lib.mjs`), `.claude/proyecto.md`, `V.A.U.L.T/Hubs/_proyecto.md`
+  `ritual.mjs`, `rag-lib.mjs`, `proyectos-lib.mjs`, `indices-lib.mjs`), `.claude/proyecto.md`, `V.A.U.L.T/Hubs/_proyecto.md`
   y un repo `ws/MiRepo/` con `.git/` vacío (basta el directorio). Se ejecuta `ritual.mjs` como
   proceso hijo con `execFile` (lección del sub-proyecto 1) y siempre `--sin-indexar` salvo la
   prueba de índices:
   1. crea `.claude/proyectos/MiRepo.md` con todos los marcadores sustituidos (ninguna `{{` en el
      resultado), frontmatter `proyecto/ruta/descripcion/inicializado`, `ruta: MiRepo`;
-  2. `_indice.md` lista el proyecto con su `@proyectos/MiRepo.md`; tras un segundo
+  2. `_indice.md` lista el proyecto con su `@MiRepo.md`; tras un segundo
      `init-proyecto ws/Otro Repo --descripcion "x"` lista dos, el segundo como `Otro-Repo.md` y
      `**Otro Repo**`;
   3. `.gitignore` de `MiRepo/` contiene el comentario y las tres líneas; segunda ejecución no
@@ -309,7 +328,15 @@ se dejan vacías** hasta que haya algo real — no inventar. Recordar el tope de
 - **`hooks/test/recordar.test.mjs`** — `excluir`: recordatorio con `rutas: ["**/.claude/**"]` y
   `excluir: ["**/.claude/proyectos/**"]` dispara para `/ws/repo/.claude/CLAUDE.md` y no para
   `/ws/.claude/proyectos/x.md`; `excluir` gana sobre `siempre`; sin `excluir` → `[]`.
-- **`hooks/test/session-start`**: no hay suite del hook; se verifica a mano con `pwd -W` (lección d).
+- **`templates/rag/test/proyectos-lib.test.mjs`** — slug (espacios, tildes, extremos), ruta para el
+  índice (relativa/absoluta/`.`), marcadores, `leerProyecto` con CRLF, `generarIndice`,
+  `completarGitignore` (vacío, sin salto final, idempotente, equivalentes), `esClaudemaxViejo`, y
+  la plantilla `proyecto.md` v2.
+- **`hooks/test/session-start.test.mjs`** — repo temporal con `git init`: sin `.claude/proyectos/`
+  arriba → sin salida; con él → aviso; con `proyectos/api.md` de `ruta: MiRepo` → sin salida; con
+  `proyectos/MiRepo.md` → sin salida.
+- **`rules.sh`** — `ac_rules_install_templates` en bash aislado crea `proyectos/_indice.md` con la
+  cabecera exacta y no lo pisa en la segunda pasada.
 - **Instalador:** `bin/wizard/test-componentes.mjs` sigue en verde; dry-run de `--only rules`
   muestra `mkdir -p …/.claude/proyectos`; `validate-skills.mjs` en verde tras editar `rituales`.
 
