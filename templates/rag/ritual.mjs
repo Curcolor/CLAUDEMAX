@@ -4,7 +4,7 @@
 // a la base de datos. Documentado por la skill skills/rituales.
 //
 //   node ritual.mjs                                                       ayuda
-//   node ritual.mjs init-proyecto <ruta> [--proyecto n] [--descripcion t] [--vault r]
+//   node ritual.mjs init-proyecto <ruta> [--proyecto n] [--descripcion t] [--sin-indexar] [--sin-gitignore] [--vault r]
 //   node ritual.mjs fin-sesion [--resumen "texto"] [--proyecto n] [--siguiente "texto"] [--vault r]
 //   node ritual.mjs fin-dia [--resumen "texto"] [--vault ruta]
 //   node ritual.mjs fin-ciclo [--ciclo nombre] [--proyecto nombre] [--si] [--vault ruta]
@@ -17,6 +17,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { resolverRagRoot } from "./rag-lib.mjs";
+import * as proy from "./proyectos-lib.mjs";
+import { indexarCodebaseMemory, extraerGraphify } from "./indices-lib.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 loadDotEnv(path.join(HERE, ".env"));
@@ -84,91 +87,81 @@ function rutaLibre(dir, base) {
     return candidato;
 }
 
-function sustituirMarcadores(texto, valores) {
-    let out = texto;
-    for (const [clave, valor] of Object.entries(valores)) {
-        out = out.split(`{{${clave}}}`).join(valor);
-    }
-    return out;
-}
-
-// El comentario HTML inicial de proyecto.md documenta los marcadores para quien EDITA la
-// plantilla en el repo — no es contenido del archivo instanciado. Se quita antes de escribir
-// el CLAUDEMAX.md final; si no hay comentario de cabecera (plantilla ya editada sin él), no
-// cambia nada.
-function quitarComentarioCabecera(texto) {
-    return texto.replace(/^<!--[\s\S]*?-->\s*\n+/, "");
-}
-
-// Localiza templates/rules/proyecto.md en los dos layouts posibles:
+// Plantilla de .claude/proyectos/<nombre>.md en los dos layouts posibles:
 //   - instalado:  <RAG_ROOT>/.claude/proyecto.md   (rules.sh copia templates/rules/ ahí)
 //   - repo (dev): templates/rules/proyecto.md      (hermano de templates/rag/, este archivo)
-function localizarPlantillaProyecto() {
+function localizarPlantillaProyecto(ragRoot) {
     const candidatos = [
-        path.join(HERE, "..", ".claude", "proyecto.md"),
+        path.join(ragRoot, ".claude", "proyecto.md"),
         path.join(HERE, "..", "rules", "proyecto.md"),
     ];
-    for (const c of candidatos) {
-        if (fs.existsSync(c)) return c;
+    return candidatos.find(c => fs.existsSync(c)) || null;
+}
+
+// proyectos/_indice.md se regenera entero desde el frontmatter de cada proyectos/*.md.
+function regenerarIndice(proyectosDir) {
+    const entradas = [];
+    for (const f of fs.readdirSync(proyectosDir).filter(f => f.endsWith(".md") && !f.startsWith("_")).sort()) {
+        const p = proy.leerProyecto(fs.readFileSync(path.join(proyectosDir, f), "utf8"), f);
+        if (!p.legible) console.warn(`ritual: aviso — ${f} no tiene frontmatter con \`proyecto:\`; entra en el índice con valores por defecto.`);
+        entradas.push(p);
     }
-    return null;
+    const indice = path.join(proyectosDir, "_indice.md");
+    fs.writeFileSync(indice, proy.generarIndice(entradas), "utf8");
+    console.log(`ritual: regenerado ${indice} (${entradas.length} proyecto${entradas.length === 1 ? "" : "s"}).`);
 }
 
 // --- init-proyecto ------------------------------------------------------------------------
+// El contexto del proyecto vive en <RAG_ROOT>/.claude/proyectos/, nunca dentro del repo (regla 6
+// de CLAUDEMAX.md; spec docs/superpowers/specs/2026-09-13-reglas-contexto-design.md).
 
 function cmdInitProyecto(rutaArg, opts) {
     if (!rutaArg) {
-        console.error("ritual: falta <ruta> — uso: ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto] [--vault ruta]");
+        console.error("ritual: falta <ruta> — uso: ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto] [--sin-indexar] [--sin-gitignore] [--vault ruta]");
         process.exitCode = 1;
         return;
     }
     const ruta = path.resolve(rutaArg);
     fs.mkdirSync(ruta, { recursive: true });
-    const proyecto = opts.proyecto || path.basename(ruta);
-    const descripcion = opts.descripcion || "(sin descripción)";
+    const proyecto = String(opts.proyecto || path.basename(ruta)).trim();
+    const descripcion = String(opts.descripcion || "(sin descripción)").replace(/\s+/g, " ").trim();
+    const ragRoot = resolverRagRoot(HERE);
     const vaultDir = resolveVault(opts.vault);
     const fecha = hoyISO();
+    const slug = proy.slugProyecto(proyecto);
+    const proyectosDir = path.join(ragRoot, ".claude", "proyectos");
+    fs.mkdirSync(proyectosDir, { recursive: true });
 
-    const claudeDir = path.join(ruta, ".claude");
-    fs.mkdirSync(claudeDir, { recursive: true });
-
-    // 1. .claude/CLAUDEMAX.md desde templates/rules/proyecto.md, marcadores sustituidos.
-    const claudemaxDest = path.join(claudeDir, "CLAUDEMAX.md");
-    if (fs.existsSync(claudemaxDest)) {
-        console.log(`ritual: ${claudemaxDest} ya existe — se respeta, no se sobrescribe.`);
+    // 1. .claude/proyectos/<slug>.md — el contexto del proyecto, fuera del repo.
+    const contextoPath = path.join(proyectosDir, `${slug}.md`);
+    if (fs.existsSync(contextoPath)) {
+        const previo = proy.leerProyecto(fs.readFileSync(contextoPath, "utf8"), `${slug}.md`);
+        if (previo.legible && previo.nombre !== proyecto) {
+            console.warn(`ritual: aviso — ${contextoPath} ya existe y es de "${previo.nombre}": el nombre "${proyecto}" da el mismo archivo. Se respeta; usa --proyecto con otro nombre.`);
+        } else {
+            console.log(`ritual: ${contextoPath} ya existe — se respeta, no se sobrescribe.`);
+        }
     } else {
-        const plantillaPath = localizarPlantillaProyecto();
+        const plantillaPath = localizarPlantillaProyecto(ragRoot);
         if (!plantillaPath) {
-            console.warn("ritual: aviso — no se encontró templates/rules/proyecto.md (ni en el layout instalado <RAG_ROOT>/.claude/ ni en el del repo templates/rules/); se omite CLAUDEMAX.md y se continúa con el resto de pasos.");
+            console.warn("ritual: aviso — no se encontró la plantilla proyecto.md (ni en <RAG_ROOT>/.claude/ ni en templates/rules/); se omite el contexto del proyecto y se continúa.");
         } else {
-            const plantilla = quitarComentarioCabecera(fs.readFileSync(plantillaPath, "utf8"));
-            const contenido = sustituirMarcadores(plantilla, {
+            const contenido = proy.sustituirMarcadores(fs.readFileSync(plantillaPath, "utf8"), {
                 PROYECTO: proyecto,
-                FECHA: fecha,
-                VAULT: vaultDir,
-                RAG: HERE,
+                RUTA: proy.rutaParaIndice(ragRoot, ruta),
+                RUTA_ABS: ruta.replace(/\\/g, "/"),
                 DESCRIPCION: descripcion,
+                FECHA: fecha,
             });
-            fs.writeFileSync(claudemaxDest, contenido, "utf8");
-            console.log(`ritual: creado ${claudemaxDest}`);
+            const sueltos = proy.marcadoresSinSustituir(contenido);
+            if (sueltos.length) console.warn(`ritual: aviso — la plantilla tiene marcadores desconocidos sin sustituir: ${sueltos.join(", ")}`);
+            fs.writeFileSync(contextoPath, contenido, "utf8");
+            console.log(`ritual: creado ${contextoPath}`);
         }
     }
 
-    // 2. .claude/CLAUDE.md — mínimo, solo @CLAUDEMAX.md; si ya existe, añade la línea si falta.
-    const claudeMdDest = path.join(claudeDir, "CLAUDE.md");
-    if (!fs.existsSync(claudeMdDest)) {
-        fs.writeFileSync(claudeMdDest, "@CLAUDEMAX.md\n", "utf8");
-        console.log(`ritual: creado ${claudeMdDest}`);
-    } else {
-        const actual = fs.readFileSync(claudeMdDest, "utf8");
-        if (/^@CLAUDEMAX\.md\s*$/m.test(actual)) {
-            console.log(`ritual: ${claudeMdDest} ya existe y ya referencia @CLAUDEMAX.md — se respeta.`);
-        } else {
-            const sep = actual.endsWith("\n") ? "" : "\n";
-            fs.writeFileSync(claudeMdDest, actual + sep + "@CLAUDEMAX.md\n", "utf8");
-            console.log(`ritual: ${claudeMdDest} ya existía sin @CLAUDEMAX.md — se añadió la línea (contenido previo intacto).`);
-        }
-    }
+    // 2. proyectos/_indice.md, que CLAUDEMAX.md importa.
+    regenerarIndice(proyectosDir);
 
     // 3. Hub del proyecto en Hubs/<Proyecto>.md desde Hubs/_proyecto.md (plantilla del vault).
     const hubsDir = path.join(vaultDir, "Hubs");
@@ -180,7 +173,7 @@ function cmdInitProyecto(rutaArg, opts) {
         const plantillaHub = path.join(hubsDir, "_proyecto.md");
         let contenido;
         if (fs.existsSync(plantillaHub)) {
-            contenido = sustituirMarcadores(fs.readFileSync(plantillaHub, "utf8"), {
+            contenido = proy.sustituirMarcadores(fs.readFileSync(plantillaHub, "utf8"), {
                 PROYECTO: proyecto, FECHA: fecha, DESCRIPCION: descripcion, RUTA: ruta,
             });
         } else {
@@ -194,7 +187,41 @@ function cmdInitProyecto(rutaArg, opts) {
         console.log(`ritual: creado el hub ${hubPath} — enlázalo desde Hubs/Bienvenida.md (sección Negocio).`);
     }
 
-    console.log(`ritual: init-proyecto completo para "${proyecto}".`);
+    // 4. .gitignore del repo: CLAUDE.md, CLAUDE.local.md y .claude/ anclados a la raíz.
+    if (opts["sin-gitignore"]) {
+        console.log("ritual: --sin-gitignore — no se toca el .gitignore del repo.");
+    } else if (!fs.existsSync(path.join(ruta, ".git"))) {
+        console.log(`ritual: ${ruta} no es un repo git — no se toca ningún .gitignore.`);
+    } else {
+        const gi = path.join(ruta, ".gitignore");
+        const { texto, nuevas } = proy.completarGitignore(fs.existsSync(gi) ? fs.readFileSync(gi, "utf8") : "");
+        if (nuevas.length) {
+            fs.writeFileSync(gi, texto, "utf8");
+            console.log(`ritual: .gitignore del repo — añadidas ${nuevas.join(", ")} (el contexto de Claude vive en el workspace).`);
+        } else {
+            console.log("ritual: el .gitignore del repo ya ignora CLAUDE.md, CLAUDE.local.md y .claude/.");
+        }
+    }
+
+    // 5. Diseño anterior: <repo>/.claude/CLAUDEMAX.md de init-proyecto v1. Se avisa, no se borra.
+    const viejo = path.join(ruta, ".claude", "CLAUDEMAX.md");
+    if (fs.existsSync(viejo) && proy.esClaudemaxViejo(fs.readFileSync(viejo, "utf8"))) {
+        console.warn(`ritual: aviso — diseño anterior: ${viejo} es del init-proyecto v1. El contexto va ahora en ${contextoPath}; copia lo que valga y borra ${viejo} (y ${path.join(ruta, ".claude", "CLAUDE.md")} si solo contiene @CLAUDEMAX.md).`);
+    }
+
+    // 6. Índices de código: codebase-memory y graphify, con su salida en vivo.
+    if (opts["sin-indexar"]) {
+        console.log("ritual: --sin-indexar — no se indexa con codebase-memory ni se extrae el grafo de graphify.");
+    } else {
+        console.log(`ritual: indexando ${ruta} con codebase-memory (index_repository, modo moderate)...`);
+        const cbm = indexarCodebaseMemory(ruta);
+        console.log(cbm.ok ? "ritual: índice de codebase-memory listo." : `ritual: aviso — ${cbm.aviso}`);
+        console.log(`ritual: extrayendo el grafo de graphify en ${path.join(ruta, "graphify-out")} (--code-only)...`);
+        const gfy = extraerGraphify(ruta);
+        console.log(gfy.ok ? "ritual: grafo de graphify listo." : `ritual: aviso — ${gfy.aviso}`);
+    }
+
+    console.log(`ritual: init-proyecto completo para "${proyecto}". Abre una sesión en ${ruta} y rellena las secciones de .claude/proyectos/${slug}.md consultando el grafo (skill rituales, §2).`);
 }
 
 // --- fin-sesion (ritual menor) --------------------------------------------------------------
@@ -399,7 +426,7 @@ function imprimirAyuda() {
     console.log(`Rituales manuales de ciclo de vida de CLAUDEMAX.
 
 Uso:
-  ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto] [--vault ruta]
+  ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto] [--sin-indexar] [--sin-gitignore] [--vault ruta]
   ritual.mjs fin-sesion [--resumen "texto"] [--proyecto nombre] [--siguiente "texto"] [--vault ruta]
   ritual.mjs fin-dia [--resumen "texto"] [--vault ruta]
   ritual.mjs fin-ciclo [--ciclo nombre] [--proyecto nombre] [--si] [--vault ruta]
@@ -414,6 +441,7 @@ function parseArgs(rest) {
     for (let i = 0; i < rest.length; i++) {
         const a = rest[i];
         if (a === "--si") { opts.si = true; continue; }
+        if (a === "--sin-indexar" || a === "--sin-gitignore") { opts[a.slice(2)] = true; continue; }
         if (valueFlags.includes(a)) { opts[a.slice(2)] = rest[++i]; continue; }
         if (a.startsWith("--")) continue; // flag desconocido: se ignora
         positional.push(a);
