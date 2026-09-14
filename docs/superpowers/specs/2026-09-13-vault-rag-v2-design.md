@@ -47,6 +47,7 @@ de la API, XAML) queda fuera del repo; el *mecanismo* sí entra.
 | 4 | Reglas + contexto: `CLAUDEMAX.md` reescrito, `init-proyecto` → `.claude/proyectos/` | 1, 3 |
 | 5 | Rituales: fin-sesion/fin-dia/fin-ciclo rediseñados, `Pendientes.md` | 1, 3 |
 | 6 | Instalador + docs: wizard, uninstall, README/INSTALL, `test-componentes` | todos |
+| 7 | Skill 2.0 `dotnet-winui` (book-to-skill sobre la documentación oficial de .NET 8 / WinUI 3 + gotchas del setup de trabajo) y hook `PostToolUse` que valide XML bien formado en `.xaml`/`.csproj`. Añadido el 2026-09-13 al detectar `skill-suggest` que no hay skill para .NET. | 2 |
 
 Cada uno lleva su propio spec → plan → implementación. Este es el primero porque 4 y 5 dependen
 de sus nombres y su schema.

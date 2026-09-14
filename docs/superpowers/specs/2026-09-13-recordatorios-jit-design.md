@@ -23,7 +23,9 @@ el instante de la decisión"*. Y disparan **cada vez** a propósito: "una marca 
 apagaría justo en la búsqueda que importa, que casi nunca es la primera".
 
 El mecanismo es genérico (tool + patrón → texto); el contenido es del negocio. CLAUDEMAX
-instala el mecanismo con tres recordatorios genéricos y deja el contenido en manos del usuario.
+instala el mecanismo con cinco recordatorios genéricos (tres de contexto, dos de .NET/WinUI),
+más los cuatro originales del setup de trabajo como ejemplos inactivos, y deja el contenido en
+manos del usuario.
 
 Descartado: un script por recordatorio (más piezas móviles; el setup de trabajo tenía cuatro
 copias del mismo esqueleto) y delegar en el plugin `hookify` (estaba instalado en el setup de
@@ -46,6 +48,8 @@ rutas:                                 # opcional; globs contra file_path
 siempre: [Grep]                        # opcional; tools (⊆ tools) que disparan sin mirar patrones/rutas
 una_vez_por_sesion: false              # opcional; por defecto dispara cada vez
 activo: true                           # opcional; false = se ignora sin borrarlo
+nota: >                                # opcional; para el humano — por qué existe, fecha y fallo
+  2026-08-19: derivé a grep dos veces   #   que lo parió. El motor lo ignora; nunca se inyecta.
 ---
 TEXTO QUE SE INYECTA TAL CUAL como additionalContext.
 Corto si dispara en cada edición; largo solo si dispara pocas veces (despliegue).
@@ -122,9 +126,14 @@ que haga falta. Añadir un recordatorio = copiar la plantilla y quitar el `_`.
 
 ## 3. Recordatorios de fábrica (`templates/recordatorios/`)
 
-Genéricos: sin nombres de proyectos, personas ni herramientas de un negocio concreto. Se copian a
-`<RAG_ROOT>/.claude/recordatorios/` **solo si no existen**: son del usuario desde el primer día y
+Cinco genéricos activos (tres de contexto general, dos de .NET/WinUI) más `ejemplos/maestrasuite/`
+con los cuatro originales del setup de trabajo, fieles e inactivos. Los genéricos no llevan
+nombres de proyectos, personas ni herramientas de un negocio concreto. Todo se copia a
+`<RAG_ROOT>/.claude/recordatorios/` **solo si no existe**: son del usuario desde el primer día y
 editarlos es la forma normal de uso.
+
+Cada recordatorio de fábrica lleva `nota:` con su origen (qué fallo lo parió y cuándo), porque
+esa es la regla de la casa para los que escriba el usuario.
 
 ### `orden-herramientas.md`
 
@@ -213,14 +222,100 @@ Texto (dispara en cada edición del vault → corto):
 > `reemplaza: [nombre]`; si vence, `revisar:`. Nunca escribas "hay N notas": el conteo se mide.
 > Antes de reescribir una nota de `Codigo/`, relee el código, no la prosa vieja.
 
+### `estandares-dotnet.md`
+
+Generalización de `recordar-estandares-maestrasuite.py`. Dispara en cada edición de C#/XAML →
+corto.
+
+```yaml
+tools: [Edit, Write, MultiEdit]
+rutas: ["**/*.cs", "**/*.xaml"]
+nota: >
+  Generalizado del setup de trabajo (2026-08-19, CuadroGuardadoApi.EstadoTexto reescrito a mano
+  cuando ya existía). Ajusta el punto 3 a los estándares de tu casa.
+```
+
+Texto:
+
+> ESTÁNDARES .NET / WinUI — antes de este cambio:
+> 1. Si vas a escribir un helper, mapeo o regla nuevos: pregunta al grafo de código si YA
+>    EXISTE (graphify / codebase-memory). Reescribir a mano algo que ya existía es el fallo más
+>    repetido. Si el grafo no encuentra algo recién escrito, reindexa antes de concluir que no
+>    existe.
+> 2. Si es un arreglo: causa raíz, no síntoma. grep no ve `x:Bind`, despacho por interfaz, DI
+>    ni `override`. Lee las ASERCIONES del test que falla, no solo su nombre.
+> 3. Estándares de la casa: dominio sin UI ni BD; ViewModels con CommunityToolkit.Mvvm y bindeo
+>    por `x:Bind` (no `DataContext`); parámetros de negocio versionados — nunca hardcodear una
+>    regla que el diseño marca parametrizable; dominio y UI en español, inglés solo en tipos de
+>    framework.
+> 4. Trampas de WinUI: un `SelectedIndex` en XAML dispara `SelectionChanged` durante
+>    `InitializeComponent` (bandera `_listo` al final del constructor, no un guard por control);
+>    un `--` dentro de un comentario XAML o csproj tumba el compilador sin decir dónde;
+>    `IsEnabled` no existe en `Panel`.
+> 5. Nombres de clientes o personas: nunca en código, tests ni mensajes de commit.
+
+### `pruebas-dotnet.md`
+
+Generalización de `recordar-rojos-de-la-suite-api.py`.
+
+```yaml
+tools: [Bash, PowerShell]
+patrones: ['\bdotnet\s+test\b', '\.Tests\b', '\bprobar-[\w-]+\.ps1\b']
+nota: >
+  Generalizado del setup de trabajo (2026-09-09: media sesión y seis pasadas diagnosticando un
+  test por su NOMBRE porque Select-String se comió el mensaje).
+```
+
+Texto:
+
+> VAS A CORRER UNA SUITE .NET. Cómo se lee un rojo:
+> 1. EL MENSAJE, NO LA LÍNEA [FAIL]. Si filtras la salida con Select-String / grep / head, el
+>    filtro se come el mensaje de error y te quedas con el nombre del test — que induce a
+>    diagnosticar de memoria. Vuelca a archivo o corre sin filtro. UNA PASADA DE LA QUE NO SE
+>    LEE EL ERROR NO CUENTA COMO PASADA.
+> 2. Una nota o memoria que nombra un síntoma es una HIPÓTESIS, no un diagnóstico: compárala con
+>    el `Actual:` / `Expected:` reales.
+> 3. UN ROJO QUE SE REPITE: comprueba si es PREEXISTENTE antes de tocar nada —
+>    `git stash && git checkout main && dotnet test --filter <test>; git checkout - && git stash pop`.
+>    Zanja la única pregunta que importa: "¿qué es mío?".
+> 4. NO encadenes pasadas para confirmar: se contaminan entre sí (límites de peticiones, residuos
+>    en la BD de pruebas) y cada pasada abortada deja residuo que rompe la siguiente.
+> 5. Si la suite toca una base de datos, averigua ANTES qué borra (limpiadores que llaman a la
+>    función real) y si hay algo que perder.
+> 6. `Select-Object -First N` sobre la invocación de un `.ps1` mata el proceso hijo antes de que
+>    termine. Captura en variable y filtra después.
+
+### `ejemplos/maestrasuite/` — los cuatro originales, fieles e inactivos
+
+Traducción al formato `.md` de los cuatro `recordar-*.py` del setup de trabajo, **texto
+íntegro** (incluidos nombres de tests, rutas y fechas), con `activo: false` y la docstring del
+`.py` en `nota:`. Sirven como referencia de cómo se escribe un recordatorio nacido de un fallo
+real, y el autor los activa en su workspace de Maestra cambiando `activo`.
+
+| Archivo | `tools` | `siempre` / `patrones` / `rutas` | Origen |
+|---|---|---|---|
+| `orden-busqueda.md` | `[Grep, Bash, PowerShell]` | `siempre: [Grep]`; `patrones: ['\bgrep\b', '\brg ', 'ripgrep', '\bfind ', 'Select-String', 'findstr']` | `recordar-orden-busqueda.py` |
+| `despliegue.md` | `[Bash, PowerShell]` | `patrones: ['\bgcloud ', '\bgsutil ', 'publicar\.ps1', 'sql export', 'sql import', 'authorized-networks', 'run deploy']` | `recordar-despliegue.py` |
+| `estandares-maestrasuite.md` | `[Edit, Write, MultiEdit]` | `rutas: ["**/MaestraSuite/**/*.cs", "**/MaestraSuite/**/*.xaml"]` | `recordar-estandares-maestrasuite.py` |
+| `rojos-suite-api.md` | `[Bash, PowerShell]` | `patrones: ['probar-api\.ps1', 'Maestra\.Api\.Catalogos\.Tests']` | `recordar-rojos-de-la-suite-api.py` |
+
+El cuerpo de cada uno es la constante `RECORDATORIO` del `.py` correspondiente, sin cambios
+(se conservan hasta las tildes ausentes del original: fidelidad antes que estilo). Fuente: los
+cuatro archivos en `COPY/Workspace-Jairo/.claude/`, leídos el 2026-09-13.
+
+`validar-xaml.py` (PostToolUse que valida XML bien formado) **no** es un recordatorio: queda
+fuera de alcance (ver §7).
+
 ## 4. Instalación, reglas y documentación
 
 **`bin/components/rules.sh`:**
 - `ac_rules_hook "recordar.mjs" "PreToolUse" "Grep|Bash|PowerShell|Edit|Write|MultiEdit|Read" "CLAUDEMAX_RECORDAR" "5"`.
 - Nueva función `ac_rules_recordatorios`: crea `<RAG_ROOT>/.claude/recordatorios/`; copia
-  `_plantilla.md` siempre (es del repo) y los tres de fábrica solo si faltan. Si `RAG_ROOT` no
-  está definida, avisa y omite solo esta parte (el hook se instala igual y buscará
-  `.claude/recordatorios/` subiendo desde el cwd).
+  `_plantilla.md` siempre (es del repo), los cinco de fábrica solo si faltan, y
+  `ejemplos/maestrasuite/*.md` solo si faltan. Si `RAG_ROOT` no está definida, avisa y omite
+  solo esta parte (el hook se instala igual y buscará `.claude/recordatorios/` subiendo desde
+  el cwd). El motor no entra en subdirectorios: `ejemplos/` no se carga aunque se active un
+  archivo ahí — para usarlo se copia al nivel superior.
 
 **`bin/uninstall.sh`:** retira el hook (`ac_remove_hook … recordar.mjs`) y borra
 `$CLAUDE_CONFIG_DIR/hooks/recordar.mjs` y `state/recordar.*`; los `.md` del usuario en
@@ -244,7 +339,7 @@ Texto (dispara en cada edición del vault → corto):
 
 **Docs:** `README.md` — fila nueva en la tabla de hooks (`recordar.mjs` · `PreToolUse` · no
 bloquea · `CLAUDEMAX_RECORDAR=0`) y un párrafo "Recordatorios justo a tiempo" tras la tabla de
-reglas con el formato y los tres de fábrica; `INSTALL.md` — `hooks/recordar.mjs` y
+reglas con el formato, los cinco de fábrica y los ejemplos; `INSTALL.md` — `hooks/recordar.mjs` y
 `templates/recordatorios/` en el árbol. `skills/rituales` sin cambios.
 
 ## 5. Errores
@@ -285,12 +380,21 @@ envoltorio de stdin/stdout. Casos:
   de `…/V.A.U.L.T/Decisiones/x.md` → contiene "NOTA DEL VAULT"; `Grep` cualquiera → contiene
   "ORDEN DE HERRAMIENTAS".
 - **Instalación:** `templates/recordatorios/` tiene exactamente `_plantilla.md`,
-  `orden-herramientas.md`, `tocar-produccion.md`, `editar-vault.md`, y los tres de fábrica
-  parsean como válidos.
+  `orden-herramientas.md`, `tocar-produccion.md`, `editar-vault.md`, `estandares-dotnet.md`,
+  `pruebas-dotnet.md` y `ejemplos/maestrasuite/{orden-busqueda,despliegue,estandares-maestrasuite,rojos-suite-api}.md`;
+  los cinco de fábrica parsean como válidos y activos; los cuatro ejemplos parsean como válidos
+  e inactivos; ninguno de los cinco genéricos contiene "Maestra".
+- **Extremo a extremo (adicionales):** `Edit` de `…/src/Foo.cs` → contiene "ESTÁNDARES .NET";
+  `Bash` con `dotnet test tests/X.Tests` → contiene "VAS A CORRER UNA SUITE .NET"; los archivos
+  de `ejemplos/` copiados a un directorio de prueba no disparan (inactivos) hasta cambiar
+  `activo: true`.
 
 ## 7. Fuera de alcance
 
 Recordatorios por proyecto creados por `init-proyecto` (sub-proyecto 4); ajuste del texto de
 `orden-herramientas` cuando `codebase-memory` esté instalado (sub-proyecto 3); listar
 recordatorios rotos desde `rag.mjs salud` (podría hacerse leyendo `state/recordar.log`; no
-ahora); comandos CLI para crear/listar recordatorios (copiar la plantilla basta).
+ahora); comandos CLI para crear/listar recordatorios (copiar la plantilla basta); un hook
+`PostToolUse` que valide XML bien formado en `.xaml`/`.csproj` (el `validar-xaml.py` del setup
+de trabajo — candidato al sub-proyecto 7 junto con la skill .NET/WinUI); la skill 2.0
+`dotnet-winui` (sub-proyecto 7, anotado en la descomposición del spec padre).
