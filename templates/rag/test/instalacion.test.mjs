@@ -52,3 +52,19 @@ test("ac_merge_hook: registra matcher y timeout, y es idempotente", () => {
     assert.deepEqual(cfg2.hooks.PostToolUse[0], { hooks: [{ type: "command", command: "node /x/otro.mjs" }] });
     fs.rmSync(tmp, { recursive: true, force: true });
 });
+
+test("templates/rules/CLAUDEMAX.md v3: diez reglas, termina importando el índice, ≤ 200 líneas, sin prohibir Context7", () => {
+    const t = fs.readFileSync(path.join(REPO, "templates", "rules", "CLAUDEMAX.md"), "utf8").replace(/\r\n/g, "\n");
+    assert.deepEqual([...t.matchAll(/^## (\d+)\. /gm)].map(m => Number(m[1])), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    for (const s of ["## 6. Dónde vive el contexto", "## 7. Tres memorias con rol", "## 8. Orden de herramientas de contexto",
+        "## 9. Taxonomía y vigencia del vault", "## 10. Recordatorios justo a tiempo"]) {
+        assert.ok(t.includes(s), s);
+    }
+    assert.equal(t.trimEnd().split("\n").at(-1), "@proyectos/_indice.md");
+    assert.ok(t.split("\n").length <= 200, `${t.split("\n").length} líneas`);
+    assert.ok(!/No reinstales ni sugieras Context7/.test(t), "la prohibición de Context7 se retiró");
+    assert.match(t, /2026-09-13-reglas-contexto-design\.md/);
+    // ningún @ fuera de backticks salvo el import final (Claude Code lo tomaría como import)
+    const sinCodigo = t.replace(/`[^`\n]*`/g, "").replace(/<!--[\s\S]*?-->/g, "");
+    assert.deepEqual(sinCodigo.match(/(^|\s)@\S+/gm).map(s => s.trim()), ["@proyectos/_indice.md"]);
+});
