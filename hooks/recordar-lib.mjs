@@ -14,7 +14,7 @@ function stripYamlComment(value) {
     return v;
 }
 
-const CLAVES_LISTA = new Set(["tools", "patrones", "rutas", "siempre"]);
+const CLAVES_LISTA = new Set(["tools", "patrones", "rutas", "siempre", "excluir"]);
 
 // Parsea el frontmatter mínimo que usan los recordatorios: listas (en línea "[a, b]" o en
 // bloque "- a"), escalares, booleanos y un bloque plegado (`nota: >` seguido de líneas con
@@ -61,8 +61,8 @@ function bool(v, porDefecto) {
     return String(v).trim().toLowerCase() === "true";
 }
 
-// Devuelve { ok, nombre, tools, patrones (RegExp[]), rutas, siempre, unaVezPorSesion, activo,
-// nota, cuerpo } o { ok: false, nombre, motivo }.
+// Devuelve { ok, nombre, tools, patrones (RegExp[]), rutas, excluir, siempre, unaVezPorSesion,
+// activo, nota, cuerpo } o { ok: false, nombre, motivo }.
 export function parseRecordatorio(texto, nombre) {
     const fm = parseFrontmatter(texto);
     if (fm.error) return { ok: false, nombre, motivo: fm.error };
@@ -82,6 +82,7 @@ export function parseRecordatorio(texto, nombre) {
         tools,
         patrones,
         rutas: Array.isArray(meta.rutas) ? meta.rutas.filter(Boolean) : [],
+        excluir: Array.isArray(meta.excluir) ? meta.excluir.filter(Boolean) : [],
         siempre: Array.isArray(meta.siempre) ? meta.siempre.filter(Boolean) : [],
         unaVezPorSesion: bool(meta.una_vez_por_sesion, false),
         activo: bool(meta.activo, true),
@@ -132,11 +133,13 @@ export function textoDelTool(tool, input = {}) {
 export function coincide(rec, tool, input = {}) {
     if (!rec.ok || !rec.activo) return false;
     if (!rec.tools.includes(tool)) return false;
+    const ruta = String(input.file_path ?? "").replace(/\\/g, "/");
+    // excluir gana sobre todo lo demás, incluido `siempre` (spec reglas-contexto §6.1)
+    if (ruta && (rec.excluir || []).some(g => globARegex(g).test(ruta))) return false;
     if (rec.siempre.includes(tool)) return true;
     if (!rec.patrones.length && !rec.rutas.length) return true;
     const texto = textoDelTool(tool, input);
     if (rec.patrones.some(re => re.test(texto))) return true;
-    const ruta = String(input.file_path ?? "").replace(/\\/g, "/");
     if (ruta && rec.rutas.some(g => globARegex(g).test(ruta))) return true;
     return false;
 }

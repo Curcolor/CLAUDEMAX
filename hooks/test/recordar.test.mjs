@@ -51,6 +51,9 @@ test("parseRecordatorio: valores por defecto", () => {
     assert.deepEqual(r.patrones, []);
     assert.deepEqual(r.rutas, []);
     assert.deepEqual(r.siempre, []);
+    assert.deepEqual(r.excluir, []);
+    const r2 = parseRecordatorio("---\ntools: [Edit]\nrutas: [\"**/.claude/**\"]\nexcluir:\n  - \"**/.claude/proyectos/**\"\n  - '**/.claude/settings*.json'\n---\nX\n", "e.md");
+    assert.deepEqual(r2.excluir, ["**/.claude/proyectos/**", "**/.claude/settings*.json"]);
     assert.equal(r.unaVezPorSesion, false);
     assert.equal(r.activo, true);
     assert.equal(r.cuerpo, "hola");
@@ -119,6 +122,17 @@ test("coincide: tabla", () => {
     assert.equal(coincide(rec({ activo: false }), "Bash", { command: "ls" }), false);
     // Edit prueba patrones contra file_path
     assert.equal(coincide(rec({ tools: ["Edit"], patrones: [/MaestraSuite/] }), "Edit", { file_path: "C:/w/MaestraSuite/a.cs" }), true);
+});
+
+test("coincide: excluir gana sobre rutas y sobre siempre; sin file_path no aplica", () => {
+    const c = rec({ tools: ["Edit", "Write"], rutas: ["**/.claude/**", "**/CLAUDE.md"], excluir: ["**/.claude/proyectos/**"] });
+    assert.equal(coincide(c, "Edit", { file_path: "C:\\ws\\repo\\.claude\\CLAUDE.md" }), true);
+    assert.equal(coincide(c, "Edit", { file_path: "C:/ws/repo/CLAUDE.md" }), true);
+    assert.equal(coincide(c, "Edit", { file_path: "C:/ws/.claude/proyectos/repo.md" }), false);
+    const s = rec({ tools: ["Write"], siempre: ["Write"], excluir: ["**/*.md"] });
+    assert.equal(coincide(s, "Write", { file_path: "/x/a.md" }), false);
+    assert.equal(coincide(s, "Write", { file_path: "/x/a.cs" }), true);
+    assert.equal(coincide(rec({ excluir: ["**"] }), "Bash", { command: "ls" }), true);
 });
 
 test("buscarDirectorios: sube desde el cwd, del más cercano al más lejano; env anula", () => {

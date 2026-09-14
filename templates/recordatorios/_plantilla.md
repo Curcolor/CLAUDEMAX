@@ -8,13 +8,15 @@
 #            Bash/PowerShell → el comando; Grep → el patrón; Edit/Write/Read → la ruta.
 #            Si un patrón lleva comas, usa la forma en bloque ("- ...") y no la lista en línea.
 # rutas      opcional. Globs (*, ?, **) contra file_path. Ej.: "**/V.A.U.L.T/**/*.md", "**/*.cs".
+# excluir    opcional. Globs contra file_path que ANULAN el disparo (ganan incluso a `siempre`).
+#            Ej.: rutas "**/.claude/**" con excluir "**/.claude/recordatorios/**".
 # siempre    opcional. Tools (de las de arriba) que disparan sin mirar patrones ni rutas.
 # una_vez_por_sesion  opcional (false). true = solo la primera vez por sesión de Claude Code.
 # activo     opcional (true). false = se ignora sin borrarlo.
 # nota       opcional. Para ti: qué fallo lo parió y cuándo. El motor no lo inyecta.
 #
-# Coincidencia: tool ∈ tools Y (tool ∈ siempre, O sin patrones ni rutas, O algún patrón casa,
-# O alguna ruta casa).
+# Coincidencia: tool ∈ tools Y la ruta no casa con `excluir` Y (tool ∈ siempre, O sin patrones
+# ni rutas, O algún patrón casa, O alguna ruta casa).
 #
 # Longitud: si dispara en cada edición, ≤ 8 líneas — se paga muchas veces por sesión. Si dispara
 # pocas veces (un despliegue), lo que haga falta. Escríbelo para el instante de la decisión:
@@ -22,6 +24,7 @@
 tools: []
 patrones: []
 rutas: []
+excluir: []
 siempre: []
 una_vez_por_sesion: false
 activo: true
