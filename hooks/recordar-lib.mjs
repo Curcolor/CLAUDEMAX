@@ -183,3 +183,49 @@ export function cargarRecordatorios(dirs) {
     const recordatorios = [...porNombre.values()].filter(Boolean).sort((a, b) => a.nombre.localeCompare(b.nombre));
     return { recordatorios, rotos };
 }
+
+// --- Estado por sesión (spec §2, una_vez_por_sesion) ----------------------------------------
+
+export function dirEstado(env = process.env) {
+    const base = env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), ".claude");
+    return path.join(base, "state");
+}
+
+export function rutaEstado(env = process.env) {
+    return path.join(dirEstado(env), "recordar.json");
+}
+
+export function leerEstado(env = process.env) {
+    try {
+        const parsed = JSON.parse(fs.readFileSync(rutaEstado(env), "utf8"));
+        return {
+            sessionId: typeof parsed.sessionId === "string" ? parsed.sessionId : null,
+            disparados: Array.isArray(parsed.disparados) ? parsed.disparados.filter(x => typeof x === "string") : [],
+        };
+    } catch {
+        return { sessionId: null, disparados: [] };
+    }
+}
+
+export function guardarEstado(env, estado) {
+    try {
+        fs.mkdirSync(dirEstado(env), { recursive: true });
+        fs.writeFileSync(rutaEstado(env), JSON.stringify(estado, null, 2), "utf8");
+    } catch {}
+}
+
+// Quita los `una_vez_por_sesion` ya disparados en esta sesión y anota los que van a disparar.
+// Sin sessionId no se filtra ni se anota nada (se comporta como "cada vez").
+export function filtrarPorSesion(recordatorios, sessionId, estado) {
+    if (!sessionId) return { visibles: recordatorios, estado };
+    const e = estado.sessionId === sessionId ? { ...estado, disparados: [...estado.disparados] } : { sessionId, disparados: [] };
+    const visibles = [];
+    for (const r of recordatorios) {
+        if (r.unaVezPorSesion) {
+            if (e.disparados.includes(r.nombre)) continue;
+            e.disparados.push(r.nombre);
+        }
+        visibles.push(r);
+    }
+    return { visibles, estado: e };
+}

@@ -1,10 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
     parseRecordatorio, globARegex, textoDelTool, coincide,
     buscarDirectorios, cargarRecordatorios,
+    rutaEstado, leerEstado, filtrarPorSesion, guardarEstado,
 } from "../recordar-lib.mjs";
 
 const FIX = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures", "recordatorios");
@@ -138,4 +141,33 @@ test("cargarRecordatorios: precedencia por nombre, ignora _plantilla, reporta ro
     assert.match(rotos[0].archivo, /roto\.md$/);
     assert.match(rotos[0].motivo, /tools/);
     assert.deepEqual(cargarRecordatorios(["/no/existe"]), { recordatorios: [], rotos: [] });
+});
+
+test("estado por sesión: dispara una vez, no repite, se resetea al cambiar de sesión, tolera JSON roto", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "recordar-estado-"));
+    const env = { CLAUDE_CONFIG_DIR: tmp };
+    assert.equal(rutaEstado(env), path.join(tmp, "state", "recordar.json"));
+    const unaVez = { ok: true, nombre: "u.md", unaVezPorSesion: true, activo: true, tools: ["Bash"], patrones: [], rutas: [], siempre: [], cuerpo: "U" };
+    const cadaVez = { ...unaVez, nombre: "c.md", unaVezPorSesion: false };
+
+    let estado = leerEstado(env);
+    let { visibles, estado: e1 } = filtrarPorSesion([unaVez, cadaVez], "s1", estado);
+    assert.deepEqual(visibles.map(r => r.nombre), ["u.md", "c.md"]);
+    guardarEstado(env, e1);
+    assert.deepEqual(JSON.parse(fs.readFileSync(rutaEstado(env), "utf8")), { sessionId: "s1", disparados: ["u.md"] });
+
+    ({ visibles, estado: e1 } = filtrarPorSesion([unaVez, cadaVez], "s1", leerEstado(env)));
+    assert.deepEqual(visibles.map(r => r.nombre), ["c.md"]);
+
+    ({ visibles, estado: e1 } = filtrarPorSesion([unaVez, cadaVez], "s2", leerEstado(env)));
+    assert.deepEqual(visibles.map(r => r.nombre), ["u.md", "c.md"]);
+    assert.equal(e1.sessionId, "s2");
+
+    // sin session_id → se comporta como cada vez y no toca el estado
+    ({ visibles } = filtrarPorSesion([unaVez], null, leerEstado(env)));
+    assert.deepEqual(visibles.map(r => r.nombre), ["u.md"]);
+
+    fs.writeFileSync(rutaEstado(env), "{corrupto");
+    assert.deepEqual(leerEstado(env), { sessionId: null, disparados: [] });
+    fs.rmSync(tmp, { recursive: true, force: true });
 });
