@@ -86,3 +86,13 @@ Al leer un resultado del RAG con `⚠ CADUCA`, verifica contra el código o el g
 confiar; con `⚠ REEMPLAZADA`, lee la nota que la reemplaza. Regla de conflicto entre fuentes:
 decisiones > docs_formales/specs > entrevistas > conocimiento/aprendizaje/codigo > planes >
 bitacoras — gana la autoridad, no la fecha.
+
+## 8. Recordatorios justo a tiempo
+
+Las reglas que se olvidan a mitad de una tarea larga no se arreglan repitiéndolas aquí: se
+convierten en un recordatorio en `<RAG_ROOT>/.claude/recordatorios/<nombre>.md` (frontmatter
+`tools`/`patrones`/`rutas` + texto), que el hook `recordar.mjs` inyecta en el instante en que
+vas a ejecutar el comando o editar el archivo que lo dispara. Criterio: una regla que se
+olvidó dos veces se convierte en recordatorio, con la fecha y el fallo que lo parió en su
+`nota:`. Copia `_plantilla.md` para crear uno; no toques `settings.json`. Cuando recibas
+uno, aplícalo antes de seguir.

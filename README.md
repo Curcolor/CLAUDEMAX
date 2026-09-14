@@ -24,7 +24,7 @@ bash bin/install.sh
 | **ponytail** | Plugin de Claude Code que fuerza minimalismo al escribir código mediante una "escalera" de 7 peldaños (¿hace falta? → ¿ya existe en el repo? → ¿stdlib? → ¿feature nativa? → ¿dependencia ya instalada? → ¿cabe en una línea? → el mínimo que funcione). Trae 6 skills: `ponytail` (modo activo, niveles `lite`/`full`/`ultra`), `ponytail-review` (revisa el diff), `ponytail-audit` (repo completo), `ponytail-debt` (cosecha comentarios `ponytail:` en una libreta de deuda técnica), `ponytail-gain` y `ponytail-help`. No choca con Graphify: registra hooks `SessionStart`/`SubagentStart`/`UserPromptSubmit`, ninguno es `PreToolUse` (el único evento que usa Graphify). | [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) |
 | **cyber-neo** | Skill de auditoría de seguridad: OWASP 2025 Top 10 y CWE Top 25, escaneo de dependencias, secretos, SAST y configuración. Solo lectura; reporte en `~/Desktop/`. Clonada con commit fijado. | [Hainrixz/cyber-neo](https://github.com/Hainrixz/cyber-neo) |
 | **parsers** | Ingesta de archivos para el RAG: **MarkItDown** (cualquier archivo → markdown, con MCP oficial `markitdown`), **opendataloader-pdf** (PDFs complejos) y **whisper-ctranslate2** (audio → texto, CPU). Auto-instala Python y el JDK vía winget si faltan. | [markitdown](https://github.com/microsoft/markitdown), [opendataloader-pdf](https://github.com/opendataloader-project/opendataloader-pdf), [whisper-ctranslate2](https://github.com/Softcatala/whisper-ctranslate2) |
-| **rules** | Reglas operativas empaquetadas en el repo (`templates/rules/`) — no en la configuración personal de tu máquina — instaladas en `<RAG_ROOT>/.claude/`: `CLAUDEMAX.md` (las 7 reglas) y `proyecto.md` (plantilla por proyecto) se sobrescriben en cada instalación; `CLAUDE.md` nunca se pisa, solo se le añade `@CLAUDEMAX.md` si falta. Además instala y registra 4 hooks de cumplimiento y contexto: `git-footer-guard.mjs`, `loop-breaker.mjs`, `skill-suggest.mjs`, `session-start.mjs`. Ver sección [Reglas operativas](#reglas-operativas). Último componente en instalarse — sus reglas referencian rutas que crean los pasos anteriores. | propia (este repo) |
+| **rules** | Reglas operativas empaquetadas en el repo (`templates/rules/`) — no en la configuración personal de tu máquina — instaladas en `<RAG_ROOT>/.claude/`: `CLAUDEMAX.md` (las 8 reglas) y `proyecto.md` (plantilla por proyecto) se sobrescriben en cada instalación; `CLAUDE.md` nunca se pisa, solo se le añade `@CLAUDEMAX.md` si falta. Además instala y registra 5 hooks de cumplimiento y contexto: `git-footer-guard.mjs`, `loop-breaker.mjs`, `skill-suggest.mjs`, `session-start.mjs`, `recordar.mjs` (recordatorios justo a tiempo, ver [Reglas operativas](#reglas-operativas)), más los recordatorios de fábrica en `<RAG_ROOT>/.claude/recordatorios/`. Ver sección [Reglas operativas](#reglas-operativas). Último componente en instalarse — sus reglas referencian rutas que crean los pasos anteriores. | propia (este repo) |
 
 ## Instalación
 
@@ -263,16 +263,49 @@ reinstala — editar `<RAG_ROOT>/.claude/CLAUDEMAX.md` a mano se pierde en la si
 | 6 | **Memoria:** el cerebro RAG es la única fuente de retención de contexto entre sesiones. No reinstalar Context7 ni Claude-Mem. | Convención — sin hook. |
 | 7 | **Taxonomía y vigencia:** la carpeta da la colección; toda nota se enlaza desde su hub; `fuentes:` si describe código, `reemplaza:` si sustituye a otra (ver `Plantillas/nota.md`). | Convención + `rag.mjs salud` (informa, no bloquea). |
 
-Cuatro hooks Node sin dependencias hacen cumplir las reglas 3, 4 y 5 de forma determinista (y
+Cinco hooks Node sin dependencias hacen cumplir las reglas 3, 4, 5 y 8 de forma determinista (y
 `session-start.mjs` da contexto automático, ver [Rituales](#rituales)). Cada uno tiene su propia
 variable de escape para desactivarlo sin desinstalar nada:
 
 | Hook | Evento | ¿Bloquea? | Variable de escape |
 |---|---|---|---|
-| `git-footer-guard.mjs` | `PreToolUse` / `Bash` | **Sí** — el único de los cuatro que bloquea | `CLAUDEMAX_GIT_GUARD=0` |
+| `git-footer-guard.mjs` | `PreToolUse` / `Bash` | **Sí** — el único de los cinco que bloquea | `CLAUDEMAX_GIT_GUARD=0` |
 | `loop-breaker.mjs` | `PostToolUse` | No, solo avisa (`system-reminder`) | `CLAUDEMAX_LOOP_BREAKER=0` |
 | `skill-suggest.mjs` | `UserPromptSubmit` | No, solo avisa (una vez por sesión y tecnología) | `CLAUDEMAX_SKILL_SUGGEST=0` |
-| `session-start.mjs` | `SessionStart` | No, solo aporta contexto | `CLAUDEMAX_SESSION_CONTEXT=0` |
+| `session-start.mjs` | `SessionStart` / `startup` | No, solo aporta contexto (y reindexa el RAG) | `CLAUDEMAX_SESSION_CONTEXT=0` |
+| `recordar.mjs` | `PreToolUse` / `Grep\|Bash\|PowerShell\|Edit\|Write\|MultiEdit\|Read` | No, inyecta el recordatorio como contexto | `CLAUDEMAX_RECORDAR=0` |
+
+### Recordatorios justo a tiempo
+
+Una regla escrita en `CLAUDEMAX.md` se olvida a mitad de una tarea larga; el problema es de
+*tiempos*, no de conocimiento. `recordar.mjs` lee `<RAG_ROOT>/.claude/recordatorios/*.md` (y
+los `.claude/recordatorios/` de cada proyecto, subiendo desde el cwd — el del proyecto pisa al
+del workspace si comparten nombre) y, cuando la tool y el comando o la ruta casan, inyecta el
+texto en el instante de la decisión. Dispara cada vez a propósito, salvo que el recordatorio
+diga `una_vez_por_sesion: true`. Nunca bloquea.
+
+```yaml
+---
+tools: [Bash, PowerShell]           # Grep, Bash, PowerShell, Edit, Write, MultiEdit, Read, Glob
+patrones: ['\bgcloud\b']            # regex contra el comando (o la ruta, en Edit/Write)
+rutas: ["**/V.A.U.L.T/**/*.md"]     # globs contra file_path
+siempre: [Grep]                     # tools que disparan sin mirar patrones/rutas
+una_vez_por_sesion: false
+activo: true
+nota: >                             # para ti: qué fallo lo parió y cuándo
+  2026-09-02: desplegué sin leer el procedimiento.
+---
+TEXTO QUE SE INYECTA TAL CUAL.
+```
+
+De fábrica (se instalan si no existen; edítalos, son tuyos): `orden-herramientas` (rag →
+graphify → codebase-memory → grep, al usar Grep o un buscador en Bash/PowerShell),
+`tocar-produccion` (gcloud, aws, kubectl apply, terraform apply, docker push, `--prod`…),
+`editar-vault` (regla 7 al escribir bajo `V.A.U.L.T/`), `estandares-dotnet` (al editar `.cs`/
+`.xaml`) y `pruebas-dotnet` (al correr `dotnet test`). En `ejemplos/maestrasuite/` van los
+cuatro originales del setup de trabajo del autor, íntegros e inactivos, como referencia de cómo
+se escribe uno nacido de un fallo real. Los recordatorios rotos se anotan en
+`~/.claude/state/recordar.log`, nunca se le muestran al modelo.
 
 ## Rituales
 
@@ -346,7 +379,7 @@ Sin telemetría. El instalador no hace llamadas de analítica. Sí delega en:
 - `claude mcp add` (CLI de Anthropic) para los registros MCP de Figma, 21st.dev magic, `rag` y `markitdown`.
 - `uv tool install` / `pipx install` / `pip install --user` (el primero disponible) para `graphifyy`, el paquete PyPI del CLI de Graphify — y `graphify claude install` para registrar su hook `PreToolUse` local (ver fila de `graphify` en la tabla de componentes).
 - `claude plugin marketplace add` + `claude plugin install` (CLI de Anthropic) para instalar el plugin `ponytail` desde `DietrichGebert/ponytail`.
-- `git clone` para la skill superpowers (`obra/superpowers`) y para `cyber-neo` (con commit fijado). Las demás skills propias (`swebok`, `pmbok`, `book-to-skill`, `conventional-commits`, `skill-mcp-builder`, `ui-ux-pro-max`, `no-ai-slop`, `rituales`) y los cuatro hooks de `rules` se copian directo desde este repo — sin llamadas de red.
+- `git clone` para la skill superpowers (`obra/superpowers`) y para `cyber-neo` (con commit fijado). Las demás skills propias (`swebok`, `pmbok`, `book-to-skill`, `conventional-commits`, `skill-mcp-builder`, `ui-ux-pro-max`, `no-ai-slop`, `rituales`) y los cinco hooks de `rules` y los recordatorios se copian directo desde este repo — sin llamadas de red.
 - `npm install framer-motion gsap` en tu cwd (solo si existe un `package.json` o se pasa `--with-npm`).
 - `winget install` para dependencias de sistema que falten: Docker Desktop, Ollama, Python 3.12 y Temurin JDK 21.
 - `pip install` para los parsers (`markitdown[all]`, `markitdown-mcp`, `opendataloader-pdf`, `whisper-ctranslate2`) y `ollama pull bge-m3` para el modelo de embeddings (todo local; los embeddings nunca salen de tu máquina con los backends `ollama`/`remote`).

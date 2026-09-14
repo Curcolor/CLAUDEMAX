@@ -36,13 +36,15 @@ CLAUDEMAX/
 │       ├── ponytail.sh         # `claude plugin marketplace add` + `install` del plugin ponytail
 │       ├── cyber-neo.sh        # clon de la skill de seguridad (commit fijado)
 │       ├── parsers.sh          # markitdown (+MCP) / opendataloader-pdf / whisper-ctranslate2
-│       └── rules.sh            # plantillas de reglas → <RAG_ROOT>/.claude/ + 4 hooks de cumplimiento/contexto
+│       └── rules.sh            # plantillas de reglas → <RAG_ROOT>/.claude/ + 5 hooks de cumplimiento/contexto + recordatorios
 ├── hooks/
 │   ├── ui-audit.mjs             # hook PostToolUse/Edit|Write: ~15 reglas deterministas anti-patrones de UI
 │   ├── git-footer-guard.mjs     # hook PreToolUse/Bash: bloquea commits con atribución de IA
 │   ├── loop-breaker.mjs         # hook PostToolUse: corta bucles de 3 fallos idénticos seguidos
 │   ├── skill-suggest.mjs        # hook UserPromptSubmit: sugiere Skills 2.0 para tecnologías nuevas
-│   └── session-start.mjs        # hook SessionStart: contexto automático (grafo de Graphify + RAG)
+│   ├── session-start.mjs        # hook SessionStart: reindex incremental del RAG + salud del vault + grafo de Graphify + consulta al RAG
+│   ├── recordar.mjs             # hook PreToolUse: recordatorios justo a tiempo desde .claude/recordatorios/*.md
+│   └── recordar-lib.mjs         # funciones puras del anterior (parseo, coincidencia, búsqueda, estado) — probadas en hooks/test/
 ├── skills/
 │   ├── swebok/               # destilación del SWEBOK v4 (IEEE) — absorbe a la skill de arquitectura que existía antes (ya no está)
 │   │   ├── SKILL.md
@@ -110,8 +112,12 @@ CLAUDEMAX/
     │   │   └── embed_kernel.py        # BAAI/bge-m3 vía FlagEmbedding, corre en el T4 gratuito
     │   ├── mcp-server.mjs       # wrapper MCP stdio (rag_query/rag_leer/rag_status, con coleccion/proyecto)
     │   └── test/                # node --test: unitarias + integración (se saltan sin Postgres)
+    ├── recordatorios/           # semilla de <RAG_ROOT>/.claude/recordatorios/ (se copian solo si faltan)
+    │   ├── _plantilla.md        # frontmatter comentado campo a campo
+    │   ├── orden-herramientas.md, tocar-produccion.md, editar-vault.md, estandares-dotnet.md, pruebas-dotnet.md
+    │   └── ejemplos/maestrasuite/   # los cuatro originales del setup de trabajo, íntegros, activo: false
     └── rules/                   # semilla de las reglas operativas (se copia a <RAG_ROOT>/.claude/)
-        ├── CLAUDEMAX.md         # las 7 reglas operativas — se sobrescribe en cada instalación
+        ├── CLAUDEMAX.md         # las 8 reglas operativas — se sobrescribe en cada instalación
         ├── CLAUDE.md            # archivo raíz mínimo (`@CLAUDEMAX.md`) — nunca pisa uno existente
         └── proyecto.md          # plantilla por proyecto que instancia `ritual.mjs init-proyecto`
 ```
@@ -227,7 +233,7 @@ No confundir con los flags de `bin/install.sh` (sección [Flags](README.md#flags
 7. **ponytail** — necesita `claude`; sin él avisa con los comandos `/plugin` para hacerlo en sesión y no falla la instalación. Idempotente vía `claude plugin list`. `claude plugin marketplace add DietrichGebert/ponytail` + `claude plugin install ponytail@ponytail`. Sin dependencia de orden con los demás — sus hooks (`SessionStart`/`SubagentStart`/`UserPromptSubmit`) no chocan con el `PreToolUse` de graphify.
 8. **cyber-neo** — `git clone` + `checkout` del commit fijado en `$CLAUDE_CONFIG_DIR/skills/cyber-neo`. Sin dependencia de orden.
 9. **parsers** — auto-instala Python y el JDK vía winget si faltan, luego `pip install` de los tres parsers, registra el MCP `markitdown` a nivel de **usuario**, y barre restos heredados de Context7 / Claude-Mem (entran en conflicto con el cerebro RAG).
-10. **rules** — **último** a propósito: copia `templates/rules/` a `<RAG_ROOT>/.claude/` (requiere `RAG_ROOT`, igual que `rag`; sin él instala solo los hooks y avisa) y registra los cuatro hooks de cumplimiento y contexto en `$CLAUDE_CONFIG_DIR/hooks/`. Va al final porque sus reglas y su hook `session-start` referencian rutas que crean los pasos anteriores (`<RAG_ROOT>/V.A.U.L.T`, `<RAG_ROOT>/R.A.G/rag.mjs`, las skills ya instaladas) — instalarlo antes correría el riesgo de documentar/consultar rutas que todavía no existen.
+10. **rules** — **último** a propósito: copia `templates/rules/` a `<RAG_ROOT>/.claude/` (requiere `RAG_ROOT`, igual que `rag`; sin él instala solo los hooks y avisa) y registra los cinco hooks de cumplimiento y contexto en `$CLAUDE_CONFIG_DIR/hooks/` (y copia los recordatorios justo a tiempo a `<RAG_ROOT>/.claude/recordatorios/` sin pisar los existentes). Va al final porque sus reglas y su hook `session-start` referencian rutas que crean los pasos anteriores (`<RAG_ROOT>/V.A.U.L.T`, `<RAG_ROOT>/R.A.G/rag.mjs`, las skills ya instaladas) — instalarlo antes correría el riesgo de documentar/consultar rutas que todavía no existen.
 
 ## Interacciones entre flags
 
@@ -427,7 +433,7 @@ Es intencional: `hooks/git-footer-guard.mjs` detecta `git commit` con `Co-author
 export CLAUDEMAX_GIT_GUARD=0
 ```
 
-Es el único de los cuatro hooks de `rules` que bloquea algo; los otros tres solo avisan.
+Es el único de los cinco hooks de `rules` que bloquea algo; los otros cuatro solo avisan o aportan contexto.
 
 ### "El aviso de bucle salta cuando no toca"
 
