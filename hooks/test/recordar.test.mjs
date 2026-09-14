@@ -224,3 +224,53 @@ test("hook: sin coincidencia, stdin vacío, JSON roto y CLAUDEMAX_RECORDAR=0 →
     });
     assert.deepEqual(roto, { status: 0, stdout: "", stderr: "" });
 });
+
+const TPL = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "templates", "recordatorios");
+
+test("templates/recordatorios: archivos exactos, los de fábrica válidos y activos, los ejemplos válidos e inactivos, sin 'Maestra' en los genéricos", () => {
+    assert.deepEqual(fs.readdirSync(TPL).sort(), ["_plantilla.md", "editar-vault.md", "ejemplos", "estandares-dotnet.md", "orden-herramientas.md", "pruebas-dotnet.md", "tocar-produccion.md"]);
+    assert.deepEqual(fs.readdirSync(path.join(TPL, "ejemplos", "maestrasuite")).sort(), ["despliegue.md", "estandares-maestrasuite.md", "orden-busqueda.md", "rojos-suite-api.md"]);
+    for (const f of ["editar-vault.md", "estandares-dotnet.md", "orden-herramientas.md", "pruebas-dotnet.md", "tocar-produccion.md"]) {
+        const texto = fs.readFileSync(path.join(TPL, f), "utf8");
+        const r = parseRecordatorio(texto, f);
+        assert.equal(r.ok, true, `${f}: ${r.motivo}`);
+        assert.equal(r.activo, true, f);
+        assert.ok(r.nota.length > 10, `${f}: sin nota de origen`);
+        assert.ok(!/maestra/i.test(texto), `${f}: menciona Maestra`);
+    }
+    for (const f of ["despliegue.md", "estandares-maestrasuite.md", "orden-busqueda.md", "rojos-suite-api.md"]) {
+        const r = parseRecordatorio(fs.readFileSync(path.join(TPL, "ejemplos", "maestrasuite", f), "utf8"), f);
+        assert.equal(r.ok, true, `${f}: ${r.motivo}`);
+        assert.equal(r.activo, false, f);
+    }
+    // la plantilla NO parsea como recordatorio válido a propósito (tools vacío) — y empieza por _
+    assert.equal(parseRecordatorio(fs.readFileSync(path.join(TPL, "_plantilla.md"), "utf8"), "_plantilla.md").ok, false);
+});
+
+test("de fábrica: disparan con los eventos que deben", async () => {
+    const env = { CLAUDEMAX_RECORDATORIOS_DIR: TPL };
+    const casos = [
+        [{ tool_name: "Grep", tool_input: { pattern: "foo" } }, /ORDEN DE HERRAMIENTAS/],
+        [{ tool_name: "Bash", tool_input: { command: "git log | grep fix" } }, /ORDEN DE HERRAMIENTAS/],
+        [{ tool_name: "PowerShell", tool_input: { command: "Get-Content x | Select-String y" } }, /ORDEN DE HERRAMIENTAS/],
+        [{ tool_name: "Bash", tool_input: { command: "gcloud run deploy api --image x" } }, /VAS A TOCAR PRODUCCIÓN/],
+        [{ tool_name: "PowerShell", tool_input: { command: ".\\publicar.ps1" } }, /VAS A TOCAR PRODUCCIÓN/],
+        [{ tool_name: "Edit", tool_input: { file_path: "C:\\w\\V.A.U.L.T\\Decisiones\\x.md" } }, /NOTA DEL VAULT/],
+        [{ tool_name: "Write", tool_input: { file_path: "C:/repo/src/Foo.cs" } }, /ESTÁNDARES \.NET/],
+        [{ tool_name: "Edit", tool_input: { file_path: "C:/repo/src/Main.xaml" } }, /ESTÁNDARES \.NET/],
+        [{ tool_name: "Bash", tool_input: { command: "dotnet test tests/Api.Tests" } }, /VAS A CORRER UNA SUITE \.NET/],
+        [{ tool_name: "PowerShell", tool_input: { command: "./db/probar-api.ps1" } }, /VAS A CORRER UNA SUITE \.NET/],
+    ];
+    for (const [evento, re] of casos) {
+        const r = await correrHook({ ...evento, cwd: TPL }, env);
+        assert.equal(r.status, 0);
+        assert.match(JSON.parse(r.stdout).hookSpecificOutput.additionalContext, re, JSON.stringify(evento));
+    }
+    for (const evento of [
+        { tool_name: "Bash", tool_input: { command: "git status" } },
+        { tool_name: "Edit", tool_input: { file_path: "C:/repo/README.md" } },
+    ]) {
+        const r = await correrHook({ ...evento, cwd: TPL }, env);
+        assert.equal(r.stdout, "", JSON.stringify(evento));
+    }
+});
