@@ -20,3 +20,8 @@ bash.exe.stackdump
 *.bak
 *.orig
 *.rej
+
+# CLAUDEMAX: el contexto de Claude vive en el workspace, no en el repo
+/CLAUDE.md
+/CLAUDE.local.md
+/.claude/
