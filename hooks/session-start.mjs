@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // Hook SessionStart de CLAUDEMAX: al arrancar una sesión (matcher "startup"),
+//   0. avisa si el repo no tiene .claude/proyectos/<nombre>.md en el workspace;
 //   1. reindexa el RAG de forma incremental (rag.mjs ingest --silencioso, tope 60 s — el ingest
 //      es atómico por archivo, así que un corte deja el índice consistente y se avisa);
 //   2. resume la salud del vault (rag.mjs salud --resumen: caducas, huérfanas, enlaces rotos);
@@ -83,8 +84,59 @@ function run(cmd, args, opts = {}) {
 
 async function detectProjectRoot(cwd) {
     const top = await run("git", ["rev-parse", "--show-toplevel"], { cwd, timeout: 1500 });
-    if (top) return path.resolve(top);
-    return cwd;
+    if (top) return { root: path.resolve(top), esRepo: true };
+    return { root: cwd, esRepo: false };
+}
+
+// --- Aviso de contexto de proyecto (spec reglas-contexto §6.2) -----------------------------
+// El contexto de cada repo vive en <RAG_ROOT>/.claude/proyectos/<slug>.md. Si el workspace existe
+// y ningún archivo describe este repo, se sugiere init-proyecto. Mismo slug que
+// templates/rag/proyectos-lib.mjs (duplicado: el hook no importa de R.A.G/).
+
+function slugProyecto(nombre) {
+    return String(nombre ?? "")
+        .normalize("NFD").replace(/[̀-ͯ]/g, "")
+        .replace(/[^A-Za-z0-9._-]+/g, "-")
+        .replace(/-{2,}/g, "-")
+        .replace(/^-+|-+$/g, "") || "proyecto";
+}
+
+// Primer ancestro del repo (sin contar el repo) con .claude/proyectos/, hasta 4 niveles.
+function findWorkspaceProyectos(projectRoot) {
+    let dir = path.dirname(path.resolve(projectRoot));
+    for (let level = 1; level <= 4; level++) {
+        const candidato = path.join(dir, ".claude", "proyectos");
+        try { if (fs.statSync(candidato).isDirectory()) return { root: dir, proyectosDir: candidato }; } catch {}
+        const parent = path.dirname(dir);
+        if (parent === dir) break;
+        dir = parent;
+    }
+    return null;
+}
+
+// ¿Algún proyectos/*.md describe este repo? Por nombre de archivo o por su `ruta:` (relativa al
+// workspace o absoluta), que cubre `init-proyecto --proyecto otro-nombre`.
+function tieneContextoDeProyecto(ws, projectRoot, projectName) {
+    if (fs.existsSync(path.join(ws.proyectosDir, `${slugProyecto(projectName)}.md`))) return true;
+    const rel = path.relative(ws.root, projectRoot).replace(/\\/g, "/") || ".";
+    const abs = path.resolve(projectRoot).replace(/\\/g, "/").toLowerCase();
+    let archivos = [];
+    try { archivos = fs.readdirSync(ws.proyectosDir).filter(f => f.endsWith(".md") && !f.startsWith("_")); } catch { return false; }
+    for (const f of archivos) {
+        try {
+            const m = fs.readFileSync(path.join(ws.proyectosDir, f), "utf8").match(/^ruta:\s*(.+?)\s*$/m);
+            const ruta = m ? m[1].replace(/^["']|["']$/g, "") : "";
+            if (ruta && (ruta === rel || ruta.toLowerCase() === abs)) return true;
+        } catch {}
+    }
+    return false;
+}
+
+function avisoContextoProyecto(projectRoot, projectName) {
+    const ws = findWorkspaceProyectos(projectRoot);
+    if (!ws || tieneContextoDeProyecto(ws, projectRoot, projectName)) return null;
+    const ritual = path.join(ws.root, "R.A.G", "ritual.mjs");
+    return `Sin contexto de proyecto para "${projectName}": corre \`node "${ritual}" init-proyecto "${projectRoot}"\` — lo escribe en ${path.join(ws.root, ".claude", "proyectos")}, fuera del repo (regla 6).`;
 }
 
 // --- Paso 2: resumen del grafo de Graphify (graphify-out/graph.json) ---------------------
@@ -287,10 +339,15 @@ async function main() {
     const cwdFromEvent = pick(evt, ["cwd", "cwd_path", "cwdPath"]);
     const cwd = (typeof cwdFromEvent === "string" && cwdFromEvent) ? cwdFromEvent : process.cwd();
 
-    const projectRoot = timeLeft() > 300 ? await detectProjectRoot(cwd) : cwd;
+    const { root: projectRoot, esRepo } = timeLeft() > 300 ? await detectProjectRoot(cwd) : { root: cwd, esRepo: false };
     const projectName = path.basename(projectRoot) || "proyecto";
 
     const blocks = [];
+
+    if (esRepo) {
+        const aviso = avisoContextoProyecto(projectRoot, projectName);
+        if (aviso) blocks.push(aviso);
+    }
 
     const ragDir = findRagDir(cwd);
     if (ragDir) {
