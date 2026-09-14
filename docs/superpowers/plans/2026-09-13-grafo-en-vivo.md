@@ -81,9 +81,14 @@ function pathConFalso(salida = "", codigo = 0) {
     return { dir, bin };
 }
 
+// El .cmd/.sh falso invoca `node`, así que el PATH de prueba lleva también el directorio de Node
+// (y nada más: sin python, para que resolverServidor no lo encuentre).
+const NODE_DIR = path.dirname(process.execPath);
+const pathDe = dir => `${dir}${path.delimiter}${NODE_DIR}`;
+
 test("buscarEnPath y resolverServidor: graphify-mcp falso en PATH; sin nada → null", () => {
     const { dir, bin } = pathConFalso();
-    const env = { PATH: dir, Path: dir };
+    const env = { PATH: pathDe(dir), Path: pathDe(dir) };
     assert.equal(buscarEnPath("graphify-mcp", env), bin);
     assert.deepEqual(resolverServidor(env), { cmd: bin, args: [], shell: bin.endsWith(".cmd") });
     // PATH vacío y sin python: null (resolverServidor no debe lanzar)
@@ -262,12 +267,12 @@ test("mini-servidor con grafo pero sin servidor: el estado dice cómo instalar g
 
 test("proxy: con graphify-mcp falso en el PATH lo lanza con la ruta del grafo y devuelve su código", async () => {
     const { dir } = pathConFalso("ARGS=", 0);
-    const r = await hablar([], { CLAUDE_PROJECT_DIR: PROY, PATH: dir, Path: dir });
+    const r = await hablar([], { CLAUDE_PROJECT_DIR: PROY, PATH: pathDe(dir), Path: pathDe(dir) });
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, new RegExp("ARGS=\\[" + JSON.stringify(GRAFO).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\]"));
     fs.rmSync(dir, { recursive: true, force: true });
     const { dir: dir3 } = pathConFalso("", 3);
-    const r3 = await hablar([], { CLAUDE_PROJECT_DIR: PROY, PATH: dir3, Path: dir3 });
+    const r3 = await hablar([], { CLAUDE_PROJECT_DIR: PROY, PATH: pathDe(dir3), Path: pathDe(dir3) });
     assert.equal(r3.code, 3);
     fs.rmSync(dir3, { recursive: true, force: true });
 });
