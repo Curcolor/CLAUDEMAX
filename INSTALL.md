@@ -107,6 +107,8 @@ CLAUDEMAX/
     │   ├── rag.mjs              # CLI: init/ingest/query/reindex/status/salud
     │   ├── rag-lib.mjs          # funciones puras (clasificación, frontmatter, troceado, firma, salud) — probadas en test/
     │   ├── ritual.mjs           # rituales manuales: init-proyecto / fin-sesion / fin-dia / fin-ciclo (se instala junto a rag.mjs)
+    │   ├── proyectos-lib.mjs    # funciones puras del contexto por proyecto (slug, índice, .gitignore)
+    │   ├── indices-lib.mjs      # resolver y lanzar codebase-memory index_repository y graphify extract
     │   ├── kaggle-embed.mjs     # backend de embeddings por lotes vía Kaggle (importado dinámicamente)
     │   ├── kaggle/              # plantillas del kernel que corre en Kaggle
     │   │   ├── kernel-metadata.json   # enable_gpu/enable_internet, dataset_sources
@@ -119,12 +121,12 @@ CLAUDEMAX/
     │   └── test/                # node --test
     ├── recordatorios/           # semilla de <RAG_ROOT>/.claude/recordatorios/ (se copian solo si faltan)
     │   ├── _plantilla.md        # frontmatter comentado campo a campo
-    │   ├── orden-herramientas.md, tocar-produccion.md, editar-vault.md, estandares-dotnet.md, pruebas-dotnet.md
+    │   ├── orden-herramientas.md, contexto-fuera-del-repo.md, tocar-produccion.md, editar-vault.md, estandares-dotnet.md, pruebas-dotnet.md
     │   └── ejemplos/maestrasuite/   # los cuatro originales del setup de trabajo, íntegros, activo: false
     └── rules/                   # semilla de las reglas operativas (se copia a <RAG_ROOT>/.claude/)
-        ├── CLAUDEMAX.md         # las 8 reglas operativas — se sobrescribe en cada instalación
+        ├── CLAUDEMAX.md         # las 10 reglas; termina importando proyectos/_indice.md — se sobrescribe en cada instalación
         ├── CLAUDE.md            # archivo raíz mínimo (`@CLAUDEMAX.md`) — nunca pisa uno existente
-        └── proyecto.md          # plantilla por proyecto que instancia `ritual.mjs init-proyecto`
+        └── proyecto.md          # esqueleto de .claude/proyectos/<nombre>.md que instancia `ritual.mjs init-proyecto`
 ```
 
 ## Wizard interactivo
@@ -220,7 +222,7 @@ No confundir con los flags de `bin/install.sh` (sección [Flags](README.md#flags
 | `<RAG_ROOT>/V.A.U.L.T`, `<RAG_ROOT>/R.A.G`, registro MCP de Claude: `rag`, volumen Docker `ragdata` | rag.sh (`cp -R` de templates, `docker compose up`, `claude mcp add`) | Solo el registro MCP + el contenedor `claudemax-ragdb` — las carpetas y el volumen `ragdata` sobreviven a la desinstalación |
 | `$HOME/.kaggle/kaggle.json` | rag.sh (`ac_rag_kaggle_setup`, solo si `KAGGLE_USERNAME`/`KAGGLE_KEY` están en el entorno) | **No** — es una credencial de tu cuenta de Kaggle, no un artefacto de CLAUDEMAX; bórrala a mano si quieres |
 | `$CLAUDE_CONFIG_DIR/hooks/{git-footer-guard,loop-breaker,skill-suggest,session-start}.mjs` + sus entradas `PreToolUse`/`PostToolUse`/`UserPromptSubmit`/`SessionStart` en `settings.json` | rules.sh (`cp` + `ac_merge_hook`) | Sí — `rm -f` de los 4 archivos y `ac_remove_hook` de sus 4 entradas en `settings.json` |
-| `<RAG_ROOT>/.claude/` (`CLAUDEMAX.md`, `CLAUDE.md`, `proyecto.md`) | rules.sh (`cp -f` de `templates/rules/`) | **No** — contiene reglas que pudiste editar a mano; sobrevive a la desinstalación igual que `V.A.U.L.T`/`R.A.G` |
+| `<RAG_ROOT>/.claude/` (`CLAUDEMAX.md`, `CLAUDE.md`, `proyecto.md`, `proyectos/`, `recordatorios/`) | rules.sh (`cp -f` de `templates/rules/`; `proyectos/_indice.md` y los recordatorios solo si faltan) | **No** — reglas que pudiste editar y contexto por proyecto que es tuyo; sobrevive a la desinstalación igual que `V.A.U.L.T`/`R.A.G` |
 | `$CLAUDE_CONFIG_DIR/state/{loop-breaker,skill-suggest}.json` | loop-breaker.mjs / skill-suggest.mjs (estado por sesión, escritura propia) | Sí |
 
 `bin/uninstall.sh` también elimina, best-effort, un puñado de rutas heredadas de instalaciones antiguas de CLAUDEMAX (antes ABSOLUTE-CLAUDE) (`skills/repo-map/`, `skills/dcp-lite/`, `hooks/dcp-lite-dedup.mjs`, `state/dcp-lite-*.json`, y los nombres de skill pre-2.0 `solid`, `design-patterns`, `architecture-patterns`) para que actualizar en el sitio no deje nada atrás. Ninguno de esos componentes lo instala el `bin/install.sh` actual. Lo mismo aplica a Caveman: ya no es un componente de `bin/install.sh`, pero `bin/uninstall.sh` sigue delegando en su propio `--uninstall` para dejar limpias las instalaciones antiguas que lo tenían activo (hooks, statusline, `$CLAUDE_CONFIG_DIR/.caveman-active`, y el MCP de proyecto `caveman-shrink`, que gestiona el propio desinstalador de Caveman).
@@ -443,15 +445,19 @@ export CLAUDEMAX_LOOP_BREAKER=0
 export CLAUDEMAX_SESSION_CONTEXT=0
 ```
 
-### "Quiero las reglas en un proyecto ya existente"
+### "Quiero el contexto de un proyecto ya existente"
 
-Ejecuta el ritual de inicialización sobre esa carpeta — nunca sobrescribe nada que ya exista:
+Ejecuta el ritual de inicialización sobre ese repo — nunca sobrescribe nada que ya exista:
 
 ```bash
-node R.A.G/ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto]
+node R.A.G/ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto] [--sin-indexar] [--sin-gitignore]
 ```
 
-Crea `<ruta>/.claude/CLAUDEMAX.md` (la plantilla `templates/rules/proyecto.md` con sus marcadores sustituidos), `<ruta>/.claude/CLAUDE.md` (o le añade `@CLAUDEMAX.md` si el archivo ya existía) y el hub del proyecto `V.A.U.L.T/Hubs/<nombre>.md` (desde `Hubs/_proyecto.md`).
+Crea `<RAG_ROOT>/.claude/proyectos/<nombre>.md` (esqueleto de `templates/rules/proyecto.md`),
+regenera `proyectos/_indice.md`, crea el hub `V.A.U.L.T/Hubs/<nombre>.md`, añade `/CLAUDE.md`,
+`/CLAUDE.local.md` y `/.claude/` al `.gitignore` del repo e indexa el código con codebase-memory y
+graphify. **No escribe nada dentro del repo** salvo ese `.gitignore`. Si el repo tiene un
+`.claude/CLAUDEMAX.md` del diseño anterior, lo avisa para que migres su contenido a mano.
 
 ### "Kaggle no arranca los kernels"
 

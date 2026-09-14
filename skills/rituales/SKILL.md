@@ -14,11 +14,11 @@ lo pide explícitamente o le pide al modelo que lo invoque.
 ## Dónde escribe cada ritual (la carpeta da la colección)
 
 La colección y la autoridad de una nota las da su carpeta, no el frontmatter (ver
-`Hubs/Bienvenida.md` del vault y la regla 7 de `CLAUDEMAX.md`). Los rituales escriben aquí:
+`Hubs/Bienvenida.md` del vault y la regla 9 de `CLAUDEMAX.md`). Los rituales escriben aquí:
 
 | Ritual | Carpeta | `coleccion` | Además |
 |---|---|---|---|
-| `init-proyecto` | `Hubs/<Proyecto>.md` | `hubs` | desde `Hubs/_proyecto.md`; enlázalo en `Bienvenida` (Negocio) |
+| `init-proyecto` | `<RAG_ROOT>/.claude/proyectos/<slug>.md` + `Hubs/<Proyecto>.md` | `hubs` (el hub) | regenera `proyectos/_indice.md`; `.gitignore` del repo; indexa codebase-memory y graphify; enlaza el hub en `Bienvenida` (Negocio) |
 | `fin-sesion` | `Superpowers/Sesiones/YYYY-MM-DD-HHMM-<proyecto>.md` | `sesiones` | enlázala en `Hubs/Superpowers-Sesiones.md` |
 | `fin-dia` | `Bitacoras/YYYY-MM-DD.md` | `bitacoras` | enlázala en `Hubs/Bitacoras.md` |
 | `fin-ciclo` | `Superpowers/Sesiones/cierre-<ciclo>.md` | `sesiones` | corre `reindex` y `salud` |
@@ -32,7 +32,8 @@ incremental y muestra `rag.mjs salud --resumen` (caducas, huérfanas, enlaces ro
   `startup` — no al reanudar), sin que nadie lo pida.
 - **Qué lo dispara:** el hook `hooks/session-start.mjs`, registrado por el componente `rules`
   del instalador con timeout de 90 s.
-- **Qué hace:** reindexa el RAG de forma incremental (`rag.mjs ingest --silencioso`, tope
+- **Qué hace:** si el repo actual no tiene `.claude/proyectos/<nombre>.md` en el workspace,
+  avisa con el comando `init-proyecto` exacto (§2); reindexa el RAG de forma incremental (`rag.mjs ingest --silencioso`, tope
   60 s) y resume la salud del vault (`rag.mjs salud --resumen`: caducas, a revisar, huérfanas,
   enlaces rotos); luego detecta el proyecto actual, resume el grafo de Graphify
   (`graphify-out/graph.json`) si existe, y consulta el RAG
@@ -47,21 +48,38 @@ incremental y muestra `rag.mjs salud --resumen` (caducas, huérfanas, enlaces ro
 
 ## 2. Init de proyecto (manual)
 
-- **Cuándo:** al arrancar un repo/proyecto nuevo dentro del workspace CLAUDEMAX, o cuando el
-  usuario dice "nuevo proyecto" / "init project".
+- **Cuándo:** al empezar a trabajar en un repo del workspace que todavía no tiene
+  `.claude/proyectos/<nombre>.md` (el hook de arranque lo avisa: "Sin contexto de proyecto…"), o
+  cuando el usuario dice "nuevo proyecto" / "init project".
 - **Comando:**
   ```bash
-  node R.A.G/ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto] [--vault ruta]
+  node R.A.G/ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto] [--sin-indexar] [--sin-gitignore] [--vault ruta]
   ```
-- **Qué hace:** crea `<ruta>/.claude/`; copia `templates/rules/proyecto.md` a
-  `<ruta>/.claude/CLAUDEMAX.md` sustituyendo los marcadores (`{{PROYECTO}}`, `{{FECHA}}`,
-  `{{VAULT}}`, `{{RAG}}`, `{{DESCRIPCION}}`); crea (o completa) `<ruta>/.claude/CLAUDE.md` con
-  la línea `@CLAUDEMAX.md`; crea el hub del proyecto `V.A.U.L.T/Hubs/<nombre>.md` desde
-  `Hubs/_proyecto.md` (marcadores `{{PROYECTO}}`, `{{FECHA}}`, `{{DESCRIPCION}}`, `{{RUTA}}`).
-- **Qué NO hace:** nunca sobrescribe un archivo existente — si `.claude/CLAUDEMAX.md`,
-  `.claude/CLAUDE.md` o `Hubs/<nombre>.md` ya están, los respeta e informa por consola. Si no
-  encuentra la plantilla `proyecto.md`, avisa claramente y continúa igual con el resto de
-  pasos (no falla).
+- **Qué hace, en orden:**
+  1. crea `<RAG_ROOT>/.claude/proyectos/<slug>.md` desde la plantilla `proyecto.md`: frontmatter
+     `proyecto/ruta/descripcion/inicializado` y cinco secciones vacías con su guía en comentarios.
+     `<slug>` es el nombre sin espacios ni tildes (`Otro Repo` → `Otro-Repo.md`);
+  2. regenera `proyectos/_indice.md`, que `CLAUDEMAX.md` importa: el contexto de todos los
+     proyectos se carga en cualquier sesión del workspace sin nada dentro de los repos;
+  3. crea el hub `V.A.U.L.T/Hubs/<nombre>.md` desde `Hubs/_proyecto.md`;
+  4. si `<ruta>` es un repo git, añade `/CLAUDE.md`, `/CLAUDE.local.md` y `/.claude/` a su
+     `.gitignore` (salvo `--sin-gitignore`);
+  5. si encuentra `<ruta>/.claude/CLAUDEMAX.md` del diseño anterior, avisa de que hay que migrarlo
+     a mano — no borra nada;
+  6. indexa el repo con codebase-memory (`index_repository`, modo `moderate`) y extrae su grafo
+     con `graphify extract <ruta> --code-only` (salvo `--sin-indexar`; si falta un binario, dice
+     cómo instalarlo y sigue).
+- **Qué NO hace:** nunca sobrescribe `proyectos/<slug>.md` ni el hub si ya existen; nunca escribe
+  dentro del repo salvo el `.gitignore`; no escribe la prosa — eso es el paso siguiente.
+- **Después — guion para el modelo**, en una sesión abierta en el repo. Rellena
+  `proyectos/<slug>.md` verificando contra el grafo, nunca de memoria:
+  1. **Estructura:** `get_architecture` de codebase-memory y `query_graph` / `get_neighbors` de
+     graphify → carpetas de primer nivel, capas y quién depende de quién.
+  2. **Comandos:** léelos de los archivos reales (`*.sln`/`*.csproj`, `package.json`,
+     `pyproject.toml`, `Makefile`) y pruébalos si es barato.
+  3. **Estado**, **Trampas que ya costaron tiempo** y **Convenciones** se quedan vacías hasta que
+     haya algo real que escribir, con su fecha. No inventes.
+  4. Tope ~150 líneas: lo largo va al vault (`Codigo/` con `fuentes:`) y se enlaza.
 
 ## 3. Fin de sesión (manual, ritual menor)
 

@@ -25,7 +25,7 @@ bash bin/install.sh
 | **ponytail** | Plugin de Claude Code que fuerza minimalismo al escribir código mediante una "escalera" de 7 peldaños (¿hace falta? → ¿ya existe en el repo? → ¿stdlib? → ¿feature nativa? → ¿dependencia ya instalada? → ¿cabe en una línea? → el mínimo que funcione). Trae 6 skills: `ponytail` (modo activo, niveles `lite`/`full`/`ultra`), `ponytail-review` (revisa el diff), `ponytail-audit` (repo completo), `ponytail-debt` (cosecha comentarios `ponytail:` en una libreta de deuda técnica), `ponytail-gain` y `ponytail-help`. No choca con Graphify: registra hooks `SessionStart`/`SubagentStart`/`UserPromptSubmit`, ninguno es `PreToolUse` (el único evento que usa Graphify). | [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) |
 | **cyber-neo** | Skill de auditoría de seguridad: OWASP 2025 Top 10 y CWE Top 25, escaneo de dependencias, secretos, SAST y configuración. Solo lectura; reporte en `~/Desktop/`. Clonada con commit fijado. | [Hainrixz/cyber-neo](https://github.com/Hainrixz/cyber-neo) |
 | **parsers** | Ingesta de archivos para el RAG: **MarkItDown** (cualquier archivo → markdown, con MCP oficial `markitdown`), **opendataloader-pdf** (PDFs complejos) y **whisper-ctranslate2** (audio → texto, CPU). Auto-instala Python y el JDK vía winget si faltan. | [markitdown](https://github.com/microsoft/markitdown), [opendataloader-pdf](https://github.com/opendataloader-project/opendataloader-pdf), [whisper-ctranslate2](https://github.com/Softcatala/whisper-ctranslate2) |
-| **rules** | Reglas operativas empaquetadas en el repo (`templates/rules/`) — no en la configuración personal de tu máquina — instaladas en `<RAG_ROOT>/.claude/`: `CLAUDEMAX.md` (las 8 reglas) y `proyecto.md` (plantilla por proyecto) se sobrescriben en cada instalación; `CLAUDE.md` nunca se pisa, solo se le añade `@CLAUDEMAX.md` si falta. Además instala y registra 5 hooks de cumplimiento y contexto: `git-footer-guard.mjs`, `loop-breaker.mjs`, `skill-suggest.mjs`, `session-start.mjs`, `recordar.mjs` (recordatorios justo a tiempo, ver [Reglas operativas](#reglas-operativas)), más los recordatorios de fábrica en `<RAG_ROOT>/.claude/recordatorios/`. Ver sección [Reglas operativas](#reglas-operativas). Último componente en instalarse — sus reglas referencian rutas que crean los pasos anteriores. | propia (este repo) |
+| **rules** | Reglas operativas empaquetadas en el repo (`templates/rules/`) — no en la configuración personal de tu máquina — instaladas en `<RAG_ROOT>/.claude/`: `CLAUDEMAX.md` (las 10 reglas; termina importando `proyectos/_indice.md`) y `proyecto.md` (esqueleto de `.claude/proyectos/<nombre>.md`) se sobrescriben en cada instalación; `CLAUDE.md` nunca se pisa, solo se le añade `@CLAUDEMAX.md` si falta; crea `.claude/proyectos/_indice.md` si falta. Además instala y registra 5 hooks de cumplimiento y contexto: `git-footer-guard.mjs`, `loop-breaker.mjs`, `skill-suggest.mjs`, `session-start.mjs`, `recordar.mjs` (recordatorios justo a tiempo, ver [Reglas operativas](#reglas-operativas)), más los recordatorios de fábrica en `<RAG_ROOT>/.claude/recordatorios/`. Ver sección [Reglas operativas](#reglas-operativas). Último componente en instalarse — sus reglas referencian rutas que crean los pasos anteriores. | propia (este repo) |
 
 ## Instalación
 
@@ -250,7 +250,7 @@ El instalador escribe las credenciales en `.env` y en `~/.kaggle/kaggle.json`, y
 
 Las reglas de trabajo no viven en la configuración personal de tu máquina — viven en el repo
 (`templates/rules/`) y el componente `rules` las instala en `<RAG_ROOT>/.claude/CLAUDEMAX.md`
-(y las propaga a cada proyecto vía el ritual `init-proyecto`, ver [Rituales](#rituales)). El
+(el contexto de cada proyecto va aparte, en `.claude/proyectos/`, ver [Contexto por proyecto](#contexto-por-proyecto)). El
 repo es la fuente de verdad: si necesitas cambiar una regla, edítala en `templates/rules/` y
 reinstala — editar `<RAG_ROOT>/.claude/CLAUDEMAX.md` a mano se pierde en la siguiente instalación.
 
@@ -261,10 +261,13 @@ reinstala — editar `<RAG_ROOT>/.claude/CLAUDEMAX.md` a mano se pierde en la si
 | 3 | **Cortacircuitos de 3 intentos:** tras 3 intentos fallidos con el mismo error, PARAR, resumir al usuario y esperar su respuesta. | `hooks/loop-breaker.mjs` (avisa, no bloquea) |
 | 4 | **Commits:** Conventional Commits, subject en español, y nunca un footer de atribución de IA (`Co-authored-by: Claude`, "Generated with Claude Code", 🤖...). | `hooks/git-footer-guard.mjs` (**bloquea** el commit) |
 | 5 | **Ahorro de tokens / búsqueda de skills:** tecnología nueva sin Skill 2.0 instalada → preguntar al usuario si crear/buscar una, mencionando el compromiso. | `hooks/skill-suggest.mjs` (avisa, no bloquea) |
-| 6 | **Memoria:** el cerebro RAG es la única fuente de retención de contexto entre sesiones. No reinstalar Context7 ni Claude-Mem. | Convención — sin hook. |
-| 7 | **Taxonomía y vigencia:** la carpeta da la colección; toda nota se enlaza desde su hub; `fuentes:` si describe código, `reemplaza:` si sustituye a otra (ver `Plantillas/nota.md`). | Convención + `rag.mjs salud` (informa, no bloquea). |
+| 6 | **Dónde vive el contexto:** todo en `<RAG_ROOT>/.claude/` (reglas, `proyectos/<nombre>.md`, recordatorios) o en el vault; ningún repo lleva `CLAUDE.md`, `CLAUDE.local.md` ni `.claude/`. Ver [Contexto por proyecto](#contexto-por-proyecto). | Recordatorio `contexto-fuera-del-repo` + `.gitignore` que escribe `init-proyecto` + aviso de `session-start.mjs`. |
+| 7 | **Tres memorias con rol:** memoria nativa = gotchas cortos; vault + RAG = narrativa y decisiones; grafo = estructura. Lo generado se queda en su herramienta; lo narrado va al vault. Context7 permitido para documentación de librerías. | Convención — sin hook. |
+| 8 | **Orden de herramientas de contexto:** `rag` → `graphify` → `codebase-memory` → grep (último recurso, solo literales). La prosa se verifica contra el grafo; codebase-memory se reindexa antes de concluir "no existe". | Recordatorio `orden-herramientas`. |
+| 9 | **Taxonomía y vigencia:** la carpeta da la colección; toda nota se enlaza desde su hub; `fuentes:` si describe código, `reemplaza:` si sustituye a otra (ver `Plantillas/nota.md`). | Convención + `rag.mjs salud` (informa, no bloquea) + recordatorio `editar-vault`. |
+| 10 | **Recordatorios justo a tiempo:** una regla que se olvidó dos veces se convierte en un recordatorio en `.claude/recordatorios/`. | `hooks/recordar.mjs` (inyecta, no bloquea). |
 
-Cinco hooks Node sin dependencias hacen cumplir las reglas 3, 4, 5 y 8 de forma determinista (y
+Cinco hooks Node sin dependencias hacen cumplir las reglas 3, 4, 5 y 10 de forma determinista (y
 `session-start.mjs` da contexto automático, ver [Rituales](#rituales)). Cada uno tiene su propia
 variable de escape para desactivarlo sin desinstalar nada:
 
@@ -275,6 +278,26 @@ variable de escape para desactivarlo sin desinstalar nada:
 | `skill-suggest.mjs` | `UserPromptSubmit` | No, solo avisa (una vez por sesión y tecnología) | `CLAUDEMAX_SKILL_SUGGEST=0` |
 | `session-start.mjs` | `SessionStart` / `startup` | No, solo aporta contexto (y reindexa el RAG) | `CLAUDEMAX_SESSION_CONTEXT=0` |
 | `recordar.mjs` | `PreToolUse` / `Grep\|Bash\|PowerShell\|Edit\|Write\|MultiEdit\|Read` | No, inyecta el recordatorio como contexto | `CLAUDEMAX_RECORDAR=0` |
+
+### Contexto por proyecto
+
+El contexto que Claude necesita de cada repo (estructura, comandos, estado, trampas) no vive en
+el repo: en el setup de trabajo del autor, un `CLAUDE.md` con contexto interno acabó publicado en
+GitHub el 2026-07-24. Vive en el workspace, y Claude Code lo carga solo porque lee los `CLAUDE.md`
+de los directorios padre y resuelve sus imports:
+
+    <RAG_ROOT>/.claude/CLAUDE.md          tuyo; el instalador solo le añade la línea que importa CLAUDEMAX.md
+      └─ CLAUDEMAX.md                     reglas; termina importando proyectos/_indice.md
+           └─ proyectos/_indice.md        generado por init-proyecto: una línea e import por proyecto
+                └─ proyectos/<nombre>.md  tuyo desde el día 1; ~150 líneas como máximo
+
+Una sesión abierta en `<RAG_ROOT>/MiRepo/` (o en cualquier subcarpeta) ve las reglas y el contexto
+de todos los proyectos; `/context` los lista en *Memory files*. Si el repo no tiene archivo, el
+hook de arranque lo avisa y `node R.A.G/ritual.mjs init-proyecto <ruta>` lo crea.
+
+**Migrar desde el diseño anterior** (`<repo>/.claude/CLAUDEMAX.md`): corre `init-proyecto` sobre el
+repo —detecta el archivo viejo y lo avisa—, copia a `proyectos/<nombre>.md` lo que valga y borra
+`<repo>/.claude/CLAUDEMAX.md` (y `<repo>/.claude/CLAUDE.md` si solo importaba ese archivo).
 
 ### Recordatorios justo a tiempo
 
@@ -290,6 +313,7 @@ diga `una_vez_por_sesion: true`. Nunca bloquea.
 tools: [Bash, PowerShell]           # Grep, Bash, PowerShell, Edit, Write, MultiEdit, Read, Glob
 patrones: ['\bgcloud\b']            # regex contra el comando (o la ruta, en Edit/Write)
 rutas: ["**/V.A.U.L.T/**/*.md"]     # globs contra file_path
+excluir: ["**/Plantillas/**"]       # globs que anulan el disparo (ganan incluso a siempre)
 siempre: [Grep]                     # tools que disparan sin mirar patrones/rutas
 una_vez_por_sesion: false
 activo: true
@@ -302,7 +326,8 @@ TEXTO QUE SE INYECTA TAL CUAL.
 De fábrica (se instalan si no existen; edítalos, son tuyos): `orden-herramientas` (rag →
 graphify → codebase-memory → grep, al usar Grep o un buscador en Bash/PowerShell),
 `tocar-produccion` (gcloud, aws, kubectl apply, terraform apply, docker push, `--prod`…),
-`editar-vault` (regla 7 al escribir bajo `V.A.U.L.T/`), `estandares-dotnet` (al editar `.cs`/
+`contexto-fuera-del-repo` (regla 6 al escribir un `CLAUDE.md` o `.claude/` dentro de un repo),
+`editar-vault` (regla 9 al escribir bajo `V.A.U.L.T/`), `estandares-dotnet` (al editar `.cs`/
 `.xaml`) y `pruebas-dotnet` (al correr `dotnet test`). En `ejemplos/maestrasuite/` van los
 cuatro originales del setup de trabajo del autor, íntegros e inactivos, como referencia de cómo
 se escribe uno nacido de un fallo real. Los recordatorios rotos se anotan en
@@ -333,14 +358,17 @@ La skill `rituales` los documenta para que el modelo sepa cuándo invocarlos.
 | Ritual | Cuándo | Comando |
 |---|---|---|
 | **Inicio de sesión** (automático) | Cada arranque de sesión, sin pedirlo. | — (hook `session-start.mjs`) |
-| **Init de proyecto** | Repo/proyecto nuevo dentro del workspace. | `node R.A.G/ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto]` |
+| **Init de proyecto** | Repo del workspace sin `.claude/proyectos/<nombre>.md` (el arranque lo avisa). | `node R.A.G/ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto] [--sin-indexar]` |
 | **Fin de sesión** (menor) | Al cerrar una sesión de trabajo, para que la siguiente retome el hilo. | `node R.A.G/ritual.mjs fin-sesion [--resumen "texto"] [--siguiente "texto"]` |
 | **Fin de día** (menor) | "Terminamos por hoy", al cerrar la jornada completa. | `node R.A.G/ritual.mjs fin-dia [--resumen "texto"]` |
 | **Fin de ciclo** (mayor) | "Cierre de ciclo" / "fin de sprint". | `node R.A.G/ritual.mjs fin-ciclo [--ciclo nombre] [--proyecto nombre] --si` |
 
-`init-proyecto` crea `.claude/CLAUDEMAX.md` (la plantilla `templates/rules/proyecto.md` con sus
-marcadores sustituidos) y `.claude/CLAUDE.md` en el repo destino, más el hub del proyecto
-`V.A.U.L.T/Hubs/<nombre>.md` (desde `Hubs/_proyecto.md`). Nunca sobrescribe nada que ya exista.
+`init-proyecto` escribe el contexto del proyecto **fuera del repo**, en
+`<RAG_ROOT>/.claude/proyectos/<nombre>.md` (esqueleto de `templates/rules/proyecto.md`); regenera
+`proyectos/_indice.md`; crea el hub `V.A.U.L.T/Hubs/<nombre>.md`; añade `/CLAUDE.md`,
+`/CLAUDE.local.md` y `/.claude/` al `.gitignore` del repo; e indexa el código con codebase-memory y
+graphify (`--sin-indexar` lo salta). Nunca sobrescribe nada que ya exista. La prosa la rellena el
+modelo después consultando el grafo (skill `rituales`). Ver [Contexto por proyecto](#contexto-por-proyecto).
 
 La diferencia clave entre los tres rituales manuales de cierre:
 

@@ -10,6 +10,14 @@
           "enum": ["init-proyecto", "fin-sesion", "fin-dia", "fin-ciclo"],
           "description": "Qué ritual manual ejecutar (el inicio de sesión es automático y no entra aquí)"
         },
+        "ruta": {
+          "type": "string",
+          "description": "Ruta del repo — usado por init-proyecto"
+        },
+        "descripcion": {
+          "type": "string",
+          "description": "Una línea que describe el proyecto — usado por init-proyecto"
+        },
         "proyecto": {
           "type": "string",
           "description": "Nombre del proyecto — usado por init-proyecto, fin-sesion (opcional, si no se detecta solo) y fin-ciclo"
