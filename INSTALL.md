@@ -32,7 +32,8 @@ CLAUDEMAX/
 │       ├── ui-ux.sh            # copia skills/ui-ux-pro-max + registra el MCP magic + npm i + hook ui-audit.mjs
 │       ├── dev-skills.sh       # clon de superpowers + 7 skills propias (incluidas pmbok, no-ai-slop y rituales)
 │       ├── rag.sh              # vault V.A.U.L.T + stack R.A.G (compose/schema/CLI/MCP) + backend Kaggle opcional + registro MCP
-│       ├── graphify.sh         # instala el CLI de Graphify (pip) y lo registra en Claude Code
+│       ├── graphify.sh         # instala el CLI de Graphify (pip) y registra el MCP graphify (envoltorio por proyecto)
+│       ├── codebase-memory.sh  # npm -g codebase-memory-mcp + registro del MCP codebase-memory
 │       ├── ponytail.sh         # `claude plugin marketplace add` + `install` del plugin ponytail
 │       ├── cyber-neo.sh        # clon de la skill de seguridad (commit fijado)
 │       ├── parsers.sh          # markitdown (+MCP) / opendataloader-pdf / whisper-ctranslate2
@@ -112,6 +113,10 @@ CLAUDEMAX/
     │   │   └── embed_kernel.py        # BAAI/bge-m3 vía FlagEmbedding, corre en el T4 gratuito
     │   ├── mcp-server.mjs       # wrapper MCP stdio (rag_query/rag_leer/rag_status, con coleccion/proyecto)
     │   └── test/                # node --test: unitarias + integración (se saltan sin Postgres)
+    ├── mcp/                     # envoltorio MCP de graphify (se copia a ~/.claude/mcp/)
+    │   ├── graphify-auto.mjs    # proxy al servidor real o mini-servidor de aviso (graphify_estado)
+    │   ├── graphify-auto-lib.mjs
+    │   └── test/                # node --test
     ├── recordatorios/           # semilla de <RAG_ROOT>/.claude/recordatorios/ (se copian solo si faltan)
     │   ├── _plantilla.md        # frontmatter comentado campo a campo
     │   ├── orden-herramientas.md, tocar-produccion.md, editar-vault.md, estandares-dotnet.md, pruebas-dotnet.md
@@ -202,7 +207,8 @@ No confundir con los flags de `bin/install.sh` (sección [Flags](README.md#flags
 | `$CLAUDE_CONFIG_DIR/skills/{swebok,pmbok,book-to-skill,conventional-commits,skill-mcp-builder,no-ai-slop,rituales}/` | dev-skills.sh (`cp -R` desde este repo) | Sí |
 | `$CLAUDE_CONFIG_DIR/skills/cyber-neo/` | cyber-neo.sh (`git clone` + checkout del commit fijado) | Sí |
 | Paquete pip `graphifyy` (binario `graphify`, vía `uv tool install` / `pipx install` / `pip install --user`, el primero disponible) | graphify.sh | **No** — es una dependencia de sistema, igual que los parsers; desinstálala a mano con `pip uninstall graphifyy` (o `uv tool uninstall` / `pipx uninstall`) si quieres |
-| Sección `## graphify` en `CLAUDE.md` + hook `PreToolUse` (`Bash\|Grep`, `Read\|Glob`) en `.claude/settings.json`, en `$AC_REPO_DIR` (el propio repo de CLAUDEMAX) | graphify.sh (`graphify claude install`, sin `--strict`) | Sí — `graphify claude uninstall` en `$AC_REPO_DIR`. Es un registro **por-proyecto**: si ejecutaste `graphify claude install` en otros proyectos a mano, desregístralos ahí también con `graphify claude uninstall` |
+| `$CLAUDE_CONFIG_DIR/mcp/graphify-auto.mjs` + `graphify-auto-lib.mjs` y el MCP `graphify` a nivel usuario (`claude mcp add -s user graphify`) | graphify.sh | Sí (`claude mcp remove graphify` + `rm`) |
+| Paquete npm global `codebase-memory-mcp` y el MCP `codebase-memory` a nivel usuario | codebase-memory.sh | Sí (`claude mcp remove` + `npm uninstall -g`); los índices de `~/.cache/codebase-memory-mcp/` se conservan |
 | `<proyecto>/graphify-out/` (`graph.json`, `graph.html`, `GRAPH_REPORT.md`) en cualquier proyecto donde corras `graphify extract` | El propio CLI `graphify`, invocado manualmente por ti | **No** — no es CLAUDEMAX quien lo genera; bórralo a mano en cada proyecto si quieres |
 | Legado: plugin `understand-anything` (en `$CLAUDE_CONFIG_DIR/plugins/cache/`) + marketplace `understand-anything`, de instalaciones de CLAUDEMAX anteriores a este cambio | Ya no lo instala `graphify.sh` — se detecta y se quita como migración (`claude plugin uninstall`/`marketplace remove`, best-effort) | Sí, best-effort — `claude plugin uninstall understand-anything -s user` + `marketplace remove`. Si el CLI falla, hazlo en sesión con `/plugin uninstall understand-anything` |
 | Plugin `ponytail` (marketplace `DietrichGebert/ponytail`, típicamente en `$CLAUDE_CONFIG_DIR/plugins/cache/`) + flags `$CLAUDE_CONFIG_DIR/.ponytail-active` y `.ponytail-statusline-nudged` | ponytail.sh (`claude plugin marketplace add` + `claude plugin install`) | Sí, best-effort — ejecuta primero `node <plugin>/scripts/uninstall.js` (limpia flags/statusLine) si localiza el directorio del plugin, luego `claude plugin uninstall ponytail -s user` + `marketplace remove`, y borra los dos archivos de flag. **No** elimina `~/.config/ponytail/config.json` — puedes haberlo editado a mano |
@@ -229,11 +235,12 @@ No confundir con los flags de `bin/install.sh` (sección [Flags](README.md#flags
 3. **ui-ux** — también necesita `claude` para el MCP magic (también registrado a nivel de **usuario**); muta el cwd vía `npm install` (condicionado). Además de copiar la skill, ahora también copia `hooks/ui-audit.mjs` a `$CLAUDE_CONFIG_DIR/hooks/` y lo registra como `PostToolUse`/`Edit|Write` en `settings.json` (auditoría determinista de anti-patrones de UI; desactivable con `CLAUDEMAX_UI_AUDIT=0`).
 4. **dev-skills** — copia simple de archivos para `swebok` / `pmbok` / `book-to-skill` / `conventional-commits` / `skill-mcp-builder` / `no-ai-slop` / `rituales`; `git clone`/`git pull` para `superpowers`. `pmbok` declara `dependencies: [swebok]` en su `skill.yaml` (complementa al SWEBOK: SWEBOK cubre ingeniería de software, PMBOK cubre dirección de proyectos), pero es una dependencia declarativa que el modelo consulta, no un orden de copiado que `dev-skills.sh` tenga que resolver — ambas se copian en la misma pasada de `FIRST_PARTY_SKILLS`. Sin dependencia de orden con los demás componentes.
 5. **rag** — opt-in (necesita `RAG_ROOT` definido, si no avisa y se omite): copia `templates/vault` (con la taxonomía de 6 categorías) → `<RAG_ROOT>/V.A.U.L.T` y `templates/rag` (incluidas las plantillas de Kaggle en `kaggle/`) → `<RAG_ROOT>/R.A.G`, auto-instala Docker y Ollama vía winget si faltan, levanta el stack Docker Compose `ragdb` + `bge-m3`, hace `npm install` de las dependencias del CLI/MCP, configura el backend opcional de Kaggle si `KAGGLE_USERNAME`/`KAGGLE_KEY` están en el entorno, y registra el MCP `rag` a nivel de **usuario**.
-6. **graphify** — instala el paquete pip `graphifyy` (`uv tool install` / `pipx install` / `pip install --user`, el primero disponible) y ejecuta `graphify claude install` (registro por-proyecto: sección de `CLAUDE.md` + hook `PreToolUse`, sin `--strict`). Antes de instalar nada, hace la migración: si detecta el plugin equivocado de una instalación anterior (`understand-anything`), lo quita. Sin dependencia de orden con los demás — ya no toca la configuración de plugins de `claude`.
-7. **ponytail** — necesita `claude`; sin él avisa con los comandos `/plugin` para hacerlo en sesión y no falla la instalación. Idempotente vía `claude plugin list`. `claude plugin marketplace add DietrichGebert/ponytail` + `claude plugin install ponytail@ponytail`. Sin dependencia de orden con los demás — sus hooks (`SessionStart`/`SubagentStart`/`UserPromptSubmit`) no chocan con el `PreToolUse` de graphify.
-8. **cyber-neo** — `git clone` + `checkout` del commit fijado en `$CLAUDE_CONFIG_DIR/skills/cyber-neo`. Sin dependencia de orden.
-9. **parsers** — auto-instala Python y el JDK vía winget si faltan, luego `pip install` de los tres parsers, registra el MCP `markitdown` a nivel de **usuario**, y barre restos heredados de Context7 / Claude-Mem (entran en conflicto con el cerebro RAG).
-10. **rules** — **último** a propósito: copia `templates/rules/` a `<RAG_ROOT>/.claude/` (requiere `RAG_ROOT`, igual que `rag`; sin él instala solo los hooks y avisa) y registra los cinco hooks de cumplimiento y contexto en `$CLAUDE_CONFIG_DIR/hooks/` (y copia los recordatorios justo a tiempo a `<RAG_ROOT>/.claude/recordatorios/` sin pisar los existentes). Va al final porque sus reglas y su hook `session-start` referencian rutas que crean los pasos anteriores (`<RAG_ROOT>/V.A.U.L.T`, `<RAG_ROOT>/R.A.G/rag.mjs`, las skills ya instaladas) — instalarlo antes correría el riesgo de documentar/consultar rutas que todavía no existen.
+6. **graphify** — instala el paquete pip `graphifyy` (`uv tool install` / `pipx install` / `pip install --user`, el primero disponible), copia `templates/mcp/graphify-auto{,-lib}.mjs` a `$CLAUDE_CONFIG_DIR/mcp/` y registra `claude mcp add -s user graphify -- node …/graphify-auto.mjs`. El envoltorio localiza en cada sesión el `graphify-out/graph.json` del proyecto (`CLAUDE_PROJECT_DIR`) y lanza el servidor real; sin grafo o sin graphify sirve la tool `graphify_estado`. Si una instalación anterior dejó `## graphify` en `CLAUDE.md` o el hook `graphify hook-guard` en `.claude/settings.json` del repo, los retira. Idempotente vía `graphify --version` y `claude mcp list`.
+7. **codebase-memory** — `npm install -g codebase-memory-mcp` + `claude mcp add -s user codebase-memory -- codebase-memory-mcp`. No indexa nada al instalar; el índice de cada proyecto se crea con `codebase-memory-mcp cli index_repository --repo-path <abs> --mode moderate` y vive en `~/.cache/codebase-memory-mcp/` (nunca `--persistence`). Sin `npm` avisa y omite.
+8. **ponytail** — necesita `claude`; sin él avisa con los comandos `/plugin` para hacerlo en sesión y no falla la instalación. Idempotente vía `claude plugin list`. `claude plugin marketplace add DietrichGebert/ponytail` + `claude plugin install ponytail@ponytail`. Sin dependencia de orden con los demás — sus hooks (`SessionStart`/`SubagentStart`/`UserPromptSubmit`) no chocan con el `PreToolUse` de graphify.
+9. **cyber-neo** — `git clone` + `checkout` del commit fijado en `$CLAUDE_CONFIG_DIR/skills/cyber-neo`. Sin dependencia de orden.
+10. **parsers** — auto-instala Python y el JDK vía winget si faltan, luego `pip install` de los tres parsers, registra el MCP `markitdown` a nivel de **usuario**, y barre restos heredados de Context7 / Claude-Mem (entran en conflicto con el cerebro RAG).
+11. **rules** — **último** a propósito: copia `templates/rules/` a `<RAG_ROOT>/.claude/` (requiere `RAG_ROOT`, igual que `rag`; sin él instala solo los hooks y avisa) y registra los cinco hooks de cumplimiento y contexto en `$CLAUDE_CONFIG_DIR/hooks/` (y copia los recordatorios justo a tiempo a `<RAG_ROOT>/.claude/recordatorios/` sin pisar los existentes). Va al final porque sus reglas y su hook `session-start` referencian rutas que crean los pasos anteriores (`<RAG_ROOT>/V.A.U.L.T`, `<RAG_ROOT>/R.A.G/rag.mjs`, las skills ya instaladas) — instalarlo antes correría el riesgo de documentar/consultar rutas que todavía no existen.
 
 ## Interacciones entre flags
 
@@ -364,24 +371,9 @@ Soluciones, de más a menos preferible:
 3. **Localízalo a mano si no sabes dónde quedó**: `python -m pip show -f graphifyy` lista los archivos
    instalados, incluido el binario.
 
-Mientras `graphify` no esté en el PATH, el paso de registro en Claude Code (`graphify claude install`)
-se omite con un aviso — el resto de componentes se instalan igual. Vuelve a correr
-`bash bin/install.sh --only graphify` una vez resuelto el PATH; es idempotente.
-
-### "`graphify claude install` falló durante la instalación"
-
-Revisa que `graphify --version` funcione en una shell nueva (ver el punto anterior sobre el PATH). Si
-funciona pero el registro sigue fallando, ejecútalo a mano dentro del repo que quieras integrar:
-
-```bash
-cd <tu-repo>
-graphify claude install
-```
-
-Escribe una sección `## graphify` en `./CLAUDE.md` y un hook `PreToolUse` en `./.claude/settings.json`
-— es un registro **por-proyecto**, no global (a diferencia del resto de componentes de CLAUDEMAX). El
-componente `graphify.sh` lo ejecuta en `$AC_REPO_DIR` (el propio repo de CLAUDEMAX); para activarlo en
-cualquier otro proyecto, repite el comando ahí.
+Mientras `graphify` no esté en el PATH, el MCP `graphify` se registra igual: el envoltorio servirá la
+tool `graphify_estado` diciendo que falta graphify. Vuelve a correr `bash bin/install.sh --only graphify`
+una vez resuelto el PATH (idempotente), o abre una shell nueva y reinicia la sesión de Claude Code.
 
 ### "Ponytail me interrumpe demasiado / quiero bajarle la intensidad sin desinstalarlo"
 
@@ -489,6 +481,19 @@ Tres rutas, de menos a más esfuerzo de configuración:
 ### "`node skills/validate-skills.mjs` falla después de editar una skill"
 
 Cada skill bajo `skills/<name>/` necesita los tres archivos (`SKILL.md`, `skill.yaml`, `schema.json`), el campo `name` en el frontmatter de `SKILL.md` y en `skill.yaml` debe coincidir con el nombre del directorio, `skill.yaml` necesita una lista `triggers` no vacía y un `kind` de `knowledge` o `tool`, y `schema.json` necesita `definitions.inputs` / `definitions.outputs`. El validador imprime exactamente qué comprobación falló por cada skill.
+
+### `/mcp` muestra `graphify` conectado pero solo con la tool `graphify_estado`
+
+Es el envoltorio diciendo que le falta algo: llama a `graphify_estado` y te dirá si no hay
+`graphify-out/graph.json` en este proyecto (genera el grafo con `graphify extract . --code-only`
+dentro del repo) o si graphify no está instalado (`uv tool install graphifyy`). Después reinicia la
+sesión: el envoltorio decide al arrancar.
+
+### `search_graph` de codebase-memory no encuentra algo que acabo de escribir
+
+El índice no se refresca solo aunque `index_status` diga `ready` (`ready` = hay un índice, no que esté
+al día). Reindexa: `codebase-memory-mcp cli index_repository --repo-path <ruta absoluta> --mode moderate`.
+Nunca con `--persistence`: escribe el grafo comprimido de todo el código dentro del repo.
 
 ## Instalación manual (sin instalador)
 

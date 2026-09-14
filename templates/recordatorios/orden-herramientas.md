@@ -18,7 +18,7 @@ ORDEN DE HERRAMIENTAS DE CONTEXTO: rag → graphify → codebase-memory → grep
 Antes de esta búsqueda, responde:
 1. ¿Es un LITERAL? (string exacto, valor mágico, mensaje de error, SQL) → grep es la herramienta correcta. Sigue.
 1b. TRAMPA: ¿sabes EXACTAMENTE qué cadena buscas, o estás PROBANDO CANDIDATOS? Si enumeras nombres posibles y cuentas cuál aparece, NO es una búsqueda literal: es la pregunta "¿qué mecanismo se usa aquí?", que es ESTRUCTURA disfrazada. Va al grafo de código.
-2. ¿Es ESTRUCTURA, o "quién usa esto", o vas a escribir un helper/mapeo/regla nuevo? → te equivocaste de herramienta: `rag_query` para qué se decidió y por qué; el grafo de código (graphify / codebase-memory) para qué llama a qué. Y pregunta al grafo si el helper YA EXISTE antes de escribirlo.
+2. ¿Es ESTRUCTURA, o "quién usa esto", o vas a escribir un helper/mapeo/regla nuevo? → te equivocaste de herramienta: `rag_query` para qué se decidió y por qué; el grafo de código (graphify / codebase-memory) para qué llama a qué. Y pregunta al grafo si el helper YA EXISTE antes de escribirlo. `codebase-memory` NO se refresca solo: `ready` significa que hay un índice, no que esté al día — si `search_graph` no encuentra algo recién escrito, reindexa (`index_repository`) antes de concluir que no existe.
 3. Si usas grep igual: excluye antes lo generado (`bin/`, `obj/`, `node_modules/`, `*.Designer.cs`, `dist/`) — el corte de `head` se llena de código generado y tapa la respuesta.
 
 grep NO ve despacho por interfaz, inyección de dependencias, `override` ni bindings declarativos — justo lo que usan los frameworks modernos.
