@@ -140,3 +140,46 @@ export function coincide(rec, tool, input = {}) {
     if (ruta && rec.rutas.some(g => globARegex(g).test(ruta))) return true;
     return false;
 }
+
+// --- Búsqueda y carga (spec §2) -------------------------------------------------------------
+
+const MAX_NIVELES = 4;
+
+// Directorios `.claude/recordatorios/` desde `cwd` hacia arriba (hasta 4 niveles), del más
+// cercano al más lejano. CLAUDEMAX_RECORDATORIOS_DIR anula la búsqueda (pruebas, casos raros).
+export function buscarDirectorios(cwd, env = process.env) {
+    if (env.CLAUDEMAX_RECORDATORIOS_DIR) return [env.CLAUDEMAX_RECORDATORIOS_DIR];
+    const out = [];
+    let dir = path.resolve(cwd || process.cwd());
+    for (let nivel = 0; nivel <= MAX_NIVELES; nivel++) {
+        const candidato = path.join(dir, ".claude", "recordatorios");
+        try { if (fs.statSync(candidato).isDirectory()) out.push(candidato); } catch {}
+        const padre = path.dirname(dir);
+        if (padre === dir) break;
+        dir = padre;
+    }
+    return out;
+}
+
+// Carga los *.md (sin los "_") de los directorios dados; ante el mismo nombre gana el primer
+// directorio (el más cercano al cwd). Devuelve { recordatorios (ordenados por nombre), rotos }.
+export function cargarRecordatorios(dirs) {
+    const porNombre = new Map();
+    const rotos = [];
+    for (const dir of dirs) {
+        let entradas;
+        try { entradas = fs.readdirSync(dir, { withFileTypes: true }); } catch { continue; }
+        for (const e of entradas) {
+            if (!e.isFile() || !e.name.endsWith(".md") || e.name.startsWith("_")) continue;
+            if (porNombre.has(e.name)) continue;   // ya lo aportó un directorio más cercano
+            const archivo = path.join(dir, e.name);
+            let r;
+            try { r = parseRecordatorio(fs.readFileSync(archivo, "utf8"), e.name); }
+            catch (err) { r = { ok: false, nombre: e.name, motivo: err.message }; }
+            if (r.ok) porNombre.set(e.name, r);
+            else { porNombre.set(e.name, null); rotos.push({ archivo, motivo: r.motivo }); }
+        }
+    }
+    const recordatorios = [...porNombre.values()].filter(Boolean).sort((a, b) => a.nombre.localeCompare(b.nombre));
+    return { recordatorios, rotos };
+}

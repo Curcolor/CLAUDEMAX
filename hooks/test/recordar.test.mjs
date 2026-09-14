@@ -1,6 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseRecordatorio, globARegex, textoDelTool, coincide } from "../recordar-lib.mjs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+    parseRecordatorio, globARegex, textoDelTool, coincide,
+    buscarDirectorios, cargarRecordatorios,
+} from "../recordar-lib.mjs";
+
+const FIX = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures", "recordatorios");
 
 test("parseRecordatorio: listas en línea y en bloque, booleanos, nota plegada, cuerpo", () => {
     const texto = [
@@ -108,4 +115,27 @@ test("coincide: tabla", () => {
     assert.equal(coincide(rec({ activo: false }), "Bash", { command: "ls" }), false);
     // Edit prueba patrones contra file_path
     assert.equal(coincide(rec({ tools: ["Edit"], patrones: [/MaestraSuite/] }), "Edit", { file_path: "C:/w/MaestraSuite/a.cs" }), true);
+});
+
+test("buscarDirectorios: sube desde el cwd, del más cercano al más lejano; env anula", () => {
+    const dirs = buscarDirectorios(path.join(FIX, "ws", "proy", "src"), {});
+    assert.deepEqual(dirs, [
+        path.join(FIX, "ws", "proy", ".claude", "recordatorios"),
+        path.join(FIX, "ws", ".claude", "recordatorios"),
+    ]);
+    assert.deepEqual(buscarDirectorios(path.join(FIX, "ws"), {}), [path.join(FIX, "ws", ".claude", "recordatorios")]);
+    assert.deepEqual(buscarDirectorios(path.join(FIX, "ws", "proy", "src"), { CLAUDEMAX_RECORDATORIOS_DIR: "/x/y" }), ["/x/y"]);
+    // más de 4 niveles por encima no se mira
+    assert.deepEqual(buscarDirectorios(path.join(FIX, "ws", "proy", "src", "a", "b", "c", "d", "e"), {}), []);
+});
+
+test("cargarRecordatorios: precedencia por nombre, ignora _plantilla, reporta rotos, orden alfabético", () => {
+    const dirs = buscarDirectorios(path.join(FIX, "ws", "proy", "src"), {});
+    const { recordatorios, rotos } = cargarRecordatorios(dirs);
+    assert.deepEqual(recordatorios.map(r => r.nombre), ["a.md", "b.md"]);
+    assert.equal(recordatorios.find(r => r.nombre === "b.md").cuerpo, "B DEL PROYECTO");
+    assert.equal(rotos.length, 1);
+    assert.match(rotos[0].archivo, /roto\.md$/);
+    assert.match(rotos[0].motivo, /tools/);
+    assert.deepEqual(cargarRecordatorios(["/no/existe"]), { recordatorios: [], rotos: [] });
 });
