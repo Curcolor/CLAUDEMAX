@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { localizarBash } from "../../../bin/wizard/detect.mjs";
 import { CABECERA_INDICE } from "../proyectos-lib.mjs";
+import { analizarPendientes, analizarHubs, walkVault } from "../rag-lib.mjs";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const VAULT_TPL = path.join(REPO, "templates", "vault");
@@ -27,6 +28,13 @@ test("templates/vault: carpetas de la taxonomía, 17 archivos en Hubs/, 4 planti
     const graph = JSON.parse(fs.readFileSync(path.join(VAULT_TPL, ".obsidian", "graph.json"), "utf8"));
     assert.ok(graph.colorGroups.every(g => g.query.startsWith("path:")), "los grupos de color van por carpeta, no por tag");
     assert.equal(JSON.parse(fs.readFileSync(path.join(VAULT_TPL, ".obsidian", "templates.json"), "utf8")).folder, "Plantillas");
+    // el Pendientes de la plantilla es el ejemplo del formato: no puede tener avisos ni enlaces rotos
+    const pend = fs.readFileSync(path.join(VAULT_TPL, "Hubs", "Pendientes.md"), "utf8");
+    assert.match(pend, /Un pendiente = UNA línea/, "documenta el formato");
+    const avisos = analizarPendientes(pend, "2026-09-20").avisos.filter(a => a.tipo !== "antiguo");
+    assert.deepEqual(avisos, [], JSON.stringify(avisos));
+    const todos = [...walkVault(VAULT_TPL)];
+    assert.deepEqual(analizarHubs(VAULT_TPL, todos).enlacesRotos, [], "los ejemplos en comentarios no cuentan");
     // ningún hub escribe conteos fijos en prosa
     for (const h of hubs) {
         const t = fs.readFileSync(path.join(VAULT_TPL, "Hubs", h), "utf8");

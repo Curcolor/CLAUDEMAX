@@ -301,7 +301,8 @@ export function analizarHubs(vault, archivos) {
     const enlazadas = new Set();
     const enlacesRotos = [];
     for (const hub of hubs) {
-        const texto = fs.readFileSync(hub.abs, "utf8");
+        // los comentarios HTML documentan el formato con enlaces de ejemplo: no son enlaces
+        const texto = fs.readFileSync(hub.abs, "utf8").replace(/<!--[\s\S]*?-->/g, "");
         for (const m of texto.matchAll(RE_WIKILINK)) {
             const r = resolverNombreNota(m[1], indice);
             if (r.source) enlazadas.add(r.source);
@@ -383,15 +384,18 @@ const diasEntre = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86_400_
 export function analizarPendientes(texto, hoy = new Date().toISOString().slice(0, 10)) {
     const lineas = String(texto ?? "").split(/\r?\n/);
     const abiertos = [], cerrados = [], avisos = [];
-    let seccion = null, proyecto = "";
+    let seccion = null, proyecto = "", enComentario = false;
     lineas.forEach((cruda, i) => {
         const linea = i + 1;
         const l = cruda.trim();
+        // comentarios HTML, también de varias líneas: documentan el formato, no son pendientes
+        if (enComentario) { if (l.includes("-->")) enComentario = false; return; }
+        if (l.startsWith("<!--")) { enComentario = !l.includes("-->", 4); return; }
         if (/^##\s+Abierto\b/i.test(l)) { seccion = "abierto"; proyecto = ""; return; }
         if (/^##\s+Cerrado\b/i.test(l)) { seccion = "cerrado"; proyecto = ""; return; }
         if (/^##\s/.test(l) || /^Relacionado:/i.test(l)) { seccion = null; return; }
         if (!seccion) return;
-        if (!l || /^<!--/.test(l) || /^-+$/.test(l)) return;
+        if (!l || /^-+$/.test(l)) return;
         if (/^###\s/.test(l)) { proyecto = l.replace(/^###\s+/, "").trim(); return; }
         if (!l.startsWith("-")) { avisos.push({ linea, tipo: "parrafo", texto: l }); return; }
         if (l.length > MAX_PENDIENTE) avisos.push({ linea, tipo: "larga", texto: l.slice(0, 80) });

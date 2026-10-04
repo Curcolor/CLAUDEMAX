@@ -12,11 +12,16 @@ ritual de cierre de ciclo: lo cerrado baja a «Cerrado recientemente», lo nuevo
 fecha de origen.
 
 ## Abierto
-<!-- - (YYYY-MM-DD) qué falta — por qué importa — qué desbloquea -->
+<!-- Un pendiente = UNA línea:  - (YYYY-MM-DD) qué falta — qué desbloquea — [[nota-con-el-detalle]]
+     El porqué vive en la nota enlazada; si esta nota empieza a contar historias, se desincroniza.
+     Las subsecciones "### Proyecto" son opcionales. El orden lo pones tú: qué desbloquea antes. -->
 -
 
 ## Cerrado recientemente
-<!-- - (YYYY-MM-DD) qué se cerró — enlace a la sesión o decisión -->
+<!-- Al cerrar: mueve la línea aquí y ponle la fecha de cierre:
+     - (2026-09-01 → 2026-09-20) qué se cerró — [[sesion-o-decision]]
+     `fin-ciclo --cerrar` copia lo cerrado en el ciclo a la nota de cierre y saca lo de ciclos
+     anteriores. `rag.mjs salud` avisa si una línea no cumple el formato. -->
 -
 
 Relacionado: [[Bienvenida]]

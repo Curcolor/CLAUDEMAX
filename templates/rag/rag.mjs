@@ -315,7 +315,12 @@ async function recogerSalud(vault) {
         .filter(a => lib.clasificar(a.rel).coleccion === "codigo")
         .filter(a => !(lib.parseFrontmatter(fs.readFileSync(a.abs, "utf8")).meta.fuentes || []).length)
         .map(a => a.rel);
-    const salud = { huerfanas, enlacesRotos, caducas: [], revisar: [], reemplazadas: [], reemplazadasEnlazadas: [], sinFuentes, bd: true };
+    // la antigüedad de un pendiente es información, no un error de formato: no cuenta como aviso
+    const pendientesPath = path.join(vault, "Hubs", "Pendientes.md");
+    const pendientes = fs.existsSync(pendientesPath)
+        ? lib.analizarPendientes(fs.readFileSync(pendientesPath, "utf8")).avisos.filter(a => a.tipo !== "antiguo")
+        : [];
+    const salud = { huerfanas, enlacesRotos, caducas: [], revisar: [], reemplazadas: [], reemplazadasEnlazadas: [], sinFuentes, pendientes, bd: true };
     try {
         await withDb(async db => {
             const { rows } = await db.query("SELECT source, estado, reemplazada_por, revisar FROM documentos WHERE estado <> 'vigente' ORDER BY source");
@@ -341,6 +346,7 @@ function resumenSalud(s) {
     if (s.enlacesRotos.length) partes.push(`${s.enlacesRotos.length} enlaces rotos`);
     if (s.reemplazadasEnlazadas.length) partes.push(`${s.reemplazadasEnlazadas.length} reemplazadas aún enlazadas`);
     if (s.sinFuentes.length) partes.push(`${s.sinFuentes.length} Codigo/ sin fuentes`);
+    if (s.pendientes && s.pendientes.length) partes.push(`Pendientes: ${s.pendientes.length} aviso${s.pendientes.length === 1 ? "" : "s"}`);
     if (!s.bd) partes.push("sin BD");
     return partes.length ? `salud: ${partes.join(" · ")}` : "salud: sin avisos";
 }
@@ -361,6 +367,7 @@ async function cmdSalud(root, opts = {}) {
     seccion("a revisar", s.revisar, r => `${r.source} (venció ${r.revisar})`);
     seccion("reemplazadas aún enlazadas desde un hub", s.reemplazadasEnlazadas);
     seccion("Codigo/ sin fuentes", s.sinFuentes);
+    seccion("avisos de Hubs/Pendientes.md", s.pendientes, a => `línea ${a.linea}: ${a.tipo} — ${a.texto}`);
     if (!s.bd) console.log("(sin BD: no se pudieron leer los estados caduca/revisar/reemplazada)");
     console.log(resumenSalud(s));
 }

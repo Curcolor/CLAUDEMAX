@@ -297,4 +297,7 @@ test("analizarPendientes: clasifica abiertos y cerrados y avisa de párrafo, fec
     assert.equal(analizarPendientes(texto.replace(/\n/g, "\r\n"), "2026-09-20").avisos.length, r.avisos.length);
     assert.deepEqual(analizarPendientes("# Pendientes\n\nsin secciones\n", "2026-09-20"),
         { abiertos: [], cerrados: [], avisos: [] });
+    // un comentario de varias líneas no genera avisos de párrafo
+    const conComentario = "## Abierto\n<!-- formato:\n     - (YYYY-MM-DD) qué falta\n     más texto -->\n-\n";
+    assert.deepEqual(analizarPendientes(conComentario, "2026-09-20").avisos, []);
 });
