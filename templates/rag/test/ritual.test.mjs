@@ -214,3 +214,44 @@ test("fin-sesion sin repo git: crea el esqueleto, lo enlaza y avisa", async () =
             "sin vault es el único error que aborta");
     } finally { limpiar(); }
 });
+
+test("fin-dia: bitácora desde la plantilla, enlazada, con las sesiones de hoy y sin duplicarlas",
+    { skip: !hayGit && "sin git" }, async () => {
+        const { ws, limpiar } = workspace();
+        try {
+            vaultCompleto(ws);
+            const { repo } = repoGit(ws);
+            await ritual(ws, ["fin-sesion"], {}, repo);
+            const r = await ritual(ws, ["fin-dia", "--resumen", "día corto"], {}, repo);
+            assert.equal(r.status, 0, r.out);
+            const hoy = hoyLocal();
+            const bit = leer(ws, "V.A.U.L.T", "Bitacoras", `${hoy}.md`);
+            assert.match(bit, /^---\ntags: \[bitacora\]\nfecha: \d{4}-\d{2}-\d{2}\n---/);
+            assert.match(bit, /## Sesiones de hoy\n- \[\[.+\]\] — Sesión/);
+            assert.match(bit, /## Objetivos del día/, "es la plantilla, no un esqueleto");
+            assert.match(bit, /## \d{2}:\d{2}\n\ndía corto\n/);
+            assert.ok(leer(ws, "V.A.U.L.T", "Hubs", "Bitacoras.md").includes(`[[${hoy}]]`), "enlazada en su hub");
+            assert.match(r.out, /Objetivos.*Próximo paso/s);
+            await ritual(ws, ["fin-sesion"], {}, repo);
+            const otra = await ritual(ws, ["fin-dia"], {}, repo);
+            assert.equal(otra.status, 0, otra.out);
+            const bit2 = leer(ws, "V.A.U.L.T", "Bitacoras", `${hoy}.md`);
+            assert.equal(bit2.match(/^- \[\[\d{4}-\d{2}-\d{2}-\d{4}/gm).length, 2, "dos sesiones, sin duplicar");
+            assert.equal(bit2.match(/día corto/g).length, 1, "la entrada anterior se conserva una vez");
+        } finally { limpiar(); }
+    });
+
+test("fin-dia: bitácora de una plantilla anterior sin la sección la añade antes de Próximo paso", async () => {
+    const { ws, limpiar } = workspace();
+    try {
+        vaultCompleto(ws);
+        const hoy = hoyLocal();
+        fs.writeFileSync(path.join(ws, "V.A.U.L.T", "Bitacoras", `${hoy}.md`),
+            `---\ntags: [bitacora]\nfecha: ${hoy}\n---\n\n# Bitácora\n\n## Bloqueos\n-\n\n## Próximo paso (primera tarea de mañana)\n-\n`);
+        fs.writeFileSync(path.join(ws, "V.A.U.L.T", "Superpowers", "Sesiones", `${hoy}-0900-X.md`), "---\nproyecto: X\n---\n\n# Sesión X\n");
+        const r = await ritual(ws, ["fin-dia"]);
+        assert.equal(r.status, 0, r.out);
+        const esperado = `## Bloqueos\n-\n\n## Sesiones de hoy\n- [[${hoy}-0900-X]] — Sesión X\n\n## Próximo paso`;
+        assert.ok(leer(ws, "V.A.U.L.T", "Bitacoras", `${hoy}.md`).includes(esperado), leer(ws, "V.A.U.L.T", "Bitacoras", `${hoy}.md`));
+    } finally { limpiar(); }
+});

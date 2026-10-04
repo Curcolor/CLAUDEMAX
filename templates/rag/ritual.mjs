@@ -372,38 +372,37 @@ function cmdFinSesion(opts) {
 
 // --- fin-dia (ritual menor) -----------------------------------------------------------------
 
+// Crea o completa la bitácora del día (§1.2): plantilla, enlace en su hub y la sección "Sesiones
+// de hoy", que se reconstruye entera en cada llamada para no duplicar. No mira git ni índices.
 function cmdFinDia(opts) {
     const vaultDir = resolveVault(opts.vault);
+    if (!fs.existsSync(vaultDir)) throw new Error(`no existe el vault ${vaultDir} — pasa --vault o instala el componente rag.`);
     const fecha = hoyISO();
-    const hora = horaHHMM();
     const bitacorasDir = path.join(vaultDir, "Bitacoras");
     fs.mkdirSync(bitacorasDir, { recursive: true });
     const archivo = path.join(bitacorasDir, `${fecha}.md`);
-
-    const entrada = opts.resumen
-        ? `## ${hora}\n\n${opts.resumen}\n`
-        : `## ${hora}\n\n_(sin resumen)_\n`;
-
-    if (!fs.existsSync(archivo)) {
-        const cabecera = [
-            "---",
-            "tags: [bitacora]",
-            `fecha: ${fecha}`,
-            "---",
-            "",
-            `# Bitácora — ${fecha}`,
-            "",
-        ].join("\n");
-        fs.writeFileSync(archivo, cabecera + "\n" + entrada, "utf8");
-        console.log(`ritual: creado ${archivo} con la primera entrada de hoy (${hora}).`);
+    let texto;
+    if (fs.existsSync(archivo)) {
+        texto = fs.readFileSync(archivo, "utf8");
     } else {
-        const actual = fs.readFileSync(archivo, "utf8");
-        const sep = actual.endsWith("\n\n") ? "" : actual.endsWith("\n") ? "\n" : "\n\n";
-        fs.writeFileSync(archivo, actual + sep + entrada, "utf8");
-        console.log(`ritual: añadida una nueva entrada (${hora}) a ${archivo}.`);
+        texto = rit.esqueletoNota(localizarPlantilla(vaultDir, "bitacora.md"), { fecha, frontmatter: { fecha } });
+        console.log(`ritual: creada ${archivo}`);
     }
 
-    console.log("ritual: enlaza la bitácora desde Hubs/Bitacoras.md. fin-dia NO reindexa el RAG (lo hará el arranque de la próxima sesión).");
+    const sesionesDir = path.join(vaultDir, "Superpowers", "Sesiones");
+    const sesiones = fs.existsSync(sesionesDir)
+        ? fs.readdirSync(sesionesDir).filter(f => f.startsWith(fecha) && f.endsWith(".md")).sort()
+        : [];
+    const enlaces = sesiones.map(f => {
+        const { body } = lib.parseFrontmatter(fs.readFileSync(path.join(sesionesDir, f), "utf8"));
+        return `- [[${f.replace(/\.md$/, "")}]] — ${lib.tituloDe(body, f)}`;
+    });
+    texto = ponerSeccion(texto, "Sesiones de hoy", enlaces.join("\n") || "-", "Próximo paso");
+    if (opts.resumen) texto = `${texto.replace(/\n*$/, "\n\n")}## ${horaHHMM()}\n\n${opts.resumen}\n`;
+    fs.writeFileSync(archivo, texto, "utf8");
+    enlazarNota(vaultDir, path.relative(vaultDir, archivo));
+    console.log(`ritual: ${archivo} — ${enlaces.length} sesión${enlaces.length === 1 ? "" : "es"} de hoy enlazada${enlaces.length === 1 ? "" : "s"}.`);
+    console.log("ritual: rellena Objetivos, Decisiones, Hallazgos, Bloqueos y Próximo paso. fin-dia no reindexa el RAG.");
 }
 
 // --- fin-ciclo (ritual mayor, con confirmación) --------------------------------------------
