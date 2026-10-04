@@ -33,7 +33,10 @@ ac_rag_vault() {
         create)
             ac_info "Vault: crear en $dst"
             if [ -d "$dst" ] && [ -n "$(ls -A "$dst" 2>/dev/null)" ] && [ "${FORCE:-0}" != "1" ]; then
-                ac_warn "  $dst existe y no está vacío — se deja intacto (usa --force para sobrescribir solo la config)."
+                # una actualización trae hubs y plantillas nuevos (p. ej. Plantillas/cierre.md de los
+                # rituales): se añaden los que falten; las notas y lo ya existente no se tocan
+                ac_info "  $dst ya existe — se respetan sus notas; solo se añaden hubs, plantillas y config que falten."
+                ac_rag_vault_completar "$dst"
                 return 0
             fi
             ac_run mkdir -p "$dst"
