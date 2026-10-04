@@ -203,7 +203,8 @@ export function rangoDelCiclo({ repo, ragRoot, desde, notas = [], exec = gitReal
 // { specsRepo, planesRepo, vault }: documentos del ciclo. Los del repo solo cuentan si el proyecto
 // declara docs_en_repo; los del vault, por `proyecto:` y `fecha:` desde el inicio del ciclo.
 export function specsYPlanesDelCiclo({ docsEnRepo, repoRel, archivos = [], notasVault = [], proyecto, fechaDesde }) {
-    const bajo = sub => archivos.filter(a => casaGlob(`${repoRel}/docs/superpowers/${sub}/*.md`, a));
+    const prefijo = !repoRel || repoRel === "." ? "" : `${repoRel}/`;   // "." = el repo es la raíz del workspace
+    const bajo = sub => archivos.filter(a => casaGlob(`${prefijo}docs/superpowers/${sub}/*.md`, a));
     return {
         specsRepo: docsEnRepo ? bajo("specs") : [],
         planesRepo: docsEnRepo ? bajo("plans") : [],

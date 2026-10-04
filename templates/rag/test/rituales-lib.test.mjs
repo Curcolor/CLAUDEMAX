@@ -196,6 +196,9 @@ test("specsYPlanesDelCiclo: del repo solo con docs_en_repo; del vault por proyec
     assert.deepEqual(r.vault, ["Superpowers/Planes/nueva.md"]);
     assert.deepEqual(specsYPlanesDelCiclo({ docsEnRepo: false, repoRel: "MiRepo",
         archivos: ["MiRepo/docs/superpowers/specs/x.md"], notasVault: [], proyecto: "X", fechaDesde: "2026-01-01" }).specsRepo, []);
+    assert.deepEqual(specsYPlanesDelCiclo({ docsEnRepo: true, repoRel: ".",
+        archivos: ["docs/superpowers/specs/x.md"], notasVault: [], proyecto: "X", fechaDesde: "2026-01-01" }).specsRepo,
+        ["docs/superpowers/specs/x.md"], "repo en la raíz del workspace");
 });
 
 const PENDIENTES = [

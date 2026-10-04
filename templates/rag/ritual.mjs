@@ -17,9 +17,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { resolverRagRoot } from "./rag-lib.mjs";
+import * as lib from "./rag-lib.mjs";
 import * as proy from "./proyectos-lib.mjs";
+import * as rit from "./rituales-lib.mjs";
 import { indexarCodebaseMemory, extraerGraphify } from "./indices-lib.mjs";
+
+const { resolverRagRoot } = lib;
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 loadDotEnv(path.join(HERE, ".env"));
@@ -41,11 +44,15 @@ function resolveVault(opt) {
     return path.resolve(opt || path.join(HERE, "..", "V.A.U.L.T"));
 }
 
-function hoyISO() {
-    const d = new Date();
+// Fecha local "YYYY-MM-DD" de un instante: los mtimes se comparan con la fecha de un commit, que
+// git da en la zona del autor (toISOString sería UTC y de noche adelantaría un día).
+function fechaLocal(ms = Date.now()) {
+    const d = new Date(ms);
     const pad = n => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
+
+const hoyISO = () => fechaLocal();
 
 function horaHHMM() {
     const d = new Date();
@@ -58,20 +65,6 @@ function horaHHMMCompacta() {
     const d = new Date();
     const pad = n => String(n).padStart(2, "0");
     return `${pad(d.getHours())}${pad(d.getMinutes())}`;
-}
-
-// Detecta el proyecto actual con la misma convención que hooks/session-start.mjs: nombre de
-// la carpeta raíz del repo git (git rev-parse --show-toplevel), con fallback al cwd si no hay
-// repo o el binario git falla/no existe. --proyecto siempre gana sobre esta detección.
-function detectarProyectoActual() {
-    let top = "";
-    try {
-        const res = spawnSync("git", ["rev-parse", "--show-toplevel"],
-            { encoding: "utf8", timeout: 1500, windowsHide: true });
-        if (res.status === 0 && res.stdout) top = res.stdout.trim();
-    } catch {}
-    const root = top || process.cwd();
-    return path.basename(root) || "proyecto";
 }
 
 // Busca una ruta libre "<dir>/<base>.md"; si ya existe (dos ejecuciones del mismo ritual en el
@@ -109,6 +102,129 @@ function regenerarIndice(proyectosDir) {
     const indice = path.join(proyectosDir, "_indice.md");
     fs.writeFileSync(indice, proy.generarIndice(entradas), "utf8");
     console.log(`ritual: regenerado ${indice} (${entradas.length} proyecto${entradas.length === 1 ? "" : "s"}).`);
+}
+
+// --- Contexto común de los rituales de cierre (spec 2026-09-13-rituales-design.md §2) -------
+
+// Notas del vault con su frontmatter, título y fecha local de modificación.
+function leerNotasVault(vaultDir) {
+    const out = [];
+    for (const { rel, abs } of lib.walkVault(vaultDir)) {
+        const { meta, body } = lib.parseFrontmatter(fs.readFileSync(abs, "utf8"));
+        out.push({ rel, abs, meta, titulo: lib.tituloDe(body, rel), mtime: fechaLocal(fs.statSync(abs).mtimeMs) });
+    }
+    return out;
+}
+
+function fichasDeProyectos(ragRoot) {
+    const dir = path.join(ragRoot, ".claude", "proyectos");
+    if (!fs.existsSync(dir)) return [];
+    return fs.readdirSync(dir).filter(f => f.endsWith(".md") && !f.startsWith("_"))
+        .map(f => proy.leerProyecto(fs.readFileSync(path.join(dir, f), "utf8"), f));
+}
+
+// ¿La `ruta:` de una ficha (relativa a RAG_ROOT o absoluta) es este repo?
+function mismaRuta(ragRoot, repo, ruta) {
+    if (!ruta || ruta === "?") return false;
+    const norm = p => (process.platform === "win32" ? path.resolve(p).toLowerCase() : path.resolve(p));
+    return norm(path.resolve(ragRoot, ruta)) === norm(repo);
+}
+
+// Vault, RAG_ROOT, repo git del cwd, proyecto y su ficha. Sin vault es el único error que aborta.
+// Proyecto = --proyecto, o el de la ficha cuya `ruta:` es el repo, o el nombre de la carpeta.
+function contexto(opts) {
+    const vaultDir = resolveVault(opts.vault);
+    if (!fs.existsSync(vaultDir)) throw new Error(`no existe el vault ${vaultDir} — pasa --vault o instala el componente rag.`);
+    const ragRoot = resolverRagRoot(HERE);
+    const repo = rit.detectarRepo(process.cwd());
+    const exec = repo ? rit.gitReal(repo) : null;
+    const ficha = repo ? fichasDeProyectos(ragRoot).find(f => mismaRuta(ragRoot, repo, f.ruta)) : null;
+    const proyecto = String(opts.proyecto || ficha?.nombre || path.basename(repo || process.cwd()) || "proyecto").trim();
+    const repoRel = repo ? proy.rutaParaIndice(ragRoot, repo) : null;
+    return { vaultDir, ragRoot, repo, repoRel, exec, proyecto, docsEnRepo: ficha?.docsEnRepo === true };
+}
+
+const esCierre = rel => /-cierre-/.test(path.basename(rel));
+
+// Rango del ciclo (§2.2). Candidatos: el `commit` de las notas de sesión del proyecto (o solo de
+// sus cierres). Sin repo, rango vacío.
+function rangoDe(ctx, notas, { soloCierres, desde }) {
+    if (!ctx.repo) return { desde: null, fechaDesde: null, archivos: [], aviso: null };
+    const candidatas = notas
+        .filter(n => n.rel.startsWith("Superpowers/Sesiones/") && n.meta.proyecto === ctx.proyecto)
+        .filter(n => !soloCierres || esCierre(n.rel))
+        .map(n => ({ rel: n.rel, commit: n.meta.commit }));
+    const rango = rit.rangoDelCiclo({ repo: ctx.repo, ragRoot: ctx.ragRoot, desde, notas: candidatas, exec: ctx.exec });
+    if (rango.aviso) console.warn(`ritual: aviso — ${rango.aviso}`);
+    return rango;
+}
+
+// Plantillas del vault. Un vault de una instalación anterior puede no tenerlas: entonces un
+// esqueleto mínimo con las mismas secciones, y aviso.
+const ESQUELETOS = {
+    "sesion.md": "---\nproyecto:\ntags: [sesion]\nfecha: {{date:YYYY-MM-DD}}\ncommit:\n---\n\n# Sesión — {{date:YYYY-MM-DD}} · <proyecto>\n\n## Qué se hizo de verdad\n\n## Documentos del ciclo\n\n## Qué sigue\n-\n",
+    "bitacora.md": "---\ntags: [bitacora]\nfecha: {{date:YYYY-MM-DD}}\n---\n\n# Bitácora — {{date:YYYY-MM-DD}}\n\n## Sesiones de hoy\n-\n\n## Próximo paso (primera tarea de mañana)\n-\n",
+    "cierre.md": "---\nproyecto:\ntags: [sesion, cierre-ciclo]\nfecha: {{date:YYYY-MM-DD}}\nciclo:\ndesde:\ncommit:\n---\n\n# Cierre de ciclo — {{date:YYYY-MM-DD}}\n\n## Qué se hizo de verdad\n\n## Documentos del ciclo\n\n## Notas de Codigo/ revisadas\n\n## Cerrado en este ciclo\n\n## Qué sigue\n-\n",
+};
+
+function localizarPlantilla(vaultDir, nombre) {
+    const p = path.join(vaultDir, "Plantillas", nombre);
+    if (fs.existsSync(p)) return fs.readFileSync(p, "utf8");
+    console.warn(`ritual: aviso — falta ${p}; se usa un esqueleto mínimo (install.sh --only rag repone las plantillas que falten).`);
+    return ESQUELETOS[nombre];
+}
+
+// Pone `contenido` bajo "## titulo". Si la nota (de una plantilla anterior) no tiene esa sección,
+// la añade antes de "## antesDe…" o al final.
+function ponerSeccion(texto, titulo, contenido, antesDe = null) {
+    const t = String(texto).replace(/\r\n/g, "\n");
+    if (t.split("\n").some(l => l.trim() === `## ${titulo}`)) return rit.esqueletoNota(t, { secciones: { [titulo]: contenido } });
+    const bloque = `## ${titulo}\n${contenido}\n\n`;
+    const i = antesDe ? t.indexOf(`\n## ${antesDe}`) : -1;
+    if (i >= 0) return t.slice(0, i + 1) + bloque + t.slice(i + 1);
+    return `${t.replace(/\n*$/, "\n\n")}${bloque.trimEnd()}\n`;
+}
+
+// Enlaza una nota en el hub de su carpeta (§2.6). Hub inexistente → aviso: la nota queda huérfana
+// y `rag.mjs salud` la seguirá listando. Nombre repetido en el vault → wikilink con ruta.
+function enlazarNota(vaultDir, relNota) {
+    const rel = relNota.replace(/\\/g, "/");
+    const hubRel = rit.hubDeNota(rel);
+    if (!hubRel) return false;
+    const hubAbs = path.join(vaultDir, hubRel);
+    if (!fs.existsSync(hubAbs)) {
+        console.warn(`ritual: aviso — no existe ${hubRel}: ${rel} queda huérfana (crea el hub desde Plantillas/hub.md).`);
+        return false;
+    }
+    const nombre = path.basename(rel, ".md");
+    const { body } = lib.parseFrontmatter(fs.readFileSync(path.join(vaultDir, rel), "utf8"));
+    const ambiguo = (lib.indiceDeNotas([...lib.walkVault(vaultDir)]).porNombre.get(nombre) || []).length > 1;
+    const { texto, cambiado } = rit.enlazarEnHub(fs.readFileSync(hubAbs, "utf8"),
+        { nombre, ruta: rel, titulo: lib.tituloDe(body, rel), ambiguo });
+    if (cambiado) {
+        fs.writeFileSync(hubAbs, texto, "utf8");
+        console.log(`ritual: enlazada ${rel} en ${hubRel}`);
+    }
+    return cambiado;
+}
+
+// Líneas "- Spec: …" / "- Plan: …" de los documentos del ciclo (§2.4). Los del repo van como
+// wikilink solo en la nota de cierre (--cerrar crea su copia en el vault); en la de sesión, como
+// ruta entre backticks, para no dejar enlaces rotos.
+function documentosDelCiclo(ctx, notas, rango, { wikilinks }) {
+    if (!rango.fechaDesde) return "";
+    const r = rit.specsYPlanesDelCiclo({
+        docsEnRepo: ctx.docsEnRepo, repoRel: ctx.repoRel, archivos: rango.archivos,
+        notasVault: notas.map(n => ({ rel: n.rel, proyecto: n.meta.proyecto, fecha: n.mtime })),
+        proyecto: ctx.proyecto, fechaDesde: rango.fechaDesde,
+    });
+    const nombre = p => path.basename(p, ".md");
+    const existe = p => fs.existsSync(path.resolve(ctx.ragRoot, p));   // un spec borrado en el ciclo no se lista
+    const delRepo = (tipo, rutas) => rutas.filter(existe).map(p => `- ${tipo}: ${wikilinks ? `[[${nombre(p)}]]` : `\`${p}\``}`);
+    const enRepo = new Set([...r.specsRepo, ...r.planesRepo].map(nombre));
+    const delVault = r.vault.filter(p => !enRepo.has(nombre(p)))
+        .map(p => `- ${p.startsWith("Superpowers/Planes/") ? "Plan" : "Spec"}: [[${nombre(p)}]]`);
+    return [...delRepo("Spec", r.specsRepo), ...delRepo("Plan", r.planesRepo), ...delVault].join("\n");
 }
 
 // --- init-proyecto ------------------------------------------------------------------------
@@ -225,49 +341,33 @@ function cmdInitProyecto(rutaArg, opts) {
 }
 
 // --- fin-sesion (ritual menor) --------------------------------------------------------------
-// Continuidad entre sesiones de Claude Code: qué se hizo y qué sigue. Escribe en
+// Continuidad entre sesiones de Claude Code: qué se hizo de verdad y qué sigue. Escribe en
 // Superpowers/Sesiones/ (colección sesiones) — no en Bitacoras/, que es el diario del día
-// completo (fin-dia). Ver skills/rituales para la diferencia completa entre ambos.
+// completo (fin-dia). El script pone la mecánica; la prosa la escribe el modelo (§1.1).
 
 function cmdFinSesion(opts) {
-    const vaultDir = resolveVault(opts.vault);
+    const ctx = contexto(opts);
     const fecha = hoyISO();
-    const hora = horaHHMM();
-    const sesionesDir = path.join(vaultDir, "Superpowers", "Sesiones");
+    const sesionesDir = path.join(ctx.vaultDir, "Superpowers", "Sesiones");
     fs.mkdirSync(sesionesDir, { recursive: true });
+    const notas = leerNotasVault(ctx.vaultDir);
+    if (!ctx.repo) console.warn("ritual: aviso — no hay repo git aquí: la nota se crea sin rango ni documentos del ciclo.");
+    const rango = rangoDe(ctx, notas, { soloCierres: false, desde: opts.desde });
+    const head = ctx.repo ? ctx.exec(["rev-parse", "HEAD"]) || "" : "";
 
-    const proyecto = opts.proyecto || detectarProyectoActual();
-    const base = `${fecha}-${horaHHMMCompacta()}-${proyecto}`;
-    const archivo = rutaLibre(sesionesDir, base);
-
-    const queSeHizo = opts.resumen ? opts.resumen : "_(sin resumen — completa esto a mano)_";
-
-    const partes = [
-        "---",
-        `proyecto: ${proyecto}`,
-        "tags: [sesion]",
-        `fecha: ${fecha}`,
-        "---",
-        "",
-        `# Sesión — ${proyecto} · ${hora}`,
-        "",
-        "## Qué se hizo",
-        "",
-        queSeHizo,
-        "",
-    ];
-    if (opts.siguiente) {
-        partes.push("## Siguiente paso", "", opts.siguiente, "");
-    }
-
-    fs.writeFileSync(archivo, partes.join("\n"), "utf8");
-
-    if (opts.resumen) {
-        console.log(`ritual: creado ${archivo}.`);
-    } else {
-        console.log(`ritual: creado ${archivo} con una plantilla vacía (sin --resumen) — complétala a mano.`);
-    }
-    console.log("ritual: enlaza la nota desde Hubs/Superpowers-Sesiones.md. fin-sesion NO reindexa el RAG (lo hará el arranque de la próxima sesión).");
+    const secciones = { "Documentos del ciclo": documentosDelCiclo(ctx, notas, rango, { wikilinks: false }) || "-" };
+    if (opts.resumen) secciones["Qué se hizo de verdad"] = opts.resumen;
+    if (opts.siguiente) secciones["Qué sigue"] = opts.siguiente;
+    const archivo = rutaLibre(sesionesDir, `${fecha}-${horaHHMMCompacta()}-${proy.slugProyecto(ctx.proyecto)}`);
+    const plantilla = localizarPlantilla(ctx.vaultDir, "sesion.md").split("<proyecto>").join(ctx.proyecto);
+    fs.writeFileSync(archivo, rit.esqueletoNota(plantilla, {
+        fecha,
+        frontmatter: { proyecto: ctx.proyecto, fecha, commit: head },
+        secciones,
+    }), "utf8");
+    console.log(`ritual: creado ${archivo}`);
+    enlazarNota(ctx.vaultDir, path.relative(ctx.vaultDir, archivo));
+    console.log("ritual: escribe en esa nota \"Qué se hizo de verdad\" (desvíos y errores incluidos) y \"Qué sigue\". fin-sesion no reindexa el RAG: lo hace el arranque de la próxima sesión.");
 }
 
 // --- fin-dia (ritual menor) -----------------------------------------------------------------
@@ -435,7 +535,7 @@ Ver skills/rituales para cuándo se dispara cada uno y qué hace (y qué NO hace
 }
 
 function parseArgs(rest) {
-    const valueFlags = ["--proyecto", "--descripcion", "--vault", "--resumen", "--ciclo", "--siguiente"];
+    const valueFlags = ["--proyecto", "--descripcion", "--vault", "--resumen", "--ciclo", "--siguiente", "--desde"];
     const opts = {};
     const positional = [];
     for (let i = 0; i < rest.length; i++) {
