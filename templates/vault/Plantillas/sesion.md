@@ -2,6 +2,7 @@
 proyecto:
 tags: [sesion]
 fecha: {{date:YYYY-MM-DD}}
+commit:
 ---
 
 # Sesión — {{date:YYYY-MM-DD}} · <proyecto>

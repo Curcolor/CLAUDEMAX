@@ -12,7 +12,7 @@ import { analizarPendientes, analizarHubs, walkVault } from "../rag-lib.mjs";
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const VAULT_TPL = path.join(REPO, "templates", "vault");
 
-test("templates/vault: carpetas de la taxonomía, 17 archivos en Hubs/, 4 plantillas, Obsidian por carpeta", () => {
+test("templates/vault: carpetas de la taxonomía, 17 archivos en Hubs/, 5 plantillas, Obsidian por carpeta", () => {
     const carpetas = ["Hubs", "00-Inbox", "Bitacoras", "Decisiones", "Conocimiento", "Aprendizaje", "Entrevistas",
         "Revisiones", "Codigo", "Procesos", "Formales", "Superpowers", "Plantillas"];
     for (const c of carpetas) assert.ok(fs.statSync(path.join(VAULT_TPL, c)).isDirectory(), c);
@@ -24,7 +24,17 @@ test("templates/vault: carpetas de la taxonomía, 17 archivos en Hubs/, 4 planti
     assert.deepEqual(hubs, ["Aprendizaje.md", "Bienvenida.md", "Bitacoras.md", "Codigo.md", "Conocimiento.md", "Decisiones.md",
         "Entrevistas.md", "Formales.md", "Inbox.md", "Pendientes.md", "Procesos.md", "Revisiones.md",
         "Superpowers-Planes.md", "Superpowers-Sesiones.md", "Superpowers-Specs.md", "Superpowers-Tareas.md", "_proyecto.md"]);
-    assert.deepEqual(fs.readdirSync(path.join(VAULT_TPL, "Plantillas")).sort(), ["bitacora.md", "hub.md", "nota.md", "sesion.md"]);
+    assert.deepEqual(fs.readdirSync(path.join(VAULT_TPL, "Plantillas")).sort(),
+        ["bitacora.md", "cierre.md", "hub.md", "nota.md", "sesion.md"]);
+    // las secciones que rellenan los rituales existen en sus plantillas
+    for (const [archivo, seccion] of [["sesion.md", "## Qué se hizo de verdad"], ["cierre.md", "## Cerrado en este ciclo"],
+        ["bitacora.md", "## Sesiones de hoy"], ["sesion.md", "## Documentos del ciclo"], ["cierre.md", "## Documentos del ciclo"]]) {
+        assert.match(fs.readFileSync(path.join(VAULT_TPL, "Plantillas", archivo), "utf8").replace(/\r\n/g, "\n"),
+            new RegExp(`\\n${seccion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n`), archivo);
+    }
+    for (const archivo of ["sesion.md", "cierre.md"]) {
+        assert.match(fs.readFileSync(path.join(VAULT_TPL, "Plantillas", archivo), "utf8"), /^commit:\s*$/m, `${archivo}: commit en el frontmatter`);
+    }
     const graph = JSON.parse(fs.readFileSync(path.join(VAULT_TPL, ".obsidian", "graph.json"), "utf8"));
     assert.ok(graph.colorGroups.every(g => g.query.startsWith("path:")), "los grupos de color van por carpeta, no por tag");
     assert.equal(JSON.parse(fs.readFileSync(path.join(VAULT_TPL, ".obsidian", "templates.json"), "utf8")).folder, "Plantillas");

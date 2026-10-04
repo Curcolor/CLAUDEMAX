@@ -28,5 +28,9 @@ fecha: {{date:YYYY-MM-DD}}
 |---------|------------------|--------------|
 |         |                  |              |
 
+## Sesiones de hoy
+<!-- lo rellena `fin-dia` con las notas de Superpowers/Sesiones/ de la fecha -->
+-
+
 ## Próximo paso (primera tarea de mañana)
 -
