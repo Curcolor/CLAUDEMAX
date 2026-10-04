@@ -1,6 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { casaGlob, hubDeNota, enlazarEnHub, esqueletoNota, grabarCommit, notasAfectadas } from "../rituales-lib.mjs";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+import {
+    casaGlob, hubDeNota, enlazarEnHub, esqueletoNota, grabarCommit, notasAfectadas,
+    gitReal, detectarRepo, ultimaNotaConCommit, rangoDelCiclo, specsYPlanesDelCiclo,
+} from "../rituales-lib.mjs";
+
+const hayGit = spawnSync("git", ["--version"]).status === 0;
 
 test("casaGlob: **/, *, ?, mayúsculas y barras invertidas; sirve con archivos borrados", () => {
     assert.equal(casaGlob("MiRepo/src/**/*.cs", "MiRepo/src/Dominio/Motor.cs"), true);
@@ -88,4 +97,97 @@ test("notasAfectadas: cruza fuentes con los archivos del ciclo y corta la lista 
     assert.equal(r[0].archivos.length, 5);
     assert.equal(r[0].total, 6);
     assert.deepEqual(notasAfectadas(notas, ["MiRepo/ui/Main.xaml"]).map(n => n.rel), ["Codigo/UI.md"]);
+});
+
+// git falso: responde por el prefijo del comando.
+function gitFalso(respuestas) {
+    const llamadas = [];
+    const exec = (args) => {
+        llamadas.push(args.join(" "));
+        for (const [prefijo, valor] of Object.entries(respuestas)) {
+            if (args.join(" ").startsWith(prefijo)) return valor;
+        }
+        return null;
+    };
+    exec.llamadas = llamadas;
+    return exec;
+}
+
+test("ultimaNotaConCommit: gana la fecha de commit más reciente, no el nombre del archivo", () => {
+    const notas = [
+        { rel: "Superpowers/Sesiones/2026-09-01-a.md", commit: "aaa" },
+        { rel: "Superpowers/Sesiones/2026-09-20-b.md", commit: "bbb" },
+        { rel: "Superpowers/Sesiones/2026-09-10-c.md", commit: "ccc" },
+    ];
+    const exec = gitFalso({ "show -s --format=%ct aaa": "100", "show -s --format=%ct bbb": "", "show -s --format=%ct ccc": "300" });
+    assert.deepEqual(ultimaNotaConCommit(notas, exec), { rel: "Superpowers/Sesiones/2026-09-10-c.md", commit: "ccc", ts: 300 });
+    assert.equal(ultimaNotaConCommit([], exec), null);
+});
+
+test("rangoDelCiclo: --desde manda; sin candidatos usa merge-base main, luego master, luego el primer commit", () => {
+    const base = { "rev-parse --show-toplevel": "/w/MiRepo", "show -s --format=%cI": "2026-09-01T10:00:00-05:00" };
+    const conDesde = rangoDelCiclo({ repo: "/w/MiRepo", ragRoot: "/w", desde: "HEAD~3", notas: [],
+        exec: gitFalso({ ...base, "diff --name-only HEAD~3..HEAD": "src/a.cs\nsrc/b.cs", "status --porcelain": " M src/c.cs" }) });
+    assert.equal(conDesde.desde, "HEAD~3");
+    assert.deepEqual(conDesde.archivos, ["MiRepo/src/a.cs", "MiRepo/src/b.cs", "MiRepo/src/c.cs"]);
+    assert.equal(conDesde.fechaDesde, "2026-09-01");
+    const conMain = rangoDelCiclo({ repo: "/w/MiRepo", ragRoot: "/w", notas: [],
+        exec: gitFalso({ ...base, "merge-base HEAD main": "m41n", "diff --name-only": "", "status --porcelain": "" }) });
+    assert.equal(conMain.desde, "m41n");
+    const conMaster = rangoDelCiclo({ repo: "/w/MiRepo", ragRoot: "/w", notas: [],
+        exec: gitFalso({ ...base, "merge-base HEAD master": "m4st", "diff --name-only": "", "status --porcelain": "" }) });
+    assert.equal(conMaster.desde, "m4st");
+    const raiz = rangoDelCiclo({ repo: "/w/MiRepo", ragRoot: "/w", notas: [],
+        exec: gitFalso({ ...base, "rev-list --max-parents=0 HEAD": "r00t\notr4", "diff --name-only": "", "status --porcelain": "" }) });
+    assert.equal(raiz.desde, "r00t", "con varias raíces se queda con la primera");
+    // candidato que ya no existe → cae a merge-base y avisa
+    const perdido = rangoDelCiclo({ repo: "/w/MiRepo", ragRoot: "/w", notas: [{ rel: "x.md", commit: "vi3jo" }],
+        exec: gitFalso({ ...base, "merge-base HEAD main": "m41n", "diff --name-only": "", "status --porcelain": "" }) });
+    assert.equal(perdido.desde, "m41n");
+    assert.match(perdido.aviso, /ya no existe/);
+});
+
+test("gitReal + rangoDelCiclo con git de verdad: rutas sin commitear y renombres", { skip: !hayGit && "sin git" }, () => {
+    const ws = fs.mkdtempSync(path.join(os.tmpdir(), "rango-"));
+    try {
+        const repo = path.join(ws, "MiRepo");
+        fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+        const git = args => spawnSync("git", args, { cwd: repo, encoding: "utf8" });
+        git(["init", "-q"]);
+        git(["config", "user.email", "prueba@example.com"]);
+        git(["config", "user.name", "Prueba"]);
+        fs.writeFileSync(path.join(repo, "src", "a.cs"), "// a\n");
+        fs.writeFileSync(path.join(repo, "src", "b.cs"), "// b\n");
+        git(["add", "-A"]);
+        git(["commit", "-qm", "uno"]);
+        const primero = git(["rev-parse", "HEAD"]).stdout.trim();
+        fs.writeFileSync(path.join(repo, "src", "a.cs"), "// a2\n");       // " M src/a.cs" (espacio inicial)
+        git(["mv", "src/b.cs", "src/c.cs"]);                                  // "R  src/b.cs -> src/c.cs"
+        fs.writeFileSync(path.join(repo, "nuevo.md"), "# x\n");              // "?? nuevo.md"
+        assert.equal(detectarRepo(path.join(repo, "src")), path.resolve(repo));
+        const r = rangoDelCiclo({ repo, ragRoot: ws, desde: primero });
+        assert.deepEqual(r.archivos, ["MiRepo/nuevo.md", "MiRepo/src/a.cs", "MiRepo/src/c.cs"]);
+        assert.match(r.fechaDesde, /^\d{4}-\d{2}-\d{2}$/);
+        assert.equal(gitReal(ws)(["rev-parse", "--show-toplevel"]), null, "fuera de un repo devuelve null");
+    } finally { fs.rmSync(ws, { recursive: true, force: true }); }
+});
+
+test("specsYPlanesDelCiclo: del repo solo con docs_en_repo; del vault por proyecto y fecha", () => {
+    const r = specsYPlanesDelCiclo({
+        docsEnRepo: true,
+        repoRel: "MiRepo",
+        archivos: ["MiRepo/docs/superpowers/specs/2026-09-20-x-design.md", "MiRepo/docs/superpowers/plans/2026-09-20-x.md", "MiRepo/src/a.cs"],
+        notasVault: [
+            { rel: "Superpowers/Specs/vieja.md", proyecto: "CLAUDEMAX", fecha: "2026-08-01" },
+            { rel: "Superpowers/Planes/nueva.md", proyecto: "CLAUDEMAX", fecha: "2026-09-20" },
+            { rel: "Superpowers/Specs/otra.md", proyecto: "OtroProyecto", fecha: "2026-09-20" },
+        ],
+        proyecto: "CLAUDEMAX",
+        fechaDesde: "2026-09-13",
+    });
+    assert.deepEqual(r.specsRepo, ["MiRepo/docs/superpowers/specs/2026-09-20-x-design.md"]);
+    assert.deepEqual(r.planesRepo, ["MiRepo/docs/superpowers/plans/2026-09-20-x.md"]);
+    assert.deepEqual(r.vault, ["Superpowers/Planes/nueva.md"]);
+    assert.deepEqual(specsYPlanesDelCiclo({ docsEnRepo: false, repoRel: "MiRepo",
+        archivos: ["MiRepo/docs/superpowers/specs/x.md"], notasVault: [], proyecto: "X", fechaDesde: "2026-01-01" }).specsRepo, []);
 });

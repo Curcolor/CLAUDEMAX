@@ -3,6 +3,7 @@
 // Pendientes.md y copias de specs. Sin red; git entra como `exec(args, cwd)` inyectable para que
 // las pruebas no necesiten un repo. Se instala junto a rag.mjs en R.A.G/.
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 
 const sinComentarios = texto => String(texto).replace(/<!--[\s\S]*?-->/g, "");
 
@@ -125,4 +126,84 @@ export function grabarCommit(texto, sha) {
     if (i >= 0) lineas[i] = `commit: ${sha}`;
     else lineas.push(`commit: ${sha}`);
     return `---\n${lineas.join("\n")}\n---\n` + t.slice(m[0].length);
+}
+
+// --- Git ------------------------------------------------------------------------------------
+// Toda llamada a git pasa por `exec(args)`, que devuelve stdout sin el salto final, o null si git
+// falla. Las pruebas inyectan el suyo; en producción se usa este. Solo se recorta por la derecha:
+// la primera línea de `status --porcelain` puede empezar por espacio (" M ruta").
+export function gitReal(cwd) {
+    return (args) => {
+        try {
+            const r = spawnSync("git", ["-c", "core.quotepath=false", ...args],
+                { cwd, encoding: "utf8", timeout: 10_000, windowsHide: true });
+            if (r.status !== 0) return null;
+            return String(r.stdout || "").replace(/\s+$/, "");
+        } catch { return null; }
+    };
+}
+
+export function detectarRepo(cwd, exec = gitReal(cwd)) {
+    const top = exec(["rev-parse", "--show-toplevel"]);
+    return top ? path.resolve(top) : null;
+}
+
+// De las notas con `commit`, la del commit que exista con fecha más reciente. null si ninguna vale.
+export function ultimaNotaConCommit(notas, exec) {
+    let mejor = null;
+    for (const nota of notas) {
+        if (!nota.commit) continue;
+        const ts = Number(exec(["show", "-s", "--format=%ct", nota.commit]) || "");
+        if (!Number.isFinite(ts) || !ts) continue;
+        if (!mejor || ts > mejor.ts) mejor = { rel: nota.rel, commit: nota.commit, ts };
+    }
+    return mejor;
+}
+
+const rutaDelWorkspace = (ragRoot, repo, rel) => {
+    const abs = path.resolve(repo, rel);
+    const r = path.relative(path.resolve(ragRoot), abs);
+    return (r.startsWith("..") ? abs : r).replace(/\\/g, "/");
+};
+
+// { desde, fechaDesde, archivos (rutas relativas a RAG_ROOT), aviso }. Los archivos son los que
+// cambiaron entre `desde` y HEAD más los que aún no se commitearon.
+export function rangoDelCiclo({ repo, ragRoot, desde, notas = [], exec = gitReal(repo) }) {
+    let aviso = null;
+    let ref = desde;
+    if (!ref) {
+        const ultima = ultimaNotaConCommit(notas, exec);
+        if (ultima) ref = ultima.commit;
+        else if (notas.some(n => n.commit)) aviso = "el commit del último cierre ya no existe (¿rebase?); se usa la base de la rama";
+    }
+    if (!ref) ref = exec(["merge-base", "HEAD", "main"]) || exec(["merge-base", "HEAD", "master"])
+        || (exec(["rev-list", "--max-parents=0", "HEAD"]) || "").split("\n")[0].trim() || null;
+    if (!ref) return { desde: null, fechaDesde: null, archivos: [], aviso: aviso || "sin historia git" };
+    const diff = exec(["diff", "--name-only", `${ref}..HEAD`]) || "";
+    const porcelain = exec(["status", "--porcelain"]) || "";
+    const sinCommitear = porcelain.split("\n").map(l => l.slice(3).trim()).filter(Boolean)
+        .map(l => (l.includes(" -> ") ? l.split(" -> ")[1] : l).replace(/^"|"$/g, ""));
+    const rels = [...new Set([...diff.split("\n").map(l => l.trim()).filter(Boolean), ...sinCommitear])].sort();
+    const fechaIso = exec(["show", "-s", "--format=%cI", ref]);
+    return {
+        desde: ref,
+        fechaDesde: fechaIso ? fechaIso.slice(0, 10) : null,
+        archivos: rels.map(r => rutaDelWorkspace(ragRoot, repo, r)),
+        aviso,
+    };
+}
+
+// { specsRepo, planesRepo, vault }: documentos del ciclo. Los del repo solo cuentan si el proyecto
+// declara docs_en_repo; los del vault, por `proyecto:` y `fecha:` desde el inicio del ciclo.
+export function specsYPlanesDelCiclo({ docsEnRepo, repoRel, archivos = [], notasVault = [], proyecto, fechaDesde }) {
+    const bajo = sub => archivos.filter(a => casaGlob(`${repoRel}/docs/superpowers/${sub}/*.md`, a));
+    return {
+        specsRepo: docsEnRepo ? bajo("specs") : [],
+        planesRepo: docsEnRepo ? bajo("plans") : [],
+        vault: notasVault
+            .filter(n => /^Superpowers\/(Specs|Planes)\//.test(n.rel))
+            .filter(n => !proyecto || n.proyecto === proyecto)
+            .filter(n => !fechaDesde || String(n.fecha || "") >= fechaDesde)
+            .map(n => n.rel),
+    };
 }
