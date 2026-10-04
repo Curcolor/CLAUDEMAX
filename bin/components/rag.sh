@@ -33,7 +33,10 @@ ac_rag_vault() {
         create)
             ac_info "Vault: crear en $dst"
             if [ -d "$dst" ] && [ -n "$(ls -A "$dst" 2>/dev/null)" ] && [ "${FORCE:-0}" != "1" ]; then
-                ac_warn "  $dst existe y no está vacío — se deja intacto (usa --force para sobrescribir solo la config)."
+                # una actualización trae hubs y plantillas nuevos (p. ej. Plantillas/cierre.md de los
+                # rituales): se añaden los que falten; las notas y lo ya existente no se tocan
+                ac_info "  $dst ya existe — se respetan sus notas; solo se añaden hubs, plantillas y config que falten."
+                ac_rag_vault_completar "$dst"
                 return 0
             fi
             ac_run mkdir -p "$dst"
@@ -44,13 +47,10 @@ ac_rag_vault() {
                 ac_warn "VAULT_MODE=import necesita VAULT_SRC=<carpeta existente> — se omite el vault."
                 return 0
             fi
-            ac_info "Vault: importar $VAULT_SRC → $dst (notas intactas, config agregada si falta)"
+            ac_info "Vault: importar $VAULT_SRC → $dst (notas intactas, hubs/plantillas/config agregados si faltan)"
             ac_run mkdir -p "$dst"
             ac_run cp -R "$VAULT_SRC/." "$dst/"
-            if [ ! -f "$dst/.obsidian/graph.json" ]; then
-                ac_run mkdir -p "$dst/.obsidian"
-                ac_run cp "$AC_REPO_DIR/templates/vault/.obsidian/graph.json" "$dst/.obsidian/graph.json"
-            fi
+            ac_rag_vault_completar "$dst"
             ;;
         connect)
             if [ -z "${VAULT_REMOTE:-}" ]; then
@@ -63,9 +63,29 @@ ac_rag_vault() {
             else
                 ac_run git clone "$VAULT_REMOTE" "$dst"
             fi
+            ac_rag_vault_completar "$dst"
             ;;
         *) ac_warn "VAULT_MODE desconocido '$mode' (create|import|connect)"; return 0 ;;
     esac
+}
+
+# Con un vault importado o clonado, añade los hubs, las plantillas y la config de Obsidian
+# que falten — sin pisar nada que ya exista (las notas del usuario son suyas).
+ac_rag_vault_completar() {
+    local dst="$1" f rel
+    for f in "$AC_REPO_DIR"/templates/vault/Hubs/*.md "$AC_REPO_DIR"/templates/vault/Plantillas/*.md; do
+        rel="${f#"$AC_REPO_DIR"/templates/vault/}"
+        if [ ! -f "$dst/$rel" ]; then
+            ac_run mkdir -p "$(dirname "$dst/$rel")"
+            ac_run cp "$f" "$dst/$rel"
+        fi
+    done
+    for f in graph.json templates.json; do
+        if [ ! -f "$dst/.obsidian/$f" ]; then
+            ac_run mkdir -p "$dst/.obsidian"
+            ac_run cp "$AC_REPO_DIR/templates/vault/.obsidian/$f" "$dst/.obsidian/$f"
+        fi
+    done
 }
 
 # Instala y arranca automáticamente las dependencias de sistema (Docker Desktop
@@ -142,7 +162,7 @@ ac_rag_stack() {
     ac_info "Stack RAG: $mode en $dst"
     ac_run mkdir -p "$dst"
     # Copia las plantillas sin sobrescribir un .env existente
-    for f in docker-compose.yml schema.sql .env.example package.json .gitignore rag.mjs mcp-server.mjs kaggle-embed.mjs ritual.mjs; do
+    for f in docker-compose.yml schema.sql .env.example package.json .gitignore rag.mjs rag-lib.mjs mcp-server.mjs kaggle-embed.mjs ritual.mjs proyectos-lib.mjs indices-lib.mjs rituales-lib.mjs; do
         ac_run cp "$AC_REPO_DIR/templates/rag/$f" "$dst/$f"
     done
     # Backend Kaggle (Bloque 2, subproyecto F): plantillas del kernel que corre en la nube
@@ -260,6 +280,7 @@ ac_rag_register_mcp() {
             return 0
         fi
     fi
-    ac_run claude mcp add -s user rag -- node "$RAG_ROOT/R.A.G/mcp-server.mjs" \
+    # Ruta nativa: Claude Code lanza el comando sin shell (ac_ruta_nativa, bin/lib/claude-config.sh).
+    ac_run claude mcp add -s user rag -- node "$(ac_ruta_nativa "$RAG_ROOT/R.A.G/mcp-server.mjs")" \
         || ac_warn "claude mcp add falló para rag — agrégalo manualmente."
 }

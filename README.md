@@ -20,12 +20,13 @@ bash bin/install.sh
 | **impeccable** | Plugin de Claude Code con el vocabulario de diseño que le falta al modelo para que una UI generada por IA no se note generada por IA. Una skill (`impeccable`) con **23 órdenes** que se invocan como `/impeccable <orden> [objetivo]`: `shape` (planear UX/UI antes de codificar), `init`/`document`/`extract` (contexto: `PRODUCT.md`, `DESIGN.md`, tokens y componentes al sistema de diseño), `critique`/`audit`/`polish` (revisión con puntuación, accesibilidad/rendimiento/responsive, última pasada), `bolder`/`quieter`/`distill`/`delight`/`overdrive` (tono), `animate`/`colorize`/`typeset`/`layout` (materia), `harden`/`onboard`/`clarify`/`adapt`/`optimize` (producción: errores, i18n, casos borde, estados vacíos, copy, tamaños, rendimiento), `live` (itera variantes visuales en la app corriendo y escribe el resultado en el código) y `craft` (alias heredado). Trae además 4 subagentes y dos hooks propios —declarados dentro del plugin, no en tu `settings.json`—: `PostToolUse`/`Edit\|Write\|MultiEdit` con **59 detectores deterministas** de anti-patrones (sin llamadas a ninguna API) y `Stop` con una pasada de diseño al cerrar el turno. Complementa a `ui-ux-pro-max` en vez de sustituirla: aquella aporta el catálogo (estilos, paletas, tipografía, guías por stack), esta el vocabulario de órdenes y la detección al vuelo — de hecho los 6 anti-patrones que `ui-ux-pro-max` adaptó vienen de este proyecto. Requiere Node ≥ 22 para el hook; sin él el hook se apaga solo y las 23 órdenes siguen funcionando. | [pbakaus/impeccable](https://github.com/pbakaus/impeccable) (Apache-2.0), [impeccable.style](https://impeccable.style) |
 | **skill superpowers** | Clonada en `~/.claude/skills/superpowers/`. Paquete de meta-skills. | [obra/superpowers](https://github.com/obra/superpowers) |
 | **Skills de disciplina de ingeniería** | Propias: `swebok` (destilación del SWEBOK v4 de IEEE Computer Society — 18 áreas de conocimiento de la ingeniería de software en `chapters/`, más `referencias/` curadas a mano con más profundidad que el SWEBOK en esos puntos concretos: SOLID con prueba de olfato, los 23 patrones GoF con disparador de una línea, y elección de arquitectura de sistema por fuerzas y trade-offs. Absorbe a la skill que cumplía este rol antes —la que fusionaba `solid` + `design-patterns` + `architecture-patterns`— y que ya no existe en este repo), `pmbok` (destilación de la *Guía del PMBOK® 7ª edición* del Project Management Institute — 370 páginas en español. PMBOK 7 cambió de paradigma frente a la 6ª: abandonó los 49 procesos y las 10 áreas de conocimiento por **12 principios** de dirección de proyectos y **8 dominios de desempeño** que operan simultáneamente, no como fases secuenciales — es lo que más se malinterpreta. Incluye `cheatsheet.md` (reglas de decisión: predictivo vs. adaptativo, estimación, riesgo, métricas), `glossary.md` (68 términos deduplicados), un archivo por principio (`principios/`, 12) y por dominio (`dominios/`, 8), `adaptacion.md` (tailoring) y un catálogo de 160 modelos/métodos/artefactos (`modelos-metodos-artefactos.md`: 23 modelos, 60 métodos, 77 artefactos). Complementa a `swebok` —SWEBOK cubre ingeniería de software, PMBOK cubre dirección de proyectos— y declara `dependencies: [swebok]`. Son notas sintetizadas, no una reproducción del PMBOK; PMBOK® y PMI® son marcas registradas del Project Management Institute), `book-to-skill` (convierte libros/manuales/normas en skills consultables por capítulo en vez de recargar el PDF en contexto cada vez; fork propio traducido de `virgiliojr94/book-to-skill`, MIT. Documenta un bug real de su extracción de PDF: elige `pdftotext` y solo comprueba que la salida no esté vacía, no que sea válida — con un documento en español devolvió mojibake en las 413 páginas reportando "OK" y la detección de capítulos cayó a 3 de 18; trae el fix, extraer con `pypdf`, y cómo verificarlo. Con ella se generaron `swebok` y `pmbok`), `conventional-commits`, `skill-mcp-builder` (meta-skill para crear Skills 2.0 y servidores MCP), `no-ai-slop` (anti-slop de *prosa* — documentación, README, artículos; fork propio traducido de `petergyang/no-ai-slop`, MIT. Actúa sobre texto que un humano leerá fuera de la sesión, nunca sobre las respuestas de la conversación) y `rituales` (documenta los cinco rituales de ciclo de vida de CLAUDEMAX — ver sección [Rituales](#rituales)). | este repo |
-| **rag** | Vault V.A.U.L.T con taxonomía de 6 categorías con color + RAG con PGVector (Docker) + Ollama bge-m3 + backend de embeddings conmutable (`ollama`/`remote`/`kaggle`) + MCP `rag` (`rag_query`/`rag_status`, con filtros `categoria`/`proyecto`). `rag.mjs ingest` también indexa los grafos de conocimiento de Graphify (`graphify-out/graph.json`). También instala `ritual.mjs` junto a `rag.mjs` — los rituales manuales de ciclo de vida (`init-proyecto`/`fin-sesion`/`fin-dia`/`fin-ciclo`, ver sección [Rituales](#rituales)). Auto-instala Docker y Ollama vía winget si faltan. | propia (este repo) |
-| **graphify** | CLI de Python (no un plugin del marketplace) que analiza el código con tree-sitter (+ un LLM opcional) y genera un grafo de conocimiento navegable del repo. `graphify extract .` produce `graphify-out/graph.json` (formato `node_link_data` de NetworkX: nodos con tipo/archivo/comunidad, aristas con relación/confianza), `graphify-out/graph.html` (dashboard interactivo) y `graphify-out/GRAPH_REPORT.md`. El instalador también corre `graphify claude install`, que registra un hook `PreToolUse` (matchers `Bash\|Grep` y `Read\|Glob`) que **sugiere** consultar el grafo antes de leer/grepear en crudo — nunca bloquea (se instala sin `--strict`). Sustituye al componente anterior, que por error instalaba el plugin de otro autor con nombre parecido. | [Graphify-Labs/graphify](https://github.com/Graphify-Labs/graphify) (paquete PyPI `graphifyy`) |
+| **rag** | Vault V.A.U.L.T con carpetas-género (Decisiones, Conocimiento, Codigo, Superpowers/{Specs,Planes,Tareas,Sesiones}…), un hub por carpeta en `Hubs/` y `Bienvenida` como puerta de entrada + RAG con PGVector (Docker) + Ollama bge-m3 + backend de embeddings conmutable (`ollama`/`remote`/`kaggle`) + MCP `rag` (`rag_query`/`rag_leer`/`rag_status`, filtros `coleccion`/`proyecto`). La colección y la autoridad las da la carpeta; el ranking excluye ruido (`planes`, `proceso`, `inbox`) y sube decisiones y hubs. **Vigencia automática**: una nota con `fuentes:` queda CADUCA cuando sus fuentes cambian, `reemplaza:` retira decisiones viejas de la búsqueda, `revisar:` avisa al vencer; `rag.mjs salud` lista caducas, huérfanas y enlaces rotos y el hook `session-start` reindexa incremental y resume la salud al arrancar. También instala `ritual.mjs` (rituales manuales, ver [Rituales](#rituales)). Auto-instala Docker y Ollama vía winget si faltan. | propia (este repo) |
+| **graphify** | CLI de Python (paquete PyPI `graphifyy`) que analiza el código con tree-sitter (+ LLM opcional) y genera un grafo de conocimiento navegable del repo: `graphify extract . --code-only` produce `graphify-out/graph.json` (formato `node_link_data` de NetworkX), `graph.html` (dashboard) y `GRAPH_REPORT.md`. CLAUDEMAX registra **un solo MCP `graphify`** a nivel usuario: un envoltorio (`~/.claude/mcp/graphify-auto.mjs`) que en cada sesión localiza el `graph.json` del proyecto actual (`CLAUDE_PROJECT_DIR`, que Claude Code pasa al MCP) y lanza el servidor real de graphify (`query_graph`, `get_node`, `get_neighbors`, `shortest_path`…); si falta el grafo o graphify, sirve una única tool `graphify_estado` que dice cómo generarlo o instalarlo. Ya no ejecuta `graphify claude install` (su hook duplicaba al recordatorio `orden-herramientas` y escribía dentro del repo). | [Graphify-Labs/graphify](https://github.com/Graphify-Labs/graphify) (paquete PyPI `graphifyy`) |
+| **codebase-memory** | MCP de inteligencia de código ([DeusData/codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp), MIT): indexa un repo en un grafo persistente (158 lenguajes) y expone `search_graph`, `trace_path`, `get_code_snippet`, `get_architecture`, `search_code`, `index_repository`. Instalado con `npm install -g codebase-memory-mcp` y registrado una vez a nivel usuario como `codebase-memory`. El índice vive en `~/.cache/codebase-memory-mcp/` (`CBM_CACHE_DIR`), nunca en el repo (**nunca `--persistence`**). Indexa cada proyecto con `codebase-memory-mcp cli index_repository --repo-path <abs> --mode moderate`; `ready` no significa al día — reindexa al cerrar ciclo. Excluye `bin/`/`docs/` por defecto: ajústalo con `.cbmignore` si ahí hay código. | npm `codebase-memory-mcp` |
 | **ponytail** | Plugin de Claude Code que fuerza minimalismo al escribir código mediante una "escalera" de 7 peldaños (¿hace falta? → ¿ya existe en el repo? → ¿stdlib? → ¿feature nativa? → ¿dependencia ya instalada? → ¿cabe en una línea? → el mínimo que funcione). Trae 6 skills: `ponytail` (modo activo, niveles `lite`/`full`/`ultra`), `ponytail-review` (revisa el diff), `ponytail-audit` (repo completo), `ponytail-debt` (cosecha comentarios `ponytail:` en una libreta de deuda técnica), `ponytail-gain` y `ponytail-help`. No choca con Graphify: registra hooks `SessionStart`/`SubagentStart`/`UserPromptSubmit`, ninguno es `PreToolUse` (el único evento que usa Graphify). | [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) |
 | **cyber-neo** | Skill de auditoría de seguridad: OWASP 2025 Top 10 y CWE Top 25, escaneo de dependencias, secretos, SAST y configuración. Solo lectura; reporte en `~/Desktop/`. Clonada con commit fijado. | [Hainrixz/cyber-neo](https://github.com/Hainrixz/cyber-neo) |
 | **parsers** | Ingesta de archivos para el RAG: **MarkItDown** (cualquier archivo → markdown, con MCP oficial `markitdown`), **opendataloader-pdf** (PDFs complejos) y **whisper-ctranslate2** (audio → texto, CPU). Auto-instala Python y el JDK vía winget si faltan. | [markitdown](https://github.com/microsoft/markitdown), [opendataloader-pdf](https://github.com/opendataloader-project/opendataloader-pdf), [whisper-ctranslate2](https://github.com/Softcatala/whisper-ctranslate2) |
-| **rules** | Reglas operativas empaquetadas en el repo (`templates/rules/`) — no en la configuración personal de tu máquina — instaladas en `<RAG_ROOT>/.claude/`: `CLAUDEMAX.md` (las 7 reglas) y `proyecto.md` (plantilla por proyecto) se sobrescriben en cada instalación; `CLAUDE.md` nunca se pisa, solo se le añade `@CLAUDEMAX.md` si falta. Además instala y registra 4 hooks de cumplimiento y contexto: `git-footer-guard.mjs`, `loop-breaker.mjs`, `skill-suggest.mjs`, `session-start.mjs`. Ver sección [Reglas operativas](#reglas-operativas). Último componente en instalarse — sus reglas referencian rutas que crean los pasos anteriores. | propia (este repo) |
+| **rules** | Reglas operativas empaquetadas en el repo (`templates/rules/`) — no en la configuración personal de tu máquina — instaladas en `<RAG_ROOT>/.claude/`: `CLAUDEMAX.md` (las 10 reglas; termina importando `proyectos/_indice.md`) y `proyecto.md` (esqueleto de `.claude/proyectos/<nombre>.md`) se sobrescriben en cada instalación; `CLAUDE.md` nunca se pisa, solo se le añade `@CLAUDEMAX.md` si falta; crea `.claude/proyectos/_indice.md` si falta. Además instala y registra 5 hooks de cumplimiento y contexto: `git-footer-guard.mjs`, `loop-breaker.mjs`, `skill-suggest.mjs`, `session-start.mjs`, `recordar.mjs` (recordatorios justo a tiempo, ver [Reglas operativas](#reglas-operativas)), más los recordatorios de fábrica en `<RAG_ROOT>/.claude/recordatorios/`. Ver sección [Reglas operativas](#reglas-operativas). Último componente en instalarse — sus reglas referencian rutas que crean los pasos anteriores. | propia (este repo) |
 
 ## Instalación
 
@@ -161,41 +162,71 @@ comando por ti — la enseña en su paso de resumen antes de ejecutarla.
 
 Necesita Docker (para la BD local) y Ollama con `bge-m3` descargado (para los embeddings) — el componente avisa y omite esos pasos si falta alguno, sin hacer fallar la instalación.
 
-### Taxonomía de 6 categorías
+### Taxonomía del vault: la carpeta da la colección
 
-Cada nota del vault lleva un frontmatter YAML con `categoria` (obligatoria) y `proyecto` (opcional: la clave transversal que relaciona notas de categorías distintas). Copia `_plantilla.md` para arrancar una nota nueva con el frontmatter ya listo:
+Cada carpeta del vault es un *género* de nota y tiene su hub en `Hubs/` (qué contiene, cuándo nace
+una nota ahí, qué no va ahí, y la lista de sus notas). `Hubs/Bienvenida.md` es la puerta de
+entrada; `Hubs/Pendientes.md`, el índice único de lo abierto. La colección y la autoridad **se
+derivan de la carpeta** — el frontmatter solo lleva `proyecto` (eje transversal), `tags` y, si
+aplica, los campos de vigencia. Empieza una nota desde `Plantillas/nota.md`:
 
 ```yaml
 ---
-categoria: codigo          # una de las seis; obligatoria
-proyecto: claudemax        # clave transversal: relaciona notas de distintas categorías
-tags: [codigo/rag, codigo/pgvector]
-fecha: 2026-08-01
-fuente: informe.pdf        # opcional; lo rellenan los parsers
+proyecto: claudemax        # eje transversal, opcional pero recomendado
+tags: [rag, pgvector]      # libres
+fecha: 2026-09-13
+fuentes:                   # si la nota describe código o un documento (rutas/globs desde la raíz del workspace)
+  - CLAUDEMAX/templates/rag/rag.mjs
+reemplaza: [nota-vieja]    # si deja obsoleta a otra nota
+revisar: 2026-10-08        # si vence
 ---
 ```
 
-| Categoría | Color | Carpeta | Significado |
-|---|---|---|---|
-| `codigo` | `#4A90D9` azul | `Codigo/` | Repos, arquitectura, snippets, grafos de Graphify |
-| `proyectos` | `#5CB85C` verde | `Proyectos/` | Planes, decisiones, sprints, specs |
-| `organizacion` | `#9B59B6` morado | `Organizacion/` | Parte legal y conceptual de la organización: miembros y roles, estatutos, contratos, marca, procesos internos, clientes |
-| `investigacion` | `#E8912D` naranja | `Investigacion/` | Lo que se pregunta e investiga para decidir algo: estilos de diseño, comparativas de herramientas, papers, PDFs parseados, transcripciones |
-| `personal` (tag `personal/bitacora`) | `#E05C6E` rojo suave | `Journal/` | Bitácoras: registro cronológico del trabajo diario |
-| `personal` (tag `personal/sesion`) | `#E05C6E` rojo suave | `00-Inbox/` | Lo último que se habló en cada sesión de Claude Code: continuidad de contexto entre sesiones (qué se hizo, en qué punto se quedó, qué sigue) |
-| `aprendizaje` | `#17A2B8` turquesa | `Aprendizaje/` | Errores cometidos y su lección (postmortems), NO apuntes de tecnologías |
+| Carpeta | Color | `coleccion` | `autoridad` | En búsqueda por defecto |
+|---|---|---|---|---|
+| `Hubs/` | dorado | `hubs` | `vigente` | sí, con boost |
+| `Decisiones/` | dorado | `decisiones` | `vigente` | sí, con boost |
+| `Formales/` | morado | `docs_formales` | `oficial` | sí |
+| `Superpowers/Specs/` | verde | `specs` | `diseño-vigente` | sí |
+| `Entrevistas/` | naranja | `entrevistas` | `fuente-primaria` | sí |
+| `Conocimiento/` | morado | `conocimiento` | `referencia` | sí |
+| `Aprendizaje/` | turquesa | `aprendizaje` | `leccion` | sí |
+| `Codigo/` | azul | `codigo` | `referencia` | sí |
+| `Procesos/` | morado | `procesos` | `referencia` | sí |
+| `Revisiones/` | naranja | `revisiones` | `referencia` | sí |
+| `Superpowers/Sesiones/` | rojo | `sesiones` | `personal` | sí |
+| `Bitacoras/` | rojo | `bitacoras` | `historica` | sí |
+| `Superpowers/Planes/` | verde | `planes` | `historico-tecnico` | **no** |
+| `Superpowers/Tareas/` | verde | `proceso` | `historico-tecnico` | **no** |
+| `00-Inbox/` | gris | `inbox` | `sin-clasificar` | **no** |
+| `Plantillas/` | — | — | — | fuera del índice |
 
-Si falta `categoria` en el frontmatter, `rag.mjs ingest` la infiere de la carpeta (`Codigo/` → `codigo`); si tampoco puede, la nota queda sin categoría y el ingestor avisa al terminar. `.obsidian/graph.json` trae un grupo de color por categoría para el grafo de Obsidian. Cada carpeta trae su propio `README.md` con ejemplos concretos de qué nota va ahí y qué no.
+Regla de conflicto entre fuentes que se contradicen: `decisiones > docs_formales/specs >
+entrevistas > conocimiento/aprendizaje/codigo > planes > bitacoras` — gana la autoridad, no la
+fecha. `planes` y `proceso` quedan fuera de la búsqueda sin filtro porque llevan código literal y
+copan los resultados; se piden con `--coleccion`.
 
-Filtra las consultas por categoría y/o proyecto (combinables):
+**Vigencia.** El ingest detecta notas que ya no reflejan la realidad: con `fuentes:`, guarda una
+firma del contenido de esas fuentes y marca la nota **CADUCA** si cambian y la nota no; con
+`reemplaza:`, la nota vieja queda **REEMPLAZADA** y sale de la búsqueda por defecto; con
+`revisar:`, pasada la fecha queda **A REVISAR**. Cada resultado de `rag_query` abre con su aviso.
+`node rag.mjs salud` lista caducas, a revisar, huérfanas (sin enlace desde ningún hub), enlaces
+rotos en hubs y notas de `Codigo/` sin `fuentes:`; `--resumen` lo deja en una línea, que es lo que
+el hook `session-start` añade al contexto al arrancar (además de reindexar incremental).
 
 ```bash
-node rag.mjs query "esquema de pgvector" --categoria codigo
-node rag.mjs query "decisiones del sprint" --proyecto claudemax
-node rag.mjs query "..." --categoria proyectos --proyecto claudemax --topk 10
+node rag.mjs query "esquema de pgvector" --coleccion codigo
+node rag.mjs query "por qué pgvector y no sqlite" --proyecto claudemax
+node rag.mjs query "..." --coleccion planes --topk 10      # incluye una colección excluida por defecto
+node rag.mjs salud                                          # informe de vigencia y hubs
 ```
 
-`node rag.mjs status` agrupa el conteo de chunks por proyecto y por categoría. `rag.mjs ingest` también indexa los grafos de conocimiento de Graphify (`graphify-out/graph.json` que genera `graphify extract .`), aplanados a texto con `categoria: codigo` y `proyecto: <nombre del repo>`: el JSON alimenta al RAG para que el LLM entienda la arquitectura de un repo sin abrir archivos; `graphify-out/graph.html` sigue siendo el dashboard para el humano.
+Migración desde el layout anterior de seis categorías: `Journal/`→`Bitacoras/`; `Proyectos/`→
+`Superpowers/Specs|Planes/` o `Decisiones/`; `Organizacion/`→`Procesos/` o `Conocimiento/`;
+`Investigacion/`→`Conocimiento/`; las notas de sesión de `00-Inbox/`→`Superpowers/Sesiones/`.
+Tras mover, `node rag.mjs init && node rag.mjs reindex`. Lo que quede en una carpeta desconocida se
+indexa como `otros` y el ingest lo lista al final.
+
 
 ### Backends de embeddings
 
@@ -221,7 +252,7 @@ El instalador escribe las credenciales en `.env` y en `~/.kaggle/kaggle.json`, y
 
 Las reglas de trabajo no viven en la configuración personal de tu máquina — viven en el repo
 (`templates/rules/`) y el componente `rules` las instala en `<RAG_ROOT>/.claude/CLAUDEMAX.md`
-(y las propaga a cada proyecto vía el ritual `init-proyecto`, ver [Rituales](#rituales)). El
+(el contexto de cada proyecto va aparte, en `.claude/proyectos/`, ver [Contexto por proyecto](#contexto-por-proyecto)). El
 repo es la fuente de verdad: si necesitas cambiar una regla, edítala en `templates/rules/` y
 reinstala — editar `<RAG_ROOT>/.claude/CLAUDEMAX.md` a mano se pierde en la siguiente instalación.
 
@@ -232,19 +263,94 @@ reinstala — editar `<RAG_ROOT>/.claude/CLAUDEMAX.md` a mano se pierde en la si
 | 3 | **Cortacircuitos de 3 intentos:** tras 3 intentos fallidos con el mismo error, PARAR, resumir al usuario y esperar su respuesta. | `hooks/loop-breaker.mjs` (avisa, no bloquea) |
 | 4 | **Commits:** Conventional Commits, subject en español, y nunca un footer de atribución de IA (`Co-authored-by: Claude`, "Generated with Claude Code", 🤖...). | `hooks/git-footer-guard.mjs` (**bloquea** el commit) |
 | 5 | **Ahorro de tokens / búsqueda de skills:** tecnología nueva sin Skill 2.0 instalada → preguntar al usuario si crear/buscar una, mencionando el compromiso. | `hooks/skill-suggest.mjs` (avisa, no bloquea) |
-| 6 | **Memoria:** el cerebro RAG es la única fuente de retención de contexto entre sesiones. No reinstalar Context7 ni Claude-Mem. | Convención — sin hook. |
-| 7 | **Taxonomía:** toda nota que se escriba en el vault lleva el frontmatter de categoría (ver `V.A.U.L.T/_plantilla.md`). | Convención — sin hook. |
+| 6 | **Dónde vive el contexto:** todo en `<RAG_ROOT>/.claude/` (reglas, `proyectos/<nombre>.md`, recordatorios) o en el vault; ningún repo lleva `CLAUDE.md`, `CLAUDE.local.md` ni `.claude/`. Ver [Contexto por proyecto](#contexto-por-proyecto). | Recordatorio `contexto-fuera-del-repo` + `.gitignore` que escribe `init-proyecto` + aviso de `session-start.mjs`. |
+| 7 | **Tres memorias con rol:** memoria nativa = gotchas cortos; vault + RAG = narrativa y decisiones; grafo = estructura. Lo generado se queda en su herramienta; lo narrado va al vault. Context7 permitido para documentación de librerías. | Convención — sin hook. |
+| 8 | **Orden de herramientas de contexto:** `rag` → `graphify` → `codebase-memory` → grep (último recurso, solo literales). La prosa se verifica contra el grafo; codebase-memory se reindexa antes de concluir "no existe". | Recordatorio `orden-herramientas`. |
+| 9 | **Taxonomía y vigencia:** la carpeta da la colección; toda nota se enlaza desde su hub; `fuentes:` si describe código, `reemplaza:` si sustituye a otra (ver `Plantillas/nota.md`). Specs y planes van al vault (`Superpowers/{Specs,Planes}/`) salvo que el proyecto declare `docs_en_repo: true`. | Convención + `rag.mjs salud` (informa, no bloquea) + recordatorios `editar-vault` y `specs-en-vault`. |
+| 10 | **Recordatorios justo a tiempo:** una regla que se olvidó dos veces se convierte en un recordatorio en `.claude/recordatorios/`. | `hooks/recordar.mjs` (inyecta, no bloquea). |
 
-Cuatro hooks Node sin dependencias hacen cumplir las reglas 3, 4 y 5 de forma determinista (y
+Cinco hooks Node sin dependencias hacen cumplir las reglas 3, 4, 5 y 10 de forma determinista (y
 `session-start.mjs` da contexto automático, ver [Rituales](#rituales)). Cada uno tiene su propia
 variable de escape para desactivarlo sin desinstalar nada:
 
 | Hook | Evento | ¿Bloquea? | Variable de escape |
 |---|---|---|---|
-| `git-footer-guard.mjs` | `PreToolUse` / `Bash` | **Sí** — el único de los cuatro que bloquea | `CLAUDEMAX_GIT_GUARD=0` |
+| `git-footer-guard.mjs` | `PreToolUse` / `Bash` | **Sí** — el único de los cinco que bloquea | `CLAUDEMAX_GIT_GUARD=0` |
 | `loop-breaker.mjs` | `PostToolUse` | No, solo avisa (`system-reminder`) | `CLAUDEMAX_LOOP_BREAKER=0` |
 | `skill-suggest.mjs` | `UserPromptSubmit` | No, solo avisa (una vez por sesión y tecnología) | `CLAUDEMAX_SKILL_SUGGEST=0` |
-| `session-start.mjs` | `SessionStart` | No, solo aporta contexto | `CLAUDEMAX_SESSION_CONTEXT=0` |
+| `session-start.mjs` | `SessionStart` / `startup` | No, solo aporta contexto (y reindexa el RAG) | `CLAUDEMAX_SESSION_CONTEXT=0` |
+| `recordar.mjs` | `PreToolUse` / `Grep\|Bash\|PowerShell\|Edit\|Write\|MultiEdit\|Read` | No, inyecta el recordatorio como contexto | `CLAUDEMAX_RECORDAR=0` |
+
+### Contexto por proyecto
+
+El contexto que Claude necesita de cada repo (estructura, comandos, estado, trampas) no vive en
+el repo: en el setup de trabajo del autor, un `CLAUDE.md` con contexto interno acabó publicado en
+GitHub el 2026-07-24. Vive en el workspace, y Claude Code lo carga solo porque lee los `CLAUDE.md`
+de los directorios padre y resuelve sus imports:
+
+    <RAG_ROOT>/.claude/CLAUDE.md          tuyo; el instalador solo le añade la línea que importa CLAUDEMAX.md
+      └─ CLAUDEMAX.md                     reglas; termina importando proyectos/_indice.md
+           └─ proyectos/_indice.md        generado por init-proyecto: una línea e import por proyecto
+                └─ proyectos/<nombre>.md  tuyo desde el día 1; ~150 líneas como máximo
+
+Una sesión abierta en `<RAG_ROOT>/MiRepo/` (o en cualquier subcarpeta) ve las reglas y el contexto
+de todos los proyectos; `/context` los lista en *Memory files*. Si el repo no tiene archivo, el
+hook de arranque lo avisa y `node R.A.G/ritual.mjs init-proyecto <ruta>` lo crea.
+
+**Migrar desde el diseño anterior** (`<repo>/.claude/CLAUDEMAX.md`): corre `init-proyecto` sobre el
+repo —detecta el archivo viejo y lo avisa—, copia a `proyectos/<nombre>.md` lo que valga y borra
+`<repo>/.claude/CLAUDEMAX.md` (y `<repo>/.claude/CLAUDE.md` si solo importaba ese archivo).
+
+### Recordatorios justo a tiempo
+
+Una regla escrita en `CLAUDEMAX.md` se olvida a mitad de una tarea larga; el problema es de
+*tiempos*, no de conocimiento. `recordar.mjs` lee `<RAG_ROOT>/.claude/recordatorios/*.md` (y
+los `.claude/recordatorios/` de cada proyecto, subiendo desde el cwd — el del proyecto pisa al
+del workspace si comparten nombre) y, cuando la tool y el comando o la ruta casan, inyecta el
+texto en el instante de la decisión. Dispara cada vez a propósito, salvo que el recordatorio
+diga `una_vez_por_sesion: true`. Nunca bloquea.
+
+```yaml
+---
+tools: [Bash, PowerShell]           # Grep, Bash, PowerShell, Edit, Write, MultiEdit, Read, Glob
+patrones: ['\bgcloud\b']            # regex contra el comando (o la ruta, en Edit/Write)
+rutas: ["**/V.A.U.L.T/**/*.md"]     # globs contra file_path
+excluir: ["**/Plantillas/**"]       # globs que anulan el disparo (ganan incluso a siempre)
+siempre: [Grep]                     # tools que disparan sin mirar patrones/rutas
+una_vez_por_sesion: false
+activo: true
+nota: >                             # para ti: qué fallo lo parió y cuándo
+  2026-09-02: desplegué sin leer el procedimiento.
+---
+TEXTO QUE SE INYECTA TAL CUAL.
+```
+
+De fábrica (se instalan si no existen; edítalos, son tuyos): `orden-herramientas` (rag →
+graphify → codebase-memory → grep, al usar Grep o un buscador en Bash/PowerShell),
+`tocar-produccion` (gcloud, aws, kubectl apply, terraform apply, docker push, `--prod`…),
+`contexto-fuera-del-repo` (regla 6 al escribir un `CLAUDE.md` o `.claude/` dentro de un repo),
+`editar-vault` (regla 9 al escribir bajo `V.A.U.L.T/`), `specs-en-vault` (al escribir en
+`docs/superpowers/` de un repo: ¿el proyecto declara `docs_en_repo`?), `estandares-dotnet` (al
+editar `.cs`/`.xaml`) y `pruebas-dotnet` (al correr `dotnet test`). En `ejemplos/maestrasuite/` van los
+cuatro originales del setup de trabajo del autor, íntegros e inactivos, como referencia de cómo
+se escribe uno nacido de un fallo real. Los recordatorios rotos se anotan en
+`~/.claude/state/recordar.log`, nunca se le muestran al modelo.
+
+### Grafo de código en vivo
+
+La estructura del código no se vuelca al vault (el setup de trabajo del autor midió 257 notas de
+ruido y las retiró): se consulta en vivo. Los tres peldaños del orden de herramientas, con sus
+tools y su índice:
+
+| Peldaño | Pregunta que responde | Tools | Cómo se regenera el índice |
+|---|---|---|---|
+| `rag` | qué se decidió, por qué, qué pasó | `rag_query`, `rag_leer`, `rag_status` | `node R.A.G/rag.mjs ingest` (automático al arrancar la sesión) |
+| `graphify` | qué llama a qué, qué hereda de qué, comunidades | `query_graph`, `get_node`, `get_neighbors`, `shortest_path` (o `graphify_estado` si no hay grafo) | `graphify extract . --code-only` dentro del repo |
+| `codebase-memory` | llamantes reales, snippets, arquitectura, literales | `search_graph`, `trace_path`, `get_code_snippet`, `get_architecture`, `search_code` | `codebase-memory-mcp cli index_repository --repo-path <abs> --mode moderate` |
+
+`grep` va después de los tres y solo para literales. Regla de oro: **lo generado se queda en su
+herramienta; lo narrado va al vault.** Los índices se desincronizan a la vez y se regeneran juntos
+en el cierre de ciclo.
 
 ## Rituales
 
@@ -255,30 +361,41 @@ La skill `rituales` los documenta para que el modelo sepa cuándo invocarlos.
 | Ritual | Cuándo | Comando |
 |---|---|---|
 | **Inicio de sesión** (automático) | Cada arranque de sesión, sin pedirlo. | — (hook `session-start.mjs`) |
-| **Init de proyecto** | Repo/proyecto nuevo dentro del workspace. | `node R.A.G/ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto]` |
+| **Init de proyecto** | Repo del workspace sin `.claude/proyectos/<nombre>.md` (el arranque lo avisa). | `node R.A.G/ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto] [--sin-indexar]` |
 | **Fin de sesión** (menor) | Al cerrar una sesión de trabajo, para que la siguiente retome el hilo. | `node R.A.G/ritual.mjs fin-sesion [--resumen "texto"] [--siguiente "texto"]` |
 | **Fin de día** (menor) | "Terminamos por hoy", al cerrar la jornada completa. | `node R.A.G/ritual.mjs fin-dia [--resumen "texto"]` |
-| **Fin de ciclo** (mayor) | "Cierre de ciclo" / "fin de sprint". | `node R.A.G/ritual.mjs fin-ciclo [--ciclo nombre] [--proyecto nombre] --si` |
+| **Fin de ciclo** (mayor, dos fases) | "Cierre de ciclo" / "fin de sprint". | `node R.A.G/ritual.mjs fin-ciclo [--ciclo nombre]` y, escrita la prosa, `node R.A.G/ritual.mjs fin-ciclo --cerrar --si` |
 
-`init-proyecto` crea `.claude/CLAUDEMAX.md` (la plantilla `templates/rules/proyecto.md` con sus
-marcadores sustituidos) y `.claude/CLAUDE.md` en el repo destino, más la nota índice
-`V.A.U.L.T/Proyectos/<nombre>/00-indice.md` con el frontmatter de taxonomía. Nunca sobrescribe
-nada que ya exista.
+`init-proyecto` escribe el contexto del proyecto **fuera del repo**, en
+`<RAG_ROOT>/.claude/proyectos/<nombre>.md` (esqueleto de `templates/rules/proyecto.md`); regenera
+`proyectos/_indice.md`; crea el hub `V.A.U.L.T/Hubs/<nombre>.md`; añade `/CLAUDE.md`,
+`/CLAUDE.local.md` y `/.claude/` al `.gitignore` del repo; e indexa el código con codebase-memory y
+graphify (`--sin-indexar` lo salta). Nunca sobrescribe nada que ya exista. La prosa la rellena el
+modelo después consultando el grafo (skill `rituales`). Ver [Contexto por proyecto](#contexto-por-proyecto).
 
-La diferencia clave entre los tres rituales manuales de cierre:
+En los tres rituales de cierre **el script hace la mecánica y Claude escribe la prosa**: la nota
+sale de `V.A.U.L.T/Plantillas/` con su frontmatter, enlazada en su hub y con el rango git del ciclo
+(desde el `commit:` del último cierre hasta HEAD); el modelo escribe lo único que no se puede
+automatizar —qué pasó de verdad, con sus desvíos y errores—. La diferencia entre ellos:
 
-- **`fin-sesion`** escribe en `V.A.U.L.T/00-Inbox/` (categoría `personal`, tag
-  `personal/sesion`): continuidad entre sesiones de Claude Code — qué se hizo y qué sigue.
-  Úsalo al cerrar *una sesión* de trabajo, no el día completo.
-- **`fin-dia`** es barato: solo añade una entrada horaria a `V.A.U.L.T/Journal/YYYY-MM-DD.md`
-  (categoría `personal`, tag `personal/bitacora`). Deliberadamente **no** reindexa el RAG ni
-  regenera grafos de Graphify — puedes llamarlo varias veces al día sin coste. Igual que
-  `fin-sesion`, el contenido se indexa en el siguiente `rag.mjs ingest`.
-- **`fin-ciclo`** es caro y exige confirmación: sin `--si` solo imprime el plan y no toca nada
-  ni se conecta a la base de datos. Con `--si` escribe la nota de cierre, ejecuta
-  `rag.mjs reindex` (respetando `EMBED_BACKEND`, sugiriendo `--backend kaggle` si hay
-  credenciales y muchas notas), recuerda regenerar los grafos con `graphify extract .`, e imprime un
-  resumen final de documentos indexados por categoría.
+- **`fin-sesion`** crea una nota en `V.A.U.L.T/Superpowers/Sesiones/` (colección `sesiones`) con
+  `commit:` = HEAD y los specs y planes del rango: continuidad entre sesiones de Claude Code. Úsalo
+  al cerrar *una sesión* de trabajo, no el día completo.
+- **`fin-dia`** crea o completa `V.A.U.L.T/Bitacoras/YYYY-MM-DD.md` (colección `bitacoras`) y lista
+  en ella las sesiones del día. No mira git ni reindexa: puedes llamarlo varias veces al día.
+- **`fin-ciclo`** va en dos fases, porque la prosa tiene que existir antes de indexar. La primera
+  crea la nota de cierre e imprime qué revisar: las notas de `Codigo/` cuyas `fuentes:` cambiaron
+  en el ciclo, las huérfanas nuevas y los avisos de `Hubs/Pendientes.md`. Claude relee esas notas
+  contra el grafo, pone al día `Pendientes.md` y escribe el cierre. La segunda, `--cerrar --si`,
+  enlaza las huérfanas, **rota `Pendientes.md`** (lo cerrado en el ciclo pasa a la nota; lo de
+  ciclos anteriores sale del índice sin perderse), copia los specs del repo al vault si el
+  proyecto declara `docs_en_repo: true`, regenera **los tres índices juntos** (codebase-memory,
+  graphify y `rag.mjs ingest`), corre `salud` y `status`, y graba el `commit:` que cierra el ciclo.
+
+`Hubs/Pendientes.md` es el índice único de lo abierto, con un formato que `rag.mjs salud`
+comprueba: un pendiente es **una línea** `- (YYYY-MM-DD) qué falta — qué desbloquea — [[nota]]`, y
+lo cerrado lleva `(origen → cierre)`. El porqué vive en la nota enlazada; un párrafo narrativo es un
+aviso y bloquea la rotación.
 
 ## Formato Skills 2.0
 
@@ -316,9 +433,10 @@ Sin telemetría. El instalador no hace llamadas de analítica. Sí delega en:
 
 - El script de instalación de `rtk-ai/rtk` (descarga el binario de rtk desde los releases de GitHub).
 - `claude mcp add` (CLI de Anthropic) para los registros MCP de Figma, 21st.dev magic, `rag` y `markitdown`.
-- `uv tool install` / `pipx install` / `pip install --user` (el primero disponible) para `graphifyy`, el paquete PyPI del CLI de Graphify — y `graphify claude install` para registrar su hook `PreToolUse` local (ver fila de `graphify` en la tabla de componentes).
+- `uv tool install` / `pipx install` / `pip install --user` (el primero disponible) para `graphifyy`, el paquete PyPI del CLI de Graphify. Ya no se ejecuta `graphify claude install`.
+- `npm install -g codebase-memory-mcp` (binario del MCP de inteligencia de código; el índice queda en `~/.cache/codebase-memory-mcp/`, local).
 - `claude plugin marketplace add` + `claude plugin install` (CLI de Anthropic) para instalar el plugin `ponytail` desde `DietrichGebert/ponytail` y el plugin `impeccable` desde `pbakaus/impeccable`. Los 59 detectores de Impeccable corren en local, sin llamadas a ninguna API; su modo `live` sí abre un navegador contra la app que tú levantes.
-- `git clone` para la skill superpowers (`obra/superpowers`) y para `cyber-neo` (con commit fijado). Las demás skills propias (`swebok`, `pmbok`, `book-to-skill`, `conventional-commits`, `skill-mcp-builder`, `ui-ux-pro-max`, `no-ai-slop`, `rituales`) y los cuatro hooks de `rules` se copian directo desde este repo — sin llamadas de red.
+- `git clone` para la skill superpowers (`obra/superpowers`) y para `cyber-neo` (con commit fijado). Las demás skills propias (`swebok`, `pmbok`, `book-to-skill`, `conventional-commits`, `skill-mcp-builder`, `ui-ux-pro-max`, `no-ai-slop`, `rituales`) y los cinco hooks de `rules` y los recordatorios se copian directo desde este repo — sin llamadas de red.
 - `npm install framer-motion gsap` en tu cwd (solo si existe un `package.json` o se pasa `--with-npm`).
 - `winget install` para dependencias de sistema que falten: Docker Desktop, Ollama, Python 3.12 y Temurin JDK 21.
 - `pip install` para los parsers (`markitdown[all]`, `markitdown-mcp`, `opendataloader-pdf`, `whisper-ctranslate2`) y `ollama pull bge-m3` para el modelo de embeddings (todo local; los embeddings nunca salen de tu máquina con los backends `ollama`/`remote`).

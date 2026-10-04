@@ -1,0 +1,78 @@
+# Glosario — iso-calidad
+
+Términos alfabéticos con su cláusula de origen. La fuente principal de vocabulario es **ISO 9000:2015** (capítulo 3); cuando un término proviene de otra norma de la familia, se indica explícitamente. Formato: **Término** — definición (fuente).
+
+- **Acción correctiva** — acción para eliminar la causa de una no conformidad y evitar que vuelva a ocurrir; distinta de la corrección, que solo elimina la no conformidad detectada (ISO 9000, 3.12.2; aplicada en ISO 9001, cláusula 10.2).
+- **Acción preventiva** — acción para eliminar la causa de una no conformidad potencial antes de que ocurra; en ISO 9001:2015 esta función se absorbe en el pensamiento basado en riesgos (cláusulas 4 y 6) y ya no es un apartado separado (ISO 9000, 3.12.1).
+- **Alta dirección** — persona o grupo de personas que dirige y controla una organización al más alto nivel; si el alcance del SGC cubre solo una parte de la organización, se refiere a quienes dirigen esa parte (ISO 9000, 3.1.1).
+- **Alta dirección, liderazgo de la** — véase Liderazgo.
+- **Auditado** — organización que es auditada, en su totalidad o en parte (ISO 19011, 3.13).
+- **Auditoría** — proceso sistemático, independiente y documentado para obtener evidencia objetiva y evaluarla de manera objetiva, con el fin de determinar el grado en que se cumplen los criterios de auditoría (ISO 9000, 3.13.1; ISO 19011, 3.1).
+- **Auditoría combinada** — auditoría llevada a cabo conjuntamente a un único auditado en dos o más sistemas de gestión (ISO 19011, 3.2).
+- **Auditoría conjunta** — auditoría llevada a cabo a un único auditado por dos o más organizaciones auditoras (ISO 19011, 3.3).
+- **Autoevaluación** — revisión sistemática, distinta de la auditoría interna, que evalúa fortalezas, debilidades y mejores prácticas de una organización frente a un modelo de madurez (ISO 9004, cláusula 10.6 y Anexo A).
+- **Benchmarking (estudios comparativos con las mejores prácticas)** — metodología de medición y análisis para buscar mejores prácticas dentro y fuera de la organización, con el propósito de mejorar desempeño y prácticas innovadoras (ISO 9004, 10.4.3-10.4.6).
+- **Calidad** — grado en el que un conjunto de características inherentes de un objeto cumple con los requisitos (ISO 9000, 3.6.2).
+- **Calidad de una organización** — grado en el que las características inherentes de la organización cumplen las necesidades y expectativas de sus clientes y otras partes interesadas, para lograr el éxito sostenido (ISO 9004, 4.1).
+- **Característica** — rasgo diferenciador, inherente o asignado, cualitativo o cuantitativo (ISO 9000, 3.10.1).
+- **Característica de la calidad** — característica inherente a un objeto relacionada con un requisito (ISO 9000, 3.10.2).
+- **Cliente** — persona u organización que podría recibir o que recibe un producto o un servicio destinado a esa persona u organización o requerido por ella (ISO 9000, 3.2.4).
+- **Competencia** — capacidad para aplicar conocimientos y habilidades con el fin de lograr los resultados previstos (ISO 9000, 3.10.4).
+- **Conformidad** — cumplimiento de un requisito (ISO 9000, 3.6.11).
+- **Conocimientos de la organización** — conocimiento específico que la organización adquiere generalmente con la experiencia, que se usa y comparte para lograr sus objetivos (ISO 9001, 7.1.6; desarrollado como recurso estratégico en ISO 9004, 9.3).
+- **Contexto de la organización** — combinación de cuestiones internas y externas que pueden tener un efecto en el enfoque de la organización para el desarrollo y logro de sus objetivos (ISO 9000, 3.2.2).
+- **Corrección** — acción para eliminar una no conformidad detectada; puede ser, por ejemplo, un reproceso o una reclasificación (ISO 9000, 3.12.3).
+- **Criterios de auditoría** — conjunto de requisitos usados como referencia frente a la cual se compara la evidencia objetiva (ISO 19011, 3.7).
+- **Cultura** — creencias, historia, ética, comportamiento observado y actitudes interrelacionadas con la identidad de la organización (ISO 9004, 6.2).
+- **Defecto** — no conformidad relativa a un uso previsto o especificado, con connotaciones legales distintas a las de la no conformidad general (ISO 9000, 3.6.10).
+- **Desempeño** — resultado medible, que puede relacionarse con hallazgos cuantitativos o cualitativos (ISO 9000, 3.7.8).
+- **Diseño y desarrollo** — conjunto de procesos que transforman los requisitos para un objeto en requisitos más detallados para ese objeto (ISO 9000, 3.4.8; requisitos operativos en ISO 9001, cláusula 8.3).
+- **Eficacia** — grado en el que se realizan las actividades planificadas y se logran los resultados planificados (ISO 9000, 3.7.11).
+- **Eficiencia** — relación entre el resultado alcanzado y los recursos utilizados (ISO 9000, 3.7.10).
+- **Enfoque a procesos** — principio de gestión de la calidad que gestiona actividades interrelacionadas como procesos que funcionan como un sistema coherente, para lograr resultados coherentes y previsibles (ISO 9000, 2.3.4; requisito operativo en ISO 9001, 4.4).
+- **Equipo auditor** — una o más personas que llevan a cabo una auditoría, con el apoyo si es necesario de expertos técnicos (ISO 19011, 3.14).
+- **Éxito** — logro de un objetivo por parte de una organización (ISO 9000, 3.7.3).
+- **Éxito sostenido** — éxito durante un periodo de tiempo, que enfatiza el equilibrio entre los intereses económico-financieros de la organización y los del entorno social y ecológico (ISO 9000, 3.7.4; desarrollado en ISO 9004).
+- **Evidencia objetiva** — datos que respaldan la existencia o veracidad de algo, obtenidos por observación, medición, ensayo u otros medios (ISO 9000, 3.8.3; ISO 19011, 3.8).
+- **Experto técnico** — persona que aporta conocimientos o experiencia específicos al equipo auditor, sin actuar como auditor (ISO 19011, 3.16).
+- **Hallazgos de la auditoría** — resultados de la evaluación de la evidencia de la auditoría recopilada frente a los criterios de auditoría; indican conformidad o no conformidad (ISO 9000, 3.13.9; ISO 19011, 3.10).
+- **Información documentada** — información que una organización necesita controlar y mantener, y el medio que la contiene; sustituye a los términos "documento", "procedimiento documentado", "manual de calidad" y "registro" de la versión 2008 (ISO 9000, 3.8.6; requisito en ISO 9001, cláusula 7.5).
+- **Innovación** — objeto nuevo o cambiado que crea o redistribuye valor (ISO 9000, 3.6.15; desarrollada como palanca de éxito sostenido en ISO 9004, cláusula 11).
+- **Indicador clave de desempeño (KPI)** — factor bajo control de la organización, crítico para su éxito sostenido, seleccionado para medición sistemática y toma de decisiones (ISO 9004, 10.2.3).
+- **Liderazgo** — principio de gestión de la calidad por el que los líderes en todos los niveles establecen unidad de propósito y dirección, y crean condiciones para que las personas se involucren en el logro de los objetivos de calidad (ISO 9000, 2.3.2; requisito en ISO 9001, cláusula 5).
+- **Mejora** — actividad para mejorar el desempeño, que puede ser recurrente o puntual (ISO 9000, 3.3.1).
+- **Mejora continua** — actividad recurrente para mejorar el desempeño (ISO 9000, 3.3.2; requisito en ISO 9001, cláusula 10.3).
+- **Misión** — el propósito por el que la organización existe (ISO 9004, 6.2).
+- **No conformidad** — incumplimiento de un requisito (ISO 9000, 3.6.9; ISO 19011, 3.21).
+- **Objetivo** — resultado a lograr, que puede ser estratégico, táctico u operativo (ISO 9000, 3.7.1).
+- **Objetivo de la calidad** — objetivo relativo a la calidad, generalmente basado en la política de la calidad de la organización (ISO 9000, 3.7.2; requisito en ISO 9001, cláusula 6.2).
+- **Observador** — persona que acompaña al equipo auditor pero que no actúa como auditor (ISO 19011, 3.17).
+- **Organización** — persona o grupo de personas que tiene sus propias funciones con responsabilidades, autoridades y relaciones para lograr sus objetivos (ISO 9000, 3.2.1).
+- **Parte interesada** — persona u organización que puede afectar, verse afectada o percibirse como afectada por una decisión o actividad (ISO 9000, 3.2.3).
+- **PHVA (ciclo Planificar-Hacer-Verificar-Actuar)** — modelo de gestión que estructura las cláusulas 4 a 10 de ISO 9001: planificar (establecer objetivos y procesos), hacer (implementar), verificar (hacer seguimiento y medir), actuar (mejorar) (ISO 9001, 0.3.2).
+- **Pensamiento basado en riesgos** — enfoque que permite a una organización determinar los factores que podrían desviar sus procesos de los resultados planificados, para prevenir efectos negativos y aprovechar oportunidades; en ISO 9001:2015 sustituye la antigua acción preventiva (ISO 9001, 0.3.3).
+- **Política de la calidad** — intenciones y dirección de una organización relacionadas con la calidad, expresadas formalmente por la alta dirección (ISO 9000, 3.5.9; requisito en ISO 9001, cláusula 5.2).
+- **Principios de la gestión de la calidad** — siete fundamentos de ISO 9000 que sustentan los requisitos de ISO 9001: enfoque al cliente, liderazgo, compromiso de las personas, enfoque a procesos, mejora, toma de decisiones basada en la evidencia, gestión de las relaciones (ISO 9000, cláusula 2.3).
+- **Proceso** — conjunto de actividades mutuamente relacionadas que utilizan las entradas para proporcionar un resultado previsto (ISO 9000, 3.4.1; ISO 19011, 3.24).
+- **Producto** — salida de una organización que puede producirse sin que se lleve a cabo ninguna transacción entre la organización y el cliente; el software se define explícitamente como información, independiente del medio de entrega (ISO 9000, 3.7.6).
+- **Programa de auditoría** — acuerdos para un conjunto de una o más auditorías planificadas para un periodo de tiempo determinado y dirigidas hacia un propósito específico (ISO 19011, 3.4).
+- **Proveedor** — organización que proporciona un producto o un servicio, interno o externo a la organización (ISO 9000, 3.2.5).
+- **Proveedor externo** — proveedor que no es parte de la organización (ISO 9000, 3.2.6; control operativo en ISO 9001, cláusula 8.4).
+- **Queja** — expresión de insatisfacción hecha a una organización, relativa a su producto o servicio, o al propio proceso de tratamiento de quejas (ISO 9000, 3.9.3).
+- **Requisito** — necesidad o expectativa establecida, generalmente implícita u obligatoria (ISO 9000, 3.6.4; ISO 19011, 3.23).
+- **Requisito legal** — requisito obligatorio especificado por un organismo legislativo (ISO 9000, 3.6.6).
+- **Requisito reglamentario** — requisito obligatorio especificado por una autoridad con mandato de un órgano legislativo (ISO 9000, 3.6.7).
+- **Retroalimentación** — opiniones, comentarios y muestras de interés sobre un producto, un servicio o el proceso de tratamiento de quejas (ISO 9000, 3.9.1).
+- **Revisión** — determinación de la conveniencia, adecuación o eficacia de un objeto para lograr unos objetivos establecidos (ISO 9000, 3.11.2).
+- **Riesgo** — efecto de la incertidumbre; puede ser positivo o negativo (ISO 9000, 3.7.9; ISO 19011, 3.19).
+- **Salida** — resultado de un proceso (ISO 9000, 3.7.5).
+- **Satisfacción del cliente** — percepción del cliente sobre el grado en que se han cumplido sus expectativas (ISO 9000, 3.9.2; medición exigida en ISO 9001, 9.1.2).
+- **Servicio** — salida de una organización con al menos una actividad necesariamente llevada a cabo entre la organización y el cliente (ISO 9000, 3.7.7).
+- **Sistema** — conjunto de elementos interrelacionados o que interactúan (ISO 9000, 3.5.1).
+- **Sistema de gestión** — conjunto de elementos de una organización interrelacionados o que interactúan para establecer políticas, objetivos y procesos para lograr esos objetivos (ISO 9000, 3.5.3; ISO 19011, 3.18).
+- **Sistema de gestión de la calidad (SGC)** — parte de un sistema de gestión relacionada con la calidad (ISO 9000, 3.5.4).
+- **Toma de conciencia** — comprensión por parte del personal de la política, los objetivos pertinentes, su contribución a la eficacia del SGC y las implicaciones de no cumplir los requisitos (ISO 9001, cláusula 7.3).
+- **Trazabilidad** — capacidad para seguir el histórico, la aplicación o la localización de un objeto (ISO 9000, 3.6.13).
+- **Validación** — confirmación mediante evidencia objetiva de que se han cumplido los requisitos para una utilización o aplicación específica prevista (ISO 9000, 3.8.13).
+- **Verificación** — confirmación mediante evidencia objetiva de que se han cumplido los requisitos especificados (ISO 9000, 3.8.12).
+- **Visión** — la aspiración de aquello en lo que una organización querría convertirse (ISO 9004, 6.2).

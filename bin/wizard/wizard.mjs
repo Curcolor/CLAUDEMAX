@@ -58,7 +58,8 @@ const DESCRIPCIONES = {
     impeccable: "Plugin Impeccable — 23 órdenes de diseño (/impeccable shape, audit, polish, live) + 59 detectores de anti-patrones.",
     "dev-skills": "Skills de disciplina de ingeniería: superpowers, arquitectura, patrones, commits convencionales.",
     rag: "V.A.U.L.T + stack RAG (PGVector + Ollama bge-m3) — memoria semántica del workspace.",
-    graphify: "CLI de Graphify — grafo de conocimiento del repo (graphify extract .).",
+    graphify: "CLI de Graphify + MCP graphify (envoltorio que sirve el grafo del proyecto actual).",
+    "codebase-memory": "MCP codebase-memory — grafo de código persistente: search_graph, trace_path, get_code_snippet.",
     ponytail: "Plugin Ponytail — escalera de minimalismo al escribir código + deuda técnica.",
     "cyber-neo": "Skill de auditoría de seguridad OWASP Top 10 / CWE.",
     parsers: "MCP markitdown + parsers de ingesta (PDF, audio, documentos).",
@@ -545,7 +546,8 @@ async function pasoFinal(codigo) {
         console.log(ui.verde("La instalación terminó sin errores fatales (código de salida 0)."));
         console.log("\nPróximos pasos:");
         console.log("  1. Reinicia Claude Code para que carguen los hooks y skills nuevos.");
-        console.log("  2. Prueba: graphify extract .    — grafo de conocimiento del proyecto (Graphify)");
+        console.log("  2. Prueba: graphify extract . --code-only    — grafo de conocimiento del proyecto (lo sirve el MCP graphify)");
+        console.log("             codebase-memory-mcp cli index_repository --repo-path <ruta> --mode moderate   — índice para search_graph/trace_path");
         console.log("  3. Prueba: /mcp → rag             — búsqueda semántica sobre tu V.A.U.L.T");
         console.log("  4. node <RAG_ROOT>/R.A.G/ritual.mjs fin-sesion");
         console.log("  5. Ver README.md para la documentación completa.");
@@ -571,7 +573,7 @@ async function modoDesinstalar() {
     ui.tabla([
         ["Se elimina", "Se conserva"],
         ["Skills (superpowers, ui-ux-pro-max, cyber-neo, dev-skills, ...)", "Vault (V.A.U.L.T) y volumen de datos del RAG"],
-        ["4 hooks: reglas, rituales, auditoría de UI, rtk", "Reglas en <RAG_ROOT>/.claude/ (por si las editaste)"],
+        ["4 hooks: reglas, rituales, auditoría de UI, rtk", "Reglas, recordatorios y contexto por proyecto en <RAG_ROOT>/.claude/"],
         ["MCPs registrados: figma, rag, markitdown, y el plugin Graphify", "Dependencias de sistema (Docker, Ollama, Python, Java)"],
         ["Plugins de marketplace: ponytail, impeccable", "PRODUCT.md / DESIGN.md / .impeccable/ de tus proyectos"],
         ["El binario de rtk", "RTK.md y la referencia @RTK.md en tu CLAUDE.md"],

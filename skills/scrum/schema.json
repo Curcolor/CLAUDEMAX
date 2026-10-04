@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "scrum",
+  "definitions": {
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "consulta": {
+          "type": "string",
+          "description": "Pregunta en lenguaje natural (español o inglés) sobre Scrum: pilares, valores, responsabilidades, eventos, artefactos, compromisos, antipatrones o adaptación en la práctica."
+        },
+        "elemento": {
+          "type": "string",
+          "enum": [
+            "pilares",
+            "valores",
+            "product-owner",
+            "scrum-master",
+            "developers",
+            "sprint",
+            "sprint-planning",
+            "daily-scrum",
+            "sprint-review",
+            "sprint-retrospective",
+            "product-backlog",
+            "sprint-backlog",
+            "incremento",
+            "objetivo-del-producto",
+            "objetivo-del-sprint",
+            "definicion-de-terminado",
+            "antipatrones",
+            "adaptacion"
+          ],
+          "description": "Evento, artefacto, responsabilidad o compromiso específico de Scrum sobre el que se consulta. Omitir para que la skill lo infiera de la consulta."
+        },
+        "contexto": {
+          "type": "string",
+          "description": "Situación concreta del equipo o proyecto (p. ej. 'el Sprint se está alargando', 'el PO pide un reporte de estado en el Daily') para evaluar si contradice la guía o es una adaptación legítima."
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "respuesta": {
+          "type": "string",
+          "description": "Respuesta a la consulta, citando el elemento de la guía (evento, artefacto, responsabilidad o pilar) en que se basa, y señalando explícitamente si algo mencionado en el contexto es práctica de industria (no prescrita por la guía) en vez de Scrum."
+        },
+        "fuente": {
+          "type": "string",
+          "description": "Sección de la Guía Scrum 2020 en que se basa la respuesta (p. ej. 'Eventos de Scrum > Sprint Planning', 'Artefactos de Scrum > Compromiso: Sprint Goal')"
+        }
+      },
+      "required": ["respuesta"]
+    }
+  }
+}

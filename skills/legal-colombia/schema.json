@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "legal-colombia",
+  "definitions": {
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "consulta": {
+          "type": "string",
+          "description": "Pregunta en lenguaje natural (español o inglés) sobre derecho colombiano aplicable a una empresa de software: constitución de SAS, protección de datos personales, derecho de autor sobre software, o SG-SST."
+        },
+        "area": {
+          "type": "string",
+          "enum": [
+            "societario",
+            "datos-personales",
+            "propiedad-intelectual",
+            "laboral-sst"
+          ],
+          "description": "Área legal a consultar. Omitir para que la skill la infiera de la consulta."
+        },
+        "etapa": {
+          "type": "string",
+          "enum": ["constitucion", "operacion", "contratacion"],
+          "description": "Momento del ciclo de vida de la empresa en que surge la pregunta: constitución de la sociedad, operación corriente (tratamiento de datos, uso de propiedad intelectual), o contratación de personal o contratistas."
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "respuesta": {
+          "type": "string",
+          "description": "Respuesta a la consulta basada en las notas sintetizadas del área correspondiente, señalando explícitamente cuando el texto fuente no resuelve el caso (p. ej. la laguna del software en propiedad intelectual)."
+        },
+        "base_legal": {
+          "type": "string",
+          "description": "Artículos citados en que se basa la respuesta (p. ej. 'Ley 1258 de 2008, art. 5' o 'Decreto 1072 de 2015, art. 2.2.4.6.8')."
+        },
+        "requiere_profesional": {
+          "type": "boolean",
+          "description": "true si la consulta excede lo que estas notas sintetizadas pueden resolver con seguridad y requiere abogado, contador o profesional de SST licenciado en Colombia."
+        }
+      },
+      "required": ["respuesta", "requiere_profesional"]
+    }
+  }
+}

@@ -1,0 +1,26 @@
+name: iso-calidad
+version: 2.0.0
+kind: knowledge
+triggers:
+  # bilingües: cada concepto en español e inglés
+  - "ISO 9001 / SGC / sistema de gestión de la calidad / quality management system / QMS"
+  - "ISO 9000 / fundamentos y vocabulario / fundamentals and vocabulary"
+  - "ISO 9004 / éxito sostenido / sustained success"
+  - "ISO 19011 / auditoría de sistemas de gestión / auditing management systems"
+  - "certificación / certification / certificar / auditoría externa / external audit"
+  - "auditoría interna / internal audit / programa de auditoría / audit programme"
+  - "no conformidad / nonconformity / no conformidad mayor / menor / major / minor"
+  - "acción correctiva / corrective action / corrección / correction"
+  - "mejora continua / continual improvement / PHVA / PDCA / Planificar-Hacer-Verificar-Actuar"
+  - "pensamiento basado en riesgos / risk-based thinking / riesgos y oportunidades / risks and opportunities"
+  - "partes interesadas / interested parties / stakeholders"
+  - "política de la calidad / quality policy / objetivos de la calidad / quality objectives"
+  - "contexto de la organización / context of the organization / alcance del SGC / scope"
+  - "diseño y desarrollo / design and development / verificación / validación / verification / validation"
+  - "competencia del auditor / auditor competence / hallazgos de auditoría / audit findings"
+  - "conformidad / requisito / requirement / conformity / calidad / quality"
+commands: []
+scripts: []
+dependencies:
+  - swebok
+schema: ./schema.json

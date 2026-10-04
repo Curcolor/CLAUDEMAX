@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "normas-pendientes",
+  "definitions": {
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "consulta": {
+          "type": "string",
+          "description": "Pregunta en lenguaje natural (español o inglés) sobre una norma que este repositorio no tiene destilada de fuente real: calidad de producto software, guía de implementación de controles de seguridad, ISO 9001 aplicada a software, ciclo de vida del software, o qué norma conviene comprar primero según el objetivo del negocio."
+        },
+        "norma": {
+          "type": "string",
+          "enum": ["25010", "27002", "90003", "12207"],
+          "description": "Norma específica a consultar cuando la pregunta ya apunta a una de ellas: 25010 (modelo de calidad de producto software, familia SQuaRE/25000), 27002 (guía de implementación de los controles del Anexo A de ISO 27001), 90003 (guía para aplicar ISO 9001 al software), 12207 (procesos del ciclo de vida del software; caso aparte porque el PDF que se posee está escaneado sin capa de texto). Omitir para que la skill la infiera de la consulta."
+        },
+        "objetivo": {
+          "type": "string",
+          "enum": ["certificarse", "mejorar-calidad", "cumplir-cliente"],
+          "description": "Motivo de negocio detrás de la consulta, usado para priorizar qué norma comprar primero: certificarse (el objetivo es obtener el certificado formal), mejorar-calidad (mejora interna sin presión externa), cumplir-cliente (un contrato o RFP exige conformidad con una norma concreta). Omitir para una orientación general sin priorización."
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "orientacion": {
+          "type": "string",
+          "description": "Respuesta orientativa sintetizada del conocimiento general del modelo, sin numeración de cláusulas, controles ni subcaracterísticas citada como cierta, dejando explícito que no proviene de una verificación contra el texto normativo"
+        },
+        "requiere_comprar_norma": {
+          "type": "boolean",
+          "description": "true si responder la consulta con certeza exige comprar (o, en el caso de 12207, resolver la extracción de) la norma correspondiente; false si la orientación general o una alternativa gratuita ya son suficientes para el caso de uso descrito en la consulta"
+        },
+        "alternativa_gratuita": {
+          "type": "string",
+          "description": "Sustituto parcial y gratuito disponible mientras no se compra la norma (p. ej. el resumen público de iso25000.com para 25010, OWASP/CIS Controls para 27002, swebok para 90003 y 12207), con la limitación honesta de hasta dónde llega frente a la norma original"
+        }
+      },
+      "required": ["orientacion", "requiere_comprar_norma"]
+    }
+  }
+}

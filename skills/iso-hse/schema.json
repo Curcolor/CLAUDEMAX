@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "iso-hse",
+  "definitions": {
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "consulta": {
+          "type": "string",
+          "description": "Pregunta en lenguaje natural (español o inglés) sobre gestión ambiental o seguridad y salud en el trabajo: sistema de gestión ambiental, aspectos e impactos ambientales, identificación de peligros, jerarquía de controles, riesgo psicosocial, consulta y participación de los trabajadores, certificación 14001/45001, auditoría interna, no conformidad, incidente, acción correctiva, etc."
+        },
+        "norma": {
+          "type": "string",
+          "enum": ["14001", "45001"],
+          "description": "Norma ISO específica a consultar cuando la pregunta ya apunta a una de ellas: 14001 (gestión ambiental) o 45001 (seguridad y salud en el trabajo). Omitir para que la skill la infiera de la consulta."
+        },
+        "clausula": {
+          "type": "string",
+          "description": "Número de cláusula o apartado de la norma indicada en 'norma' (por ejemplo '6.1.2', '8.1.2', '9.3'), cuando la consulta ya identifica el apartado exacto. Omitir para que la skill localice la cláusula pertinente."
+        },
+        "profundidad": {
+          "type": "string",
+          "enum": ["cheatsheet", "capitulo", "glosario"],
+          "description": "Nivel de detalle deseado: cheatsheet (regla de decisión rápida tipo 'si X, haz Y', incluida la relación con la 9001 y el SG-SST colombiano), capitulo (detalle completo de una cláusula o norma en chapters/), o glosario (definición precisa de un término). Omitir para que la skill elija según la consulta."
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "respuesta": {
+          "type": "string",
+          "description": "Recomendación o respuesta a la consulta, sintetizada con palabras propias y citando el número de cláusula de la norma correspondiente para que quien tenga el texto original pueda verificarlo — nunca como reproducción literal del articulado"
+        },
+        "fuente": {
+          "type": "string",
+          "description": "Ruta relativa del capítulo o archivo de referencia consultado dentro de la skill (p. ej. chapters/ch04-45001-contexto-y-planificacion.md o cheatsheet.md)"
+        }
+      },
+      "required": ["respuesta"]
+    }
+  }
+}

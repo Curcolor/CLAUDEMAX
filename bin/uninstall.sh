@@ -12,9 +12,14 @@
 #   - registros de los MCP Figma + magic en Claude Code
 #   - directorio de la skill ui-ux-pro-max + hook PostToolUse de auditoría de UI (ui-audit.mjs)
 #   - plugin impeccable + su marketplace (sus dos hooks viven dentro del plugin, se van con él)
+#   - los cinco hooks de `rules` + recordar-lib.mjs + su estado (las reglas y recordatorios del
+#     workspace se conservan)
+#   - los MCP `graphify` (envoltorio en $CLAUDE_CONFIG_DIR/mcp/) y `codebase-memory`
+#     (`npm uninstall -g codebase-memory-mcp`)
 #
 # NO elimina:
 #   - PRODUCT.md / DESIGN.md / .impeccable/ de tus proyectos — son tu documentación de diseño
+#   - el paquete pip graphifyy ni los índices de ~/.cache/codebase-memory-mcp/
 #   - archivos por-repo que el --with-init de una instalación antigua de Caveman pudo haber escrito
 #   - framer-motion / gsap del node_modules de tu proyecto — desinstálalos tú mismo con npm si quieres
 
@@ -80,7 +85,7 @@ ac_run rm -rf "$CLAUDE_CONFIG_DIR/skills/repo-map"
 
 # --- dev-skills (superpowers + SOLID + design-patterns + conventional-commits + architecture-patterns + skill-mcp-builder + no-ai-slop)
 ac_step "Skills de ingeniería (superpowers + swebok + pmbok + book-to-skill + conventional-commits + skill-mcp-builder + no-ai-slop + nombres legados)"
-for s in superpowers solid design-patterns conventional-commits architecture-patterns architecture-principles swebok pmbok book-to-skill skill-mcp-builder no-ai-slop rituales; do
+for s in superpowers solid design-patterns conventional-commits architecture-patterns architecture-principles swebok pmbok legal-colombia iso-calidad iso-seguridad iso-hse modelo-negocio scrum book-to-skill skill-mcp-builder no-ai-slop rituales; do
     ac_run rm -rf "$CLAUDE_CONFIG_DIR/skills/$s"
 done
 
@@ -100,10 +105,11 @@ if [ -f "$CLAUDE_CONFIG_DIR/settings.json" ]; then
     fi
 fi
 
-# --- Reglas y rituales: los cuatro hooks de cumplimiento y contexto.
-# Las reglas del workspace (<RAG_ROOT>/.claude/) NO se borran: el usuario pudo editarlas.
+# --- Reglas y rituales: los cinco hooks de cumplimiento y contexto.
+# Las reglas y los recordatorios del workspace (<RAG_ROOT>/.claude/) NO se borran: el usuario
+# pudo editarlos.
 ac_step "Reglas y rituales (hooks)"
-for h in git-footer-guard loop-breaker skill-suggest session-start; do
+for h in git-footer-guard loop-breaker skill-suggest session-start recordar; do
     ac_run rm -f "$CLAUDE_CONFIG_DIR/hooks/$h.mjs"
     if [ -f "$CLAUDE_CONFIG_DIR/settings.json" ]; then
         if [ "$DRY_RUN" = "1" ]; then
@@ -113,19 +119,26 @@ for h in git-footer-guard loop-breaker skill-suggest session-start; do
         fi
     fi
 done
+ac_run rm -f "$CLAUDE_CONFIG_DIR/hooks/recordar-lib.mjs"
 ac_run rm -f "$CLAUDE_CONFIG_DIR/state/loop-breaker.json"
 ac_run rm -f "$CLAUDE_CONFIG_DIR/state/skill-suggest.json"
-ac_dim "  (se conservan: las reglas de <RAG_ROOT>/.claude/ — puedes haberlas editado)"
+ac_run rm -f "$CLAUDE_CONFIG_DIR/state/recordar.json"
+ac_run rm -f "$CLAUDE_CONFIG_DIR/state/recordar.log"
+ac_dim "  (se conservan: las reglas, los recordatorios y el contexto por proyecto (proyectos/) de <RAG_ROOT>/.claude/ — son tuyos)"
 
-# --- Graphify (registro en Claude Code: sección de CLAUDE.md + hook PreToolUse, por-proyecto)
-ac_step "Graphify (registro en Claude Code)"
-if command -v graphify >/dev/null 2>&1; then
-    ac_run bash -c "cd '$AC_REPO_DIR' && graphify claude uninstall" \
-        || ac_warn "graphify claude uninstall falló — quita a mano la sección '## graphify' de CLAUDE.md y el hook PreToolUse de .claude/settings.json en cada proyecto donde lo hayas activado."
+# --- Graphify (MCP envoltorio a nivel usuario) y codebase-memory (npm -g + MCP)
+ac_step "Graphify y codebase-memory (MCPs)"
+if [ "$AC_HAS_CLAUDE" = "1" ]; then
+    ac_run claude mcp remove graphify || true
+    ac_run claude mcp remove codebase-memory || true
 else
-    ac_warn "El binario graphify no está en el PATH — no se puede desregistrar automáticamente. Si lo instalaste con pip --user, revisa INSTALL.md > Troubleshooting."
+    ac_warn "El CLI claude no está en el PATH — quita a mano los MCP 'graphify' y 'codebase-memory' (claude mcp remove ...)."
 fi
-ac_dim "  (se conserva: el paquete pip graphifyy — es una dependencia de sistema, igual que los parsers. Desinstálalo a mano con 'pip uninstall graphifyy' si quieres.)"
+ac_run rm -f "$CLAUDE_CONFIG_DIR/mcp/graphify-auto.mjs" "$CLAUDE_CONFIG_DIR/mcp/graphify-auto-lib.mjs"
+if command -v npm >/dev/null 2>&1; then
+    ac_run npm uninstall -g codebase-memory-mcp || ac_warn "npm uninstall -g codebase-memory-mcp falló — hazlo a mano."
+fi
+ac_dim "  (se conservan: el paquete pip graphifyy —dependencia de sistema, 'pip uninstall graphifyy' si quieres— y los índices de ~/.cache/codebase-memory-mcp/)"
 
 # --- Ponytail (plugin de marketplace de Claude Code)
 # Orden importa: el script de limpieza (flags + statusLine) vive DENTRO del plugin, así

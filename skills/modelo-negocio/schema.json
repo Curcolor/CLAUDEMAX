@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "modelo-negocio",
+  "definitions": {
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "consulta": {
+          "type": "string",
+          "description": "Pregunta en lenguaje natural (español o inglés) sobre modelo de negocio: lienzo de nueve módulos, propuesta de valor, monetización, patrones (freemium, plataformas, larga cola, desagregación, cebo y anzuelo, modelos abiertos), estrategia (FODA, Océano Azul, entorno) o proceso de diseño, etc."
+        },
+        "modulo": {
+          "type": "string",
+          "enum": [
+            "segmentos-clientes",
+            "propuesta-valor",
+            "canales",
+            "relacion-clientes",
+            "fuentes-ingresos",
+            "recursos-clave",
+            "actividades-clave",
+            "asociaciones-clave",
+            "estructura-costos"
+          ],
+          "description": "Uno de los nueve módulos del lienzo de modelo de negocio a consultar. Omitir para que la skill lo infiera de la consulta."
+        },
+        "etapa": {
+          "type": "string",
+          "enum": ["idea", "validacion", "escalado"],
+          "description": "Etapa de madurez de la empresa o iniciativa: idea (aún sin validar segmento/propuesta), validacion (probando canales, relación e ingresos con clientes reales) o escalado (optimizando recursos, actividades, asociaciones y costos para crecer). Determina qué módulo del lienzo o herramienta conviene priorizar."
+        },
+        "profundidad": {
+          "type": "string",
+          "enum": ["cheatsheet", "capitulo", "patron"],
+          "description": "Nivel de detalle deseado: cheatsheet (regla rápida tipo 'si X, haz Y'), capitulo (detalle completo de un capítulo en chapters/), o patron (entrada ampliada de patterns.md con condición habilitante, riesgo y ejemplo). Omitir para que la skill elija según la consulta."
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "respuesta": {
+          "type": "string",
+          "description": "Recomendación o respuesta a la consulta, con su justificación y, cuando aplica, la condición habilitante o el riesgo relevante"
+        },
+        "fuente": {
+          "type": "string",
+          "description": "Ruta relativa del capítulo o archivo consultado dentro de la skill (p. ej. chapters/ch02-patrones.md o patterns.md)"
+        }
+      },
+      "required": ["respuesta"]
+    }
+  }
+}

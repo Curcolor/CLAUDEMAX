@@ -1,20 +1,20 @@
 #!/usr/bin/env node
-// Hook SessionStart de CLAUDEMAX: autocontextualiza cada sesión nueva con un resumen
-// compacto del grafo de conocimiento de Graphify del repo actual y, si el CLI del RAG
-// responde, con los chunks más relevantes para el proyecto detectado.
+// Hook SessionStart de CLAUDEMAX: al arrancar una sesión (matcher "startup"),
+//   0. avisa si el repo no tiene .claude/proyectos/<nombre>.md en el workspace;
+//   1. reindexa el RAG de forma incremental (rag.mjs ingest --silencioso, tope 60 s — el ingest
+//      es atómico por archivo, así que un corte deja el índice consistente y se avisa);
+//   2. resume la salud del vault (rag.mjs salud --resumen: caducas, huérfanas, enlaces rotos);
+//   3. resume el grafo de Graphify del repo actual si existe;
+//   4. consulta al RAG los chunks más relevantes para el proyecto detectado.
+// Los pasos 3–4 comparten un presupuesto de ~5 s que empieza a contar DESPUÉS del reindex.
+// Nunca bloquea el arranque: cualquier fallo (git ausente, Docker apagado, rag.mjs no
+// localizable) se traga en silencio — son casos normales, no errores.
 //
-// Nunca bloquea el arranque de la sesión ni la retrasa más de la cuenta: presupuesto total
-// ~5s repartido entre los pasos, cada llamada a un proceso externo lleva su propio timeout
-// explícito, y cualquier fallo (git ausente, sin `graphify-out/`, Docker apagado, `rag.mjs`
-// no localizable) se traga en silencio — son casos normales, no errores.
+// La salida es un único bloque de texto plano por stdout con cabecera explícita; en
+// SessionStart, Claude Code lo añade como contexto de la sesión.
 //
-// La salida es un único bloque de texto plano por stdout, con cabecera que dice
-// explícitamente que es contexto automático de CLAUDEMAX. En hooks SessionStart, Claude
-// Code añade ese texto como contexto de la sesión (a diferencia de, por ejemplo,
-// PostToolUse, donde el stdout plano solo va al log de depuración).
-//
-// Registrado por bin/components/rules.sh como SessionStart → node <hooks>/session-start.mjs
-// Variable de escape: CLAUDEMAX_SESSION_CONTEXT=0 (ni siquiera se lee stdin).
+// Registrado por bin/components/rules.sh como SessionStart/startup → node <hooks>/session-start.mjs
+// con timeout 90. Variable de escape: CLAUDEMAX_SESSION_CONTEXT=0 (ni siquiera se lee stdin).
 
 import fs from "node:fs";
 import path from "node:path";
@@ -25,12 +25,14 @@ if (String(process.env.CLAUDEMAX_SESSION_CONTEXT || "") === "0") {
     process.exit(0);
 }
 
-const BUDGET_MS = 5000;
+const BUDGET_MS = 5000;             // presupuesto de los pasos de contexto (grafo + consulta)
+const INGEST_BUDGET_MS = 60_000;    // reindex incremental del RAG (spec vault-rag-v2 §3.8)
+const SALUD_BUDGET_MS = 3000;
 const MAX_GRAPH_FILE_BYTES = 15_000_000; // por encima de esto no vale la pena parsear en el presupuesto de 5s
 const MAX_TOP_NODES = 10;
 const MAX_RAG_OUTPUT_CHARS = 4000;
 
-const deadline = Date.now() + BUDGET_MS;
+let deadline = Date.now() + BUDGET_MS;
 const timeLeft = () => deadline - Date.now();
 
 function readAllStdin() {
@@ -82,8 +84,59 @@ function run(cmd, args, opts = {}) {
 
 async function detectProjectRoot(cwd) {
     const top = await run("git", ["rev-parse", "--show-toplevel"], { cwd, timeout: 1500 });
-    if (top) return path.resolve(top);
-    return cwd;
+    if (top) return { root: path.resolve(top), esRepo: true };
+    return { root: cwd, esRepo: false };
+}
+
+// --- Aviso de contexto de proyecto (spec reglas-contexto §6.2) -----------------------------
+// El contexto de cada repo vive en <RAG_ROOT>/.claude/proyectos/<slug>.md. Si el workspace existe
+// y ningún archivo describe este repo, se sugiere init-proyecto. Mismo slug que
+// templates/rag/proyectos-lib.mjs (duplicado: el hook no importa de R.A.G/).
+
+function slugProyecto(nombre) {
+    return String(nombre ?? "")
+        .normalize("NFD").replace(/[̀-ͯ]/g, "")
+        .replace(/[^A-Za-z0-9._-]+/g, "-")
+        .replace(/-{2,}/g, "-")
+        .replace(/^-+|-+$/g, "") || "proyecto";
+}
+
+// Primer ancestro del repo (sin contar el repo) con .claude/proyectos/, hasta 4 niveles.
+function findWorkspaceProyectos(projectRoot) {
+    let dir = path.dirname(path.resolve(projectRoot));
+    for (let level = 1; level <= 4; level++) {
+        const candidato = path.join(dir, ".claude", "proyectos");
+        try { if (fs.statSync(candidato).isDirectory()) return { root: dir, proyectosDir: candidato }; } catch {}
+        const parent = path.dirname(dir);
+        if (parent === dir) break;
+        dir = parent;
+    }
+    return null;
+}
+
+// ¿Algún proyectos/*.md describe este repo? Por nombre de archivo o por su `ruta:` (relativa al
+// workspace o absoluta), que cubre `init-proyecto --proyecto otro-nombre`.
+function tieneContextoDeProyecto(ws, projectRoot, projectName) {
+    if (fs.existsSync(path.join(ws.proyectosDir, `${slugProyecto(projectName)}.md`))) return true;
+    const rel = path.relative(ws.root, projectRoot).replace(/\\/g, "/") || ".";
+    const abs = path.resolve(projectRoot).replace(/\\/g, "/").toLowerCase();
+    let archivos = [];
+    try { archivos = fs.readdirSync(ws.proyectosDir).filter(f => f.endsWith(".md") && !f.startsWith("_")); } catch { return false; }
+    for (const f of archivos) {
+        try {
+            const m = fs.readFileSync(path.join(ws.proyectosDir, f), "utf8").match(/^ruta:\s*(.+?)\s*$/m);
+            const ruta = m ? m[1].replace(/^["']|["']$/g, "") : "";
+            if (ruta && (ruta === rel || ruta.toLowerCase() === abs)) return true;
+        } catch {}
+    }
+    return false;
+}
+
+function avisoContextoProyecto(projectRoot, projectName) {
+    const ws = findWorkspaceProyectos(projectRoot);
+    if (!ws || tieneContextoDeProyecto(ws, projectRoot, projectName)) return null;
+    const ritual = path.join(ws.root, "R.A.G", "ritual.mjs");
+    return `Sin contexto de proyecto para "${projectName}": corre \`node "${ritual}" init-proyecto "${projectRoot}"\` — lo escribe en ${path.join(ws.root, ".claude", "proyectos")}, fuera del repo (regla 6).`;
 }
 
 // --- Paso 2: resumen del grafo de Graphify (graphify-out/graph.json) ---------------------
@@ -243,8 +296,37 @@ async function queryRag(ragDir, projectName) {
         path.join(ragDir, "rag.mjs"), "query", projectName, "--proyecto", projectName, "--topk", "3",
     ], { cwd: ragDir, timeout: Math.max(500, timeLeft() - 200) });
     if (!out) return null;
-    if (/^rag: (sin resultados|error)/.test(out)) return null;
+    if (/^rag: (sin resultados|error)|^rag no disponible/.test(out)) return null;
     return out.length > MAX_RAG_OUTPUT_CHARS ? out.slice(0, MAX_RAG_OUTPUT_CHARS) + " …" : out;
+}
+
+// --- Pasos 1 y 2: reindex incremental y salud del vault ------------------------------------
+// Ambos con su propio timeout, fuera del presupuesto de 5 s de los pasos de contexto.
+
+function ingestRag(ragDir) {
+    return new Promise(resolve => {
+        execFile(process.execPath, [path.join(ragDir, "rag.mjs"), "ingest", "--silencioso"],
+            { timeout: INGEST_BUDGET_MS, windowsHide: true, cwd: ragDir, maxBuffer: 2_000_000 }, (err, stdout) => {
+                if (err && err.killed) { resolve("rag: reindex parcial (60 s) — corre `node rag.mjs ingest` para terminarlo"); return; }
+                const m = String(stdout || "").match(/indexados: (\d+) \| sin cambios: (\d+) \| fallidos: (\d+)/);
+                if (!m) { resolve(null); return; }   // "rag no disponible" u otra salida: sin línea
+                let linea = `rag: indexados ${m[1]} | sin cambios ${m[2]}`;
+                if (Number(m[3]) > 0) linea += ` | fallidos ${m[3]} (ver \`node rag.mjs ingest\`)`;
+                resolve(linea);
+            });
+    });
+}
+
+function saludRag(ragDir) {
+    return new Promise(resolve => {
+        execFile(process.execPath, [path.join(ragDir, "rag.mjs"), "salud", "--resumen"],
+            { timeout: SALUD_BUDGET_MS, windowsHide: true, cwd: ragDir, maxBuffer: 200_000 }, (err, stdout) => {
+                const linea = String(stdout || "").trim();
+                // "sin avisos" no aporta; "sin BD" a solas tampoco (Docker apagado es un caso normal).
+                if (err || !linea.startsWith("salud:") || linea === "salud: sin avisos" || linea === "salud: sin BD") { resolve(null); return; }
+                resolve(linea);
+            });
+    });
 }
 
 // --- Programa principal --------------------------------------------------------------
@@ -257,22 +339,35 @@ async function main() {
     const cwdFromEvent = pick(evt, ["cwd", "cwd_path", "cwdPath"]);
     const cwd = (typeof cwdFromEvent === "string" && cwdFromEvent) ? cwdFromEvent : process.cwd();
 
-    const projectRoot = timeLeft() > 300 ? await detectProjectRoot(cwd) : cwd;
+    const { root: projectRoot, esRepo } = timeLeft() > 300 ? await detectProjectRoot(cwd) : { root: cwd, esRepo: false };
     const projectName = path.basename(projectRoot) || "proyecto";
 
     const blocks = [];
+
+    if (esRepo) {
+        const aviso = avisoContextoProyecto(projectRoot, projectName);
+        if (aviso) blocks.push(aviso);
+    }
+
+    const ragDir = findRagDir(cwd);
+    if (ragDir) {
+        const lineas = [];
+        const ingest = await ingestRag(ragDir);
+        if (ingest) lineas.push(ingest);
+        const salud = await saludRag(ragDir);
+        if (salud) lineas.push(salud);
+        if (lineas.length) blocks.push(lineas.join("\n"));
+        deadline = Date.now() + BUDGET_MS;   // el presupuesto de contexto empieza después del reindex
+    }
 
     if (timeLeft() > 200) {
         const graphSummary = loadGraphSummary(projectRoot);
         if (graphSummary) blocks.push(formatGraphSummary(graphSummary));
     }
 
-    if (timeLeft() > 500) {
-        const ragDir = findRagDir(cwd);
-        if (ragDir) {
-            const result = await queryRag(ragDir, projectName);
-            if (result) blocks.push(`RAG — resultados para "${projectName}":\n${result}`);
-        }
+    if (timeLeft() > 500 && ragDir) {
+        const result = await queryRag(ragDir, projectName);
+        if (result) blocks.push(`RAG — resultados para "${projectName}":\n${result}`);
     }
 
     if (blocks.length === 0) { process.exit(0); return; }

@@ -1,78 +1,53 @@
 #!/usr/bin/env node
-// CLI de RAG de CLAUDEMAX. Implementación única para ingest/query/status; el
-// wrapper MCP delega en este archivo. Config desde .env junto a este archivo (alternativa: variables de entorno).
-//   node rag.mjs init                 aplica schema.sql
-//   node rag.mjs ingest [path] [--proyecto P] [--categoria C] [--backend ollama|remote|kaggle]
-//   node rag.mjs query "<texto>" [--categoria C] [--proyecto P] [--topk N] [--json]
-//   node rag.mjs reindex [path] [--backend ollama|remote|kaggle]   trunca + ingesta completa
+// CLI del RAG de CLAUDEMAX. Implementación única para init/ingest/query/reindex/status/salud;
+// el wrapper MCP delega en este archivo. Las funciones puras viven en rag-lib.mjs. Config
+// desde .env junto a este archivo (alternativa: variables de entorno).
+//   node rag.mjs init                       aplica schema.sql (con migración idempotente)
+//   node rag.mjs ingest [vault] [--backend ollama|remote|kaggle] [--silencioso]
+//   node rag.mjs query "<texto>" [--coleccion C] [--proyecto P] [--topk N] [--json]
+//   node rag.mjs reindex [vault] [--backend ...]      trunca + ingesta completa
 //   node rag.mjs status
+//   node rag.mjs salud [vault] [--resumen] [--json]   huérfanas, enlaces rotos, caducas...
 
 import fs from "node:fs";
 import path from "node:path";
-import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import * as lib from "./rag-lib.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-loadDotEnv(path.join(HERE, ".env"));
+lib.loadDotEnv(path.join(HERE, ".env"));
+const RAG_ROOT = lib.resolverRagRoot(HERE);
+const VAULT_DEFAULT = path.join(RAG_ROOT, "V.A.U.L.T");
 const PG_URL = process.env.PG_URL || "postgres://rag:rag@localhost:5433/rag";
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
 const EMBED_MODEL = process.env.EMBED_MODEL || "bge-m3";
 const EMBED_BACKEND_DEFAULT = (process.env.EMBED_BACKEND || "ollama").trim().toLowerCase();
 const DIMS = 1024;
+const NO_DISPONIBLE = "rag no disponible: arranca Docker Desktop y Ollama";
 
-function loadDotEnv(file) {
-    try {
-        for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
-            const m = line.match(/^([A-Z_]+)=(.*)$/);
-            if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
-        }
-    } catch {}
-}
-
-// --- Backends de embeddings conmutables (Bloque 2, subproyecto F) ---------------------
-// `ollama` y `remote` comparten esta misma implementación: `remote` solo apunta OLLAMA_URL
-// a otra máquina de la LAN, sin código adicional. `kaggle` vive en un módulo aparte que se
-// importa dinámicamente — si ese archivo no existe o falla, rag.mjs sigue funcionando con
-// Ollama sin caerse.
+// --- Backends de embeddings conmutables ---------------------------------------------------
+// `ollama` y `remote` comparten implementación: `remote` solo apunta OLLAMA_URL a otra máquina.
+// `kaggle` vive en un módulo aparte importado dinámicamente; si falla, se cae a Ollama.
 let avisoKaggleQueryEmitido = false;
 
-// Tamaño de lote por petición a Ollama. Sin trocear, un grafo de Graphify (flattenGraph
-// emite un chunk POR NODO: 11738 en qaforge) se enviaba en un único POST cuyo cuerpo
-// tumbaba la conexión con un escueto "fetch failed", y con él la ingesta entera.
-const EMBED_BATCH = Number(process.env.EMBED_BATCH || 64);
-
 async function embedOllama(texts) {
-    const out = [];
-    for (let i = 0; i < texts.length; i += EMBED_BATCH) {
-        const lote = texts.slice(i, i + EMBED_BATCH);
-        let res;
-        try {
-            res = await fetch(`${OLLAMA_URL}/api/embed`, {
-                method: "POST",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ model: EMBED_MODEL, input: lote })
-            });
-        } catch (e) {
-            // fetch() sin más contexto solo dice "fetch failed"; sin el rango de lote es
-            // imposible saber si murió al principio o a mitad de un corpus grande.
-            throw new Error(`embed de ollama falló en el lote ${i}–${i + lote.length} de ${texts.length}: ${e.message}`);
-        }
-        if (!res.ok) throw new Error(`embed de ollama devolvió HTTP ${res.status}: ${await res.text()}`);
-        const data = await res.json();
-        const vecs = data.embeddings;
-        if (!Array.isArray(vecs) || vecs.length !== lote.length || vecs[0].length !== DIMS) {
-            throw new Error(`forma de embedding inesperada desde ${EMBED_MODEL}`);
-        }
-        out.push(...vecs);
+    const res = await fetch(`${OLLAMA_URL}/api/embed`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ model: EMBED_MODEL, input: texts }),
+        signal: AbortSignal.timeout(300_000),
+    });
+    if (!res.ok) throw new Error(`embed de ollama devolvió HTTP ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    const vecs = data.embeddings;
+    if (!Array.isArray(vecs) || vecs.length !== texts.length || vecs[0].length !== DIMS) {
+        throw new Error(`forma de embedding inesperada desde ${EMBED_MODEL}`);
     }
-    return out;
+    return vecs;
 }
 
-// Despacha al backend efectivo. `backend` (viene de --backend) sobrescribe EMBED_BACKEND
-// del .env solo para esta corrida. Regla dura: una consulta (`forQuery: true`) nunca usa
-// kaggle — es un backend asíncrono por lotes y no puede responder en el bucle interactivo
-// de `query`, así que se avisa una vez por stderr y se cae a Ollama local.
+// Regla dura: una consulta (`forQuery: true`) nunca usa kaggle — es asíncrono por lotes.
 async function embed(texts, { backend, forQuery = false } = {}) {
     let effective = (backend || EMBED_BACKEND_DEFAULT || "ollama").trim().toLowerCase();
     if (effective === "kaggle" && forQuery) {
@@ -92,400 +67,333 @@ async function embed(texts, { backend, forQuery = false } = {}) {
         }
         return embedOllama(texts);
     }
-    // "ollama" y "remote" son la misma llamada; remote solo cambia OLLAMA_URL en .env.
     return embedOllama(texts);
 }
 
-function toVec(v) { return `[${v.join(",")}]`; }
-
-// Quita un comentario en línea (" # ...") de un valor escalar YAML y las comillas envolventes.
-function stripYamlComment(value) {
-    const i = value.search(/\s#/);
-    let v = (i >= 0 ? value.slice(0, i) : value).trim();
-    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
-        v = v.slice(1, -1);
-    }
-    return v;
+// Comprobación rápida (3 s) de que Ollama responde, antes de un ingest.
+async function pingOllama() {
+    const res = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) throw new Error(`ollama HTTP ${res.status}`);
 }
 
-// Extrae el bloque de frontmatter YAML inicial ("---\n...\n---") sin dependencias externas.
-// Soporta escalares (categoria, proyecto, fecha, fuente, ...) y `tags` en línea ([a, b]) o
-// en bloque ("- item" en las líneas siguientes). Devuelve { meta, body } donde `body` es el
-// texto sin el frontmatter — lo que efectivamente se trocea.
-function parseFrontmatter(text) {
-    const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
-    if (!m) return { meta: {}, body: text };
-    const meta = {};
-    const lines = m[1].split(/\r?\n/);
-    for (let i = 0; i < lines.length; i++) {
-        const kv = lines[i].match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
-        if (!kv) continue;
-        const [, key, rawValue] = kv;
-        if (key === "tags") {
-            const value = stripYamlComment(rawValue);
-            if (value.startsWith("[")) {
-                const inner = value.replace(/^\[/, "").replace(/\]$/, "");
-                meta.tags = inner.split(",").map(s => stripYamlComment(s)).filter(Boolean);
-            } else if (!value) {
-                const tags = [];
-                let j = i + 1;
-                while (j < lines.length && /^\s*-\s+/.test(lines[j])) {
-                    tags.push(stripYamlComment(lines[j].replace(/^\s*-\s+/, "")));
-                    j++;
-                }
-                meta.tags = tags;
-                i = j - 1;
-            } else {
-                meta.tags = [value];
-            }
-        } else {
-            meta[key] = stripYamlComment(rawValue);
-        }
-    }
-    const body = text.slice(m[0].length);
-    return { meta, body };
-}
+// --- Base de datos -------------------------------------------------------------------------
 
-// Divide un archivo markdown en chunks de ~500 tokens (heurística de ~4 caracteres/token)
-// en los límites de los encabezados, con un solapamiento de ~50 tokens entre chunks adyacentes.
-function chunkMarkdown(text) {
-    const MAX = 2000, OVERLAP = 200;
-    const lines = text.split(/\r?\n/);
-    const out = [];
-    let heading = "", buf = [];
-    const flush = () => {
-        const body = buf.join("\n").trim();
-        if (!body) { buf = []; return; }
-        for (let i = 0; i < body.length; i += MAX - OVERLAP) {
-            const piece = body.slice(i, i + MAX).trim();
-            if (piece) out.push({ heading, content: piece });
-            if (i + MAX >= body.length) break;
-        }
-        buf = [];
-    };
-    for (const line of lines) {
-        const h = line.match(/^#{1,6}\s+(.*)$/);
-        if (h) { flush(); heading = h[1].trim(); }
-        buf.push(line);
-    }
-    flush();
-    return out;
-}
-
-// Aplana un grafo de conocimiento a chunks de texto indexable, uno por nodo. Acepta DOS
-// esquemas y detecta cuál es por las claves presentes, sin asumir un formato fijo:
-//   - Graphify (Graphify-Labs/graphify, graphify-out/graph.json — formato node_link_data
-//     de NetworkX): aristas en `links` (no `edges`); nodo con id/label/norm_label,
-//     file_type (code|document|paper|image|rationale|concept), source_file,
-//     source_location, metadata.kind opcional (tipo fino: file/bash_function/... — solo
-//     lo trae el extractor de bash; otros lenguajes solo marcan _callable/_callable_class),
-//     community/community_name opcionales; arista con relation (verbo: calls/imports/...),
-//     confidence (EXTRACTED|INFERRED|AMBIGUOUS), confidence_score, weight, source_file.
-//   - Understand-Anything, esquema legado (.ua/knowledge-graph.json o .ua/domain-graph.json):
-//     nodo con id/name/label, type/kind, summary/description, path/filePath/file; arista
-//     con source/from/src, target/to/dst, type/label.
-// Los campos se leen de forma tolerante (encadenando los nombres de ambos esquemas — la
-// mayoría de las claves de nodo/arista no chocan entre uno y otro) y solo `links` vs
-// `edges` necesita una rama explícita, porque son arrays con nombres distintos. Si no hay
-// un array "nodes" reconocible, se avisa por stderr y se omite el archivo sin lanzar excepción.
-function flattenGraph(json, file) {
-    if (!json || typeof json !== "object" || !Array.isArray(json.nodes)) {
-        console.error(`rag: aviso — ${file} no tiene un array "nodes" reconocible; se omite`);
-        return [];
-    }
-    // Graphify usa `links`; el esquema legado de Understand-Anything usa `edges`.
-    const edges = Array.isArray(json.links) ? json.links : (Array.isArray(json.edges) ? json.edges : []);
-    // Índice de aristas por nodo origen, para adjuntar "Relaciones:" al chunk de cada nodo.
-    const edgesPorNodo = new Map();
-    for (const e of edges) {
-        if (!e) continue;
-        const src = e.source ?? e.from ?? e.src;
-        if (src == null) continue;
-        if (!edgesPorNodo.has(src)) edgesPorNodo.set(src, []);
-        edgesPorNodo.get(src).push(e);
-    }
-    const out = [];
-    for (const node of json.nodes) {
-        if (!node) continue;
-        const id = node.id ?? node.name ?? node.label;
-        const label = node.label || node.name || (id != null ? String(id) : "(sin nombre)");
-        // Tipo fino: metadata.kind (Graphify, cuando el extractor lo trae) > type/kind
-        // (esquema legado) > _callable_class/_callable (Graphify, resto de lenguajes) >
-        // file_type (Graphify, categoría gruesa) como último recurso.
-        const tipo = (node.metadata && node.metadata.kind) || node.type || node.kind
-            || (node._callable_class ? "class" : node._callable ? "function" : "")
-            || node.file_type || "";
-        const resumen = node.summary || node.description || "";
-        const ruta = node.source_file || node.path || node.filePath || node.file || "";
-        const relaciones = (edgesPorNodo.get(id) || []).map(e => {
-            const destino = e.target ?? e.to ?? e.dst ?? "?";
-            const tipoArista = e.relation || e.type || e.label || "relacionado con";
-            const confianza = e.confidence && e.confidence !== "EXTRACTED" ? ` (${e.confidence})` : "";
-            return `${tipoArista}${confianza} → ${destino}`;
-        });
-        const header = `${label}${tipo ? ` (${tipo})` : ""}${ruta ? ` — ${ruta}` : ""}`;
-        const lineas = [header];
-        if (resumen) lineas.push(resumen);
-        if (node.community_name) lineas.push(`Comunidad: ${node.community_name}`);
-        if (relaciones.length) lineas.push(`Relaciones: ${relaciones.join("; ")}`);
-        out.push({ heading: label, content: lineas.join("\n") });
-    }
-    return out;
-}
-
-// Categoría (Bloque 1, taxonomía) inferida de la primera carpeta bajo el root del vault.
-// Semántica completa de cada categoría/carpeta: templates/vault/README.md y el README.md
-// propio de cada carpeta (skills/rituales/SKILL.md la repite para quien escribe notas):
-//   Codigo         → repos, arquitectura, snippets, grafos de Graphify.
-//   Proyectos      → planes, decisiones, sprints, specs.
-//   Organizacion   → parte legal y conceptual de la organización (miembros, estatutos,
-//                    contratos, marca, procesos internos, clientes).
-//   Investigacion  → lo que se pregunta e investiga para decidir algo (comparativas,
-//                    estilos de diseño, papers, PDFs parseados, transcripciones).
-//   Aprendizaje    → errores cometidos y su lección (postmortems), NO apuntes de tecnologías.
-//   Journal        → categoria "personal", tag personal/bitacora: bitácoras del día completo.
-// 00-Inbox/ no está en este mapa porque su categoría ("personal", tag personal/sesion —
-// continuidad entre sesiones, la escribe el ritual fin-sesion) siempre llega vía frontmatter
-// explícito, nunca por inferencia de carpeta.
-const CATEGORIA_POR_CARPETA = {
-    Codigo: "codigo",
-    Proyectos: "proyectos",
-    Organizacion: "organizacion",
-    Investigacion: "investigacion",
-    Aprendizaje: "aprendizaje",
-    Journal: "personal",
-};
-
-// meta.categoria (frontmatter) manda; si falta, se infiere de la carpeta. 00-Inbox y
-// cualquier carpeta no reconocida quedan sin categoría (null) si además falta el frontmatter
-// — en la práctica esto no pasa con notas de 00-Inbox porque el ritual fin-sesion siempre
-// escribe categoria: personal explícitamente.
-function categoriaOf(file, root, meta) {
-    if (meta && meta.categoria) return meta.categoria;
-    const rel = path.relative(root, file).split(path.sep);
-    return CATEGORIA_POR_CARPETA[rel[0]] || null;
-}
-
-// meta.proyecto (frontmatter) manda sobre la inferencia por carpeta; es la clave transversal
-// que relaciona notas de distintas categorías. Se infiere de Proyectos/<nombre> o Codigo/<nombre>
-// (la subcarpeta es el nombre del proyecto); Journal/ usa el pseudo-proyecto "journal". Las
-// notas de 00-Inbox (ritual fin-sesion) traen su propio "proyecto" en el frontmatter.
-function proyectoOf(file, root, meta) {
-    if (meta && meta.proyecto) return meta.proyecto;
-    const rel = path.relative(root, file).split(path.sep);
-    for (const carpeta of ["Proyectos", "Codigo"]) {
-        const i = rel.indexOf(carpeta);
-        // Solo cuenta como proyecto si es un subdirectorio (no un archivo suelto en la carpeta)
-        if (i >= 0 && rel[i + 1] && rel.length > i + 2) return rel[i + 1];
-    }
-    if (rel[0] === "Journal") return "journal";
-    return null;
-}
-
-// Recorre el árbol de archivos indexables: notas .md del vault y grafos de conocimiento.
-// Graphify deja el suyo en <repo>/graphify-out/graph.json — "graphify-out" no es una
-// carpeta oculta, así que ya se recorre sin necesitar una excepción como la de `.ua`
-// (esquema legado de Understand-Anything: .ua/knowledge-graph.json, .ua/domain-graph.json,
-// se sigue reconociendo para no romper grafos ya generados con el plugin anterior).
-function* walkSources(dir) {
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-        const p = path.join(dir, e.name);
-        if (e.isDirectory()) {
-            if (e.name === "node_modules") continue;
-            if (e.name.startsWith(".") && e.name !== ".ua") continue;
-            yield* walkSources(p);
-        } else if (e.name.endsWith(".md")) {
-            // Los archivos con prefijo "_" son andamiaje del vault, no notas: `_plantilla.md`
-            // es el molde que se copia para crear una nota. Al ingerirlo, los comentarios de
-            // su frontmatter vacío entran como VALORES y ensucian la taxonomía — quedaban
-            // filas con proyecto "# opcional — clave transversal..." y categoria
-            // "# obligatoria — una de: codigo | proyectos | ...".
-            if (e.name.startsWith("_")) continue;
-            yield p;
-        } else if (e.name === "knowledge-graph.json" || e.name === "domain-graph.json") {
-            yield p;
-        } else if (e.name === "graph.json" && path.basename(dir) === "graphify-out") {
-            yield p;
-        }
-    }
+async function conectar() {
+    const client = new pg.Client({ connectionString: PG_URL, connectionTimeoutMillis: 3000 });
+    await client.connect();
+    return client;
 }
 
 async function withDb(fn) {
-    const client = new pg.Client({ connectionString: PG_URL });
-    await client.connect();
+    const client = await conectar();
     try { return await fn(client); } finally { await client.end(); }
 }
 
 async function cmdInit() {
-    await withDb(async db => {
-        await db.query(fs.readFileSync(path.join(HERE, "schema.sql"), "utf8"));
-    });
+    await withDb(db => db.query(fs.readFileSync(path.join(HERE, "schema.sql"), "utf8")));
     console.log("rag: schema aplicado");
-}
-
-async function cmdIngest(root, opts = {}) {
-    root = path.resolve(root || path.join(HERE, "..", "V.A.U.L.T"));
-    let added = 0, skipped = 0, sinCategoria = 0, grafosOmitidos = 0;
-    const seen = new Set();
-    await withDb(async db => {
-        for (const file of walkSources(root)) {
-            seen.add(file);
-            const base = path.basename(file);
-            const esGrafo = base === "knowledge-graph.json" || base === "domain-graph.json" || base === "graph.json";
-
-            let meta, chunks;
-            if (esGrafo) {
-                let json;
-                try {
-                    json = JSON.parse(fs.readFileSync(file, "utf8"));
-                } catch (e) {
-                    console.error(`rag: aviso — ${file} no es JSON válido; se omite (${e.message})`);
-                    grafosOmitidos++;
-                    continue;
-                }
-                // proyecto = nombre de la carpeta del repo que contiene la carpeta del grafo
-                // (el padre de graphify-out/ o, en el esquema legado, de .ua/) — misma
-                // profundidad en los dos casos: <repo>/graphify-out/graph.json y
-                // <repo>/.ua/knowledge-graph.json envuelven el archivo en un único
-                // subdirectorio, así que "dos niveles arriba del archivo" sigue siendo la
-                // raíz del repo en ambos esquemas.
-                const repo = path.basename(path.dirname(path.dirname(file)));
-                meta = { categoria: "codigo", proyecto: repo, tags: [] };
-                chunks = flattenGraph(json, file);
-                if (!chunks.length) { grafosOmitidos++; continue; }
-            } else {
-                const raw = fs.readFileSync(file, "utf8");
-                const parsed = parseFrontmatter(raw);
-                meta = parsed.meta;
-                chunks = chunkMarkdown(parsed.body);
-            }
-
-            const mtime = fs.statSync(file).mtime;
-            // --proyecto/--categoria actúan como RESPALDO, no como override: solo se usan
-            // cuando la inferencia no da nada. Un repo no tiene la estructura del vault
-            // (Proyectos/<x>, Codigo/<x>) ni frontmatter, así que sin esto todo su contenido
-            // entra con proyecto y categoría NULL y queda fuera de cualquier filtro. El
-            // frontmatter y la inferencia por carpeta siguen mandando.
-            const proyecto = proyectoOf(file, root, meta) || opts.proyecto || null;
-            const categoria = categoriaOf(file, root, meta) || opts.categoria || null;
-            const tags = Array.isArray(meta.tags) ? meta.tags : [];
-            if (!categoria) sinCategoria++;
-            const fresh = [];
-            // El índice chunks_source_hash es UNIQUE(source, content_hash): dos chunks
-            // con contenido idéntico dentro del MISMO archivo colisionan. Como el
-            // pre-check de abajo solo mira la BD, sin `vistos` ambos entrarían a `fresh`
-            // y el segundo INSERT reventaría la ingesta entera. Pasa a diario en repos
-            // de código (cabeceras repetidas, boilerplate, secciones cortas iguales).
-            const vistos = new Set();
-            const hashesDelArchivo = [];
-            for (const c of chunks) {
-                const hash = crypto.createHash("sha1").update(c.content).digest("hex");
-                if (vistos.has(hash)) continue;
-                vistos.add(hash);
-                hashesDelArchivo.push(hash);
-                const { rowCount } = await db.query(
-                    "SELECT 1 FROM chunks WHERE source=$1 AND content_hash=$2", [file, hash]);
-                if (rowCount) { skipped++; } else { fresh.push({ ...c, hash }); }
-            }
-            if (fresh.length) {
-                const vecs = await embed(fresh.map(c => c.content), { backend: opts.backend });
-                // Borra solo los chunks que ya no están en el archivo. El DELETE total
-                // que había aquí se llevaba por delante los chunks contados como
-                // `skipped` (sin cambios, no se reinsertan) y los perdía del índice.
-                await db.query(
-                    "DELETE FROM chunks WHERE source=$1 AND content_hash <> ALL($2::text[])",
-                    [file, hashesDelArchivo]);
-                for (let i = 0; i < fresh.length; i++) {
-                    const c = fresh[i];
-                    await db.query(
-                        `INSERT INTO chunks (source, categoria, proyecto, tags, heading, content, content_hash, mtime, embedding)
-                         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-                        [file, categoria, proyecto, tags, c.heading, c.content, c.hash, mtime, toVec(vecs[i])]);
-                    added++;
-                }
-            }
-        }
-        const { rows } = await db.query("SELECT DISTINCT source FROM chunks");
-        for (const r of rows) {
-            if (r.source.startsWith(root) && !seen.has(r.source)) {
-                await db.query("DELETE FROM chunks WHERE source=$1", [r.source]);
-            }
-        }
-    });
-    console.log(`rag: ingesta completa — ${added} chunks añadidos, ${skipped} sin cambios`);
-    if (sinCategoria) console.log(`rag: aviso — ${sinCategoria} archivo(s) sin categoría (añade "categoria" al frontmatter o mueve la nota a una carpeta reconocida)`);
-    if (grafosOmitidos) console.log(`rag: aviso — ${grafosOmitidos} grafo(s) de Graphify omitido(s) (JSON inválido o sin "nodes")`);
-}
-
-async function cmdQuery(text, opts) {
-    // forQuery:true aplica la regla dura del Bloque 2: kaggle nunca sirve una consulta.
-    const [vec] = await embed([text], { backend: opts.backend, forQuery: true });
-    const params = [toVec(vec)];
-    // WHERE dinámico: cada filtro activo añade su placeholder numerado según la posición
-    // real en `params` (no un número fijo), así son combinables en cualquier orden.
-    const conditions = [];
-    if (opts.categoria) { params.push(opts.categoria); conditions.push(`categoria = $${params.length}`); }
-    if (opts.proyecto) { params.push(opts.proyecto); conditions.push(`proyecto = $${params.length}`); }
-    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-    const topk = opts.topk || 5;
-    const rows = await withDb(db => db.query(
-        `SELECT source, categoria, proyecto, heading, content, 1 - (embedding <=> $1) AS score
-         FROM chunks ${where} ORDER BY embedding <=> $1 LIMIT ${Number(topk)}`,
-        params).then(r => r.rows));
-    if (opts.json) { console.log(JSON.stringify(rows, null, 2)); return; }
-    for (const r of rows) {
-        const cat = r.categoria ? `[${r.categoria}] ` : "";
-        console.log(`--- ${cat}${r.source}${r.heading ? " · " + r.heading : ""} (score ${Number(r.score).toFixed(3)})`);
-        console.log(r.content.slice(0, 600) + (r.content.length > 600 ? " …" : ""));
-    }
-    if (!rows.length) console.log("rag: sin resultados");
-}
-
-async function cmdReindex(root, opts) {
-    await withDb(db => db.query("TRUNCATE chunks"));
-    await cmdIngest(root, opts);
 }
 
 async function cmdStatus() {
     let ollama = "caído";
     try {
-        const r = await fetch(`${OLLAMA_URL}/api/tags`);
+        const r = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(3000) });
         if (r.ok) ollama = (await r.json()).models?.some(m => m.name.startsWith(EMBED_MODEL))
             ? `activo (${EMBED_MODEL} presente)` : `activo (falta ${EMBED_MODEL} — ejecuta: ollama pull ${EMBED_MODEL})`;
     } catch {}
     const backendInfo = EMBED_BACKEND_DEFAULT === "kaggle"
         ? `kaggle (solo ingest/reindex por lotes — las consultas siempre usan ollama en ${OLLAMA_URL})`
         : `${EMBED_BACKEND_DEFAULT} → ${OLLAMA_URL}`;
+    console.log(`backend de embeddings: ${backendInfo}`);
     try {
         await withDb(async db => {
-            const tot = await db.query("SELECT count(*) FROM chunks");
-            const per = await db.query(
-                "SELECT coalesce(proyecto,'(ninguno)') p, count(*) c, max(mtime) m FROM chunks GROUP BY 1 ORDER BY 2 DESC");
-            const perCat = await db.query(
-                "SELECT coalesce(categoria,'(sin categoría)') cat, count(*) c FROM chunks GROUP BY 1 ORDER BY 2 DESC");
-            console.log(`backend de embeddings: ${backendInfo}`);
-            console.log(`db: activa — ${tot.rows[0].count} chunks | ollama: ${ollama}`);
+            const tot = await db.query("SELECT count(*)::int AS n FROM chunks");
+            const docs = await db.query("SELECT count(*)::int AS n FROM documentos");
+            console.log(`db: activa — ${tot.rows[0].n} chunks, ${docs.rows[0].n} documentos | ollama: ${ollama}`);
+            if (tot.rows[0].n > 0 && docs.rows[0].n === 0) {
+                console.log("rag: schema migrado: ejecuta `reindex` para poblar `documentos` con la taxonomía nueva.");
+                return;
+            }
+            const porCol = await db.query("SELECT coleccion, count(*)::int AS c FROM documentos GROUP BY 1 ORDER BY 2 DESC");
+            const porProy = await db.query("SELECT coalesce(proyecto,'(ninguno)') AS p, count(*)::int AS c FROM documentos GROUP BY 1 ORDER BY 2 DESC");
+            const porEstado = await db.query("SELECT estado, count(*)::int AS c FROM documentos GROUP BY 1 ORDER BY 2 DESC");
+            console.log("  por colección:");
+            for (const r of porCol.rows) console.log(`    ${r.coleccion}: ${r.c} documentos`);
             console.log("  por proyecto:");
-            for (const r of per.rows) console.log(`    ${r.p}: ${r.c} chunks (nota más reciente ${r.m ? r.m.toISOString().slice(0, 10) : "-"})`);
-            console.log("  por categoría:");
-            for (const r of perCat.rows) console.log(`    ${r.cat}: ${r.c} chunks`);
+            for (const r of porProy.rows) console.log(`    ${r.p}: ${r.c} documentos`);
+            console.log("  por estado:");
+            for (const r of porEstado.rows) console.log(`    ${r.estado}: ${r.c} documentos`);
         });
     } catch (e) {
-        console.log(`backend de embeddings: ${backendInfo}`);
         console.log(`db: CAÍDA (${e.message}) | ollama: ${ollama}`);
         process.exitCode = 1;
     }
 }
 
+// --- ingest (spec §3.2 y §3.4) -------------------------------------------------------------
+
+// Devuelve { ok, resumen } e imprime el resumen (o la línea de "no disponible").
+async function ejecutarIngest(vault, opts = {}) {
+    const resumen = { indexados: 0, sinCambios: 0, fallidos: [], desconocidas: [], sinFuentes: [], avisos: [] };
+    let db;
+    try {
+        db = await conectar();
+        await pingOllama();
+    } catch (e) {
+        if (db) await db.end().catch(() => {});
+        console.log(`${NO_DISPONIBLE} (${e.message})`);
+        return { ok: false, resumen };
+    }
+    try {
+        const archivos = [...lib.walkVault(vault)];
+        const vistos = new Set(archivos.map(a => a.rel));
+        const indice = lib.indiceDeNotas(archivos);
+
+        // 1. Borrar lo que ya no existe en disco.
+        for (const r of (await db.query("SELECT source FROM documentos")).rows) {
+            if (vistos.has(r.source)) continue;
+            await db.query("DELETE FROM chunks WHERE source=$1", [r.source]);
+            await db.query("DELETE FROM documentos WHERE source=$1", [r.source]);
+        }
+
+        // 2. Cada nota: sin cambios → solo vigencia; cambiada o nueva → reembeber en una transacción.
+        const reemplazos = [];
+        for (const { abs, rel } of archivos) {
+            try {
+                const bytes = fs.readFileSync(abs);
+                const hash = lib.sha256(bytes);
+                const { meta, body, aviso } = lib.parseFrontmatter(bytes.toString("utf8"));
+                if (aviso) resumen.avisos.push(`${rel}: ${aviso}`);
+                const clas = lib.clasificar(rel);
+                if (!clas.conocida) resumen.desconocidas.push(rel);
+                const fuentes = Array.isArray(meta.fuentes) ? meta.fuentes : [];
+                if (clas.coleccion === "codigo" && !fuentes.length) resumen.sinFuentes.push(rel);
+                const rutasFuente = lib.resolverFuentes(fuentes, RAG_ROOT);
+                if (fuentes.length && !rutasFuente.length) resumen.avisos.push(`${rel}: fuentes sin coincidencias`);
+                const firmaActual = lib.firmaDe(rutasFuente, RAG_ROOT);
+                const revisar = /^\d{4}-\d{2}-\d{2}$/.test(meta.revisar || "") ? meta.revisar : null;
+                if (Array.isArray(meta.reemplaza) && meta.reemplaza.length) reemplazos.push({ desde: rel, refs: meta.reemplaza });
+
+                const prev = (await db.query("SELECT content_hash, firma_origen FROM documentos WHERE source=$1", [rel])).rows[0];
+                if (prev && prev.content_hash === hash) {
+                    resumen.sinCambios++;
+                    // La nota no cambió: caduca si declara fuentes y su firma ya no coincide (o no queda ninguna).
+                    const caduca = fuentes.length > 0 && (firmaActual === null || firmaActual !== prev.firma_origen);
+                    await db.query("UPDATE documentos SET estado=$2, revisar=$3, fuentes=$4 WHERE source=$1",
+                        [rel, caduca ? "caduca" : "vigente", revisar, fuentes]);
+                    continue;
+                }
+
+                const titulo = lib.tituloDe(body, rel);
+                const fecha = lib.extraerFecha(path.basename(rel), meta, fs.statSync(abs).mtimeMs);
+                const tags = Array.isArray(meta.tags) ? meta.tags : [];
+                const proyecto = meta.proyecto || null;
+                const trozos = lib.chunkMarkdown(lib.limpiarWikilinks(body));
+                const vecs = [];
+                for (let i = 0; i < trozos.length; i += 16) {
+                    vecs.push(...await embed(trozos.slice(i, i + 16).map(t => t.content), { backend: opts.backend }));
+                }
+                // La nota cambió: se bendice contra sus fuentes de hoy. Solo queda caduca si declara
+                // fuentes y ninguna existe.
+                const estado = fuentes.length > 0 && firmaActual === null ? "caduca" : "vigente";
+                await db.query("BEGIN");
+                try {
+                    await db.query("DELETE FROM chunks WHERE source=$1", [rel]);
+                    for (let i = 0; i < trozos.length; i++) {
+                        await db.query(
+                            `INSERT INTO chunks (source, coleccion, autoridad, proyecto, heading, orden, content, embedding)
+                             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+                            [rel, clas.coleccion, clas.autoridad, proyecto, trozos[i].heading, trozos[i].orden, trozos[i].content, lib.toVec(vecs[i])]);
+                    }
+                    await db.query(
+                        `INSERT INTO documentos (source, titulo, coleccion, autoridad, proyecto, tags, fecha, content_hash,
+                                                 fuentes, firma_origen, estado, reemplazada_por, revisar, actualizado)
+                         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NULL,$12,now())
+                         ON CONFLICT (source) DO UPDATE SET titulo=EXCLUDED.titulo, coleccion=EXCLUDED.coleccion,
+                             autoridad=EXCLUDED.autoridad, proyecto=EXCLUDED.proyecto, tags=EXCLUDED.tags,
+                             fecha=EXCLUDED.fecha, content_hash=EXCLUDED.content_hash, fuentes=EXCLUDED.fuentes,
+                             firma_origen=EXCLUDED.firma_origen, estado=EXCLUDED.estado, reemplazada_por=NULL,
+                             revisar=EXCLUDED.revisar, actualizado=now()`,
+                        [rel, titulo, clas.coleccion, clas.autoridad, proyecto, tags, fecha, hash, fuentes, firmaActual, estado, revisar]);
+                    await db.query("COMMIT");
+                } catch (e) {
+                    await db.query("ROLLBACK");
+                    throw e;
+                }
+                resumen.indexados++;
+            } catch (e) {
+                resumen.fallidos.push(`${rel}: ${e.message}`);
+            }
+        }
+
+        // 3. `reemplaza:` se recalcula desde cero en cada ingest, así el orden de archivos no
+        //    importa y una nota que reemplazaba y desapareció libera a la reemplazada.
+        await db.query("UPDATE documentos SET reemplazada_por = NULL WHERE reemplazada_por IS NOT NULL");
+        for (const { desde, refs } of reemplazos) {
+            for (const ref of refs) {
+                const r = lib.resolverNombreNota(ref, indice);
+                if (r.error) { resumen.avisos.push(`${desde}: reemplaza "${lib.normalizarReferencia(ref)}" — ${r.error}`); continue; }
+                if (r.source === desde) continue;
+                await db.query("UPDATE documentos SET reemplazada_por=$2 WHERE source=$1", [r.source, desde]);
+            }
+        }
+
+        // 4. Estado final con precedencia: reemplazada > caduca > revisar > vigente.
+        await db.query(`UPDATE documentos SET estado = CASE
+            WHEN reemplazada_por IS NOT NULL THEN 'reemplazada'
+            WHEN estado = 'caduca' THEN 'caduca'
+            WHEN revisar IS NOT NULL AND revisar < CURRENT_DATE THEN 'revisar'
+            ELSE 'vigente' END`);
+    } finally {
+        await db.end().catch(() => {});
+    }
+
+    console.log(`indexados: ${resumen.indexados} | sin cambios: ${resumen.sinCambios} | fallidos: ${resumen.fallidos.length}`);
+    for (const f of resumen.fallidos) console.log(`  FALLO ${f}`);
+    for (const a of resumen.avisos) console.log(`  aviso ${a}`);
+    if (resumen.desconocidas.length) {
+        console.log("  carpetas desconocidas (coleccion=otros; mueve la nota a una carpeta de la taxonomía):");
+        for (const d of resumen.desconocidas) console.log(`    ${d}`);
+    }
+    if (resumen.sinFuentes.length) {
+        console.log("  Codigo/ sin fuentes (no se puede detectar si caducó; añade `fuentes:` al frontmatter):");
+        for (const s of resumen.sinFuentes) console.log(`    ${s}`);
+    }
+    return { ok: resumen.fallidos.length === 0, resumen };
+}
+
+async function cmdIngest(root, opts = {}) {
+    const vault = path.resolve(root || VAULT_DEFAULT);
+    const { ok } = await ejecutarIngest(vault, opts);
+    if (!ok && !opts.silencioso) process.exitCode = 1;
+}
+
+// --- query (spec §3.5) ---------------------------------------------------------------------
+
+async function cmdQuery(text, opts = {}) {
+    if (!text) { console.log(USO); process.exitCode = 1; return; }
+    let vec;
+    try {
+        [vec] = await embed([text], { backend: opts.backend, forQuery: true });
+    } catch (e) {
+        console.log(`${NO_DISPONIBLE} (${e.message})`);
+        process.exitCode = 1;
+        return;
+    }
+    // Sin filtro: fuera las colecciones de ruido y las notas reemplazadas. Con --coleccion:
+    // exactamente esa colección, aunque sea de las excluidas.
+    const params = [lib.toVec(vec), opts.coleccion || null, lib.EXCLUIDAS_POR_DEFECTO];
+    const cond = [`(($2::text IS NULL AND NOT (c.coleccion = ANY($3::text[])) AND d.estado <> 'reemplazada') OR c.coleccion = $2)`];
+    if (opts.proyecto) { params.push(opts.proyecto); cond.push(`c.proyecto = $${params.length}`); }
+    params.push(lib.CON_BOOST);
+    const iBoost = params.length;
+    const topk = Number(opts.topk) > 0 ? Number(opts.topk) : 5;
+    const sql = `SELECT c.source, d.titulo, c.coleccion, c.autoridad, c.proyecto, d.fecha, d.estado,
+                        d.reemplazada_por, d.revisar, c.heading, c.content, 1 - (c.embedding <=> $1) AS score
+                 FROM chunks c JOIN documentos d USING (source)
+                 WHERE ${cond.join(" AND ")}
+                 ORDER BY (c.embedding <=> $1) - CASE WHEN c.coleccion = ANY($${iBoost}::text[]) THEN ${lib.BOOST} ELSE 0 END
+                 LIMIT ${topk}`;
+    let rows;
+    try {
+        rows = await withDb(db => db.query(sql, params).then(r => r.rows));
+    } catch (e) {
+        console.log(`${NO_DISPONIBLE} (${e.message})`);
+        process.exitCode = 1;
+        return;
+    }
+    if (opts.json) { console.log(JSON.stringify(rows, null, 2)); return; }
+    if (!rows.length) { console.log("rag: sin resultados"); return; }
+    console.log(rows.map(lib.formatearResultado).join("\n\n---\n\n"));
+}
+// --- salud (spec §3.6) ---------------------------------------------------------------------
+
+async function recogerSalud(vault) {
+    const archivos = [...lib.walkVault(vault)];
+    const { huerfanas, enlacesRotos } = lib.analizarHubs(vault, archivos);
+    const sinFuentes = archivos
+        .filter(a => lib.clasificar(a.rel).coleccion === "codigo")
+        .filter(a => !(lib.parseFrontmatter(fs.readFileSync(a.abs, "utf8")).meta.fuentes || []).length)
+        .map(a => a.rel);
+    // la antigüedad de un pendiente es información, no un error de formato: no cuenta como aviso
+    const pendientesPath = path.join(vault, "Hubs", "Pendientes.md");
+    const pendientes = fs.existsSync(pendientesPath)
+        ? lib.analizarPendientes(fs.readFileSync(pendientesPath, "utf8")).avisos.filter(a => a.tipo !== "antiguo")
+        : [];
+    const salud = { huerfanas, enlacesRotos, caducas: [], revisar: [], reemplazadas: [], reemplazadasEnlazadas: [], sinFuentes, pendientes, bd: true };
+    try {
+        await withDb(async db => {
+            const { rows } = await db.query("SELECT source, estado, reemplazada_por, revisar FROM documentos WHERE estado <> 'vigente' ORDER BY source");
+            for (const r of rows) {
+                if (r.estado === "caduca") salud.caducas.push(r.source);
+                else if (r.estado === "revisar") salud.revisar.push({ source: r.source, revisar: String(r.revisar instanceof Date ? r.revisar.toISOString() : r.revisar).slice(0, 10) });
+                else if (r.estado === "reemplazada") salud.reemplazadas.push({ source: r.source, por: r.reemplazada_por });
+            }
+        });
+        const huerf = new Set(huerfanas);
+        salud.reemplazadasEnlazadas = salud.reemplazadas.filter(r => !huerf.has(r.source)).map(r => r.source);
+    } catch {
+        salud.bd = false;
+    }
+    return salud;
+}
+
+function resumenSalud(s) {
+    const partes = [];
+    if (s.caducas.length) partes.push(`${s.caducas.length} caducas`);
+    if (s.revisar.length) partes.push(`${s.revisar.length} a revisar`);
+    if (s.huerfanas.length) partes.push(`${s.huerfanas.length} huérfanas`);
+    if (s.enlacesRotos.length) partes.push(`${s.enlacesRotos.length} enlaces rotos`);
+    if (s.reemplazadasEnlazadas.length) partes.push(`${s.reemplazadasEnlazadas.length} reemplazadas aún enlazadas`);
+    if (s.sinFuentes.length) partes.push(`${s.sinFuentes.length} Codigo/ sin fuentes`);
+    if (s.pendientes && s.pendientes.length) partes.push(`Pendientes: ${s.pendientes.length} aviso${s.pendientes.length === 1 ? "" : "s"}`);
+    if (!s.bd) partes.push("sin BD");
+    return partes.length ? `salud: ${partes.join(" · ")}` : "salud: sin avisos";
+}
+
+async function cmdSalud(root, opts = {}) {
+    const vault = path.resolve(root || VAULT_DEFAULT);
+    const s = await recogerSalud(vault);
+    if (opts.json) { console.log(JSON.stringify(s, null, 2)); return; }
+    if (opts.resumen) { console.log(resumenSalud(s)); return; }
+    const seccion = (titulo, items, fmt = x => x) => {
+        if (!items.length) return;
+        console.log(`${titulo} (${items.length}):`);
+        for (const i of items) console.log(`  ${fmt(i)}`);
+    };
+    seccion("huérfanas", s.huerfanas);
+    seccion("enlaces rotos", s.enlacesRotos, e => `${e.hub} → ${e.destino}`);
+    seccion("caducas", s.caducas);
+    seccion("a revisar", s.revisar, r => `${r.source} (venció ${r.revisar})`);
+    seccion("reemplazadas aún enlazadas desde un hub", s.reemplazadasEnlazadas);
+    seccion("Codigo/ sin fuentes", s.sinFuentes);
+    seccion("avisos de Hubs/Pendientes.md", s.pendientes, a => `línea ${a.linea}: ${a.tipo} — ${a.texto}`);
+    if (!s.bd) console.log("(sin BD: no se pudieron leer los estados caduca/revisar/reemplazada)");
+    console.log(resumenSalud(s));
+}
+
+// --- reindex -------------------------------------------------------------------------------
+
+async function cmdReindex(root, opts = {}) {
+    try {
+        await withDb(db => db.query("TRUNCATE chunks, documentos"));
+    } catch (e) {
+        console.log(`${NO_DISPONIBLE} (${e.message})`);
+        process.exitCode = 1;
+        return;
+    }
+    await cmdIngest(root, opts);
+}
+
+// --- Despacho ------------------------------------------------------------------------------
+
 const [cmd, ...rest] = process.argv.slice(2);
-const opts = { json: rest.includes("--json") };
-const FLAGS = ["--categoria", "--proyecto", "--topk", "--backend"];
-const ci = rest.indexOf("--categoria"); if (ci >= 0) opts.categoria = rest[ci + 1];
-const oi = rest.indexOf("--proyecto"); if (oi >= 0) opts.proyecto = rest[oi + 1];
-const ki = rest.indexOf("--topk"); if (ki >= 0) opts.topk = Number(rest[ki + 1]);
-const bi = rest.indexOf("--backend"); if (bi >= 0) opts.backend = rest[bi + 1];
-const positional = rest.filter((a, i) =>
-    !a.startsWith("--") && !FLAGS.includes(rest[i - 1]));
+const opts = { json: rest.includes("--json"), silencioso: rest.includes("--silencioso"), resumen: rest.includes("--resumen") };
+const FLAGS = ["--coleccion", "--proyecto", "--topk", "--backend"];
+for (const f of FLAGS) { const i = rest.indexOf(f); if (i >= 0) opts[f.slice(2)] = rest[i + 1]; }
+const positional = rest.filter((a, i) => !a.startsWith("--") && !FLAGS.includes(rest[i - 1]));
+
+const USO = `uso: rag.mjs init | ingest [vault] [--backend ollama|remote|kaggle] [--silencioso] | query "<texto>" [--coleccion C] [--proyecto P] [--topk N] [--json] | reindex [vault] [--backend ...] | status | salud [vault] [--resumen] [--json]`;
 
 try {
     if (cmd === "init") await cmdInit();
@@ -493,11 +401,8 @@ try {
     else if (cmd === "query") await cmdQuery(positional[0], opts);
     else if (cmd === "reindex") await cmdReindex(positional[0], opts);
     else if (cmd === "status") await cmdStatus();
-    else {
-        console.log("uso: rag.mjs init | ingest [path] [--proyecto P] [--categoria C] [--backend ollama|remote|kaggle] | query \"<texto>\" [--categoria C] [--proyecto P] [--topk N] [--json] | reindex [path] [--backend ollama|remote|kaggle] | status");
-        console.log("     en ingest, --proyecto/--categoria son el respaldo para rutas fuera del vault (repos), donde no hay frontmatter ni carpeta que inferir");
-        process.exitCode = cmd ? 1 : 0;
-    }
+    else if (cmd === "salud") await cmdSalud(positional[0], opts);
+    else { console.log(USO); process.exitCode = cmd ? 1 : 0; }
 } catch (e) {
     console.error(`rag: error — ${e.message}`);
     process.exitCode = 1;

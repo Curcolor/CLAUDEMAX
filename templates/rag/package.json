@@ -2,9 +2,9 @@
   "name": "claudemax-rag",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=18" },
+  "engines": { "node": ">=22" },
   "scripts": {
-    "test": "node test/ingesta.test.mjs"
+    "test": "node --test \"test/*.test.mjs\""
   },
   "dependencies": {
     "pg": "^8.13.0",

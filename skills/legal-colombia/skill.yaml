@@ -1,0 +1,18 @@
+name: legal-colombia
+version: 2.0.0
+kind: knowledge
+triggers:
+  # bilingües: cada concepto en español e inglés
+  - "SAS / constituir empresa / sociedad por acciones simplificada / incorporate a company"
+  - "cámara de comercio / registro mercantil / RUT / NIT"
+  - "datos personales / protección de datos / data protection / personal data"
+  - "habeas data / SIC / autorización del titular / aviso de privacidad"
+  - "propiedad intelectual / intellectual property / derecho de autor / copyright"
+  - "software / titularidad del código / cesión de derechos"
+  - "SG-SST / seguridad y salud en el trabajo / occupational health and safety"
+  - "laboral / contratar empleado / hire an employee / labor law"
+  - "Colombia / colombian law / normativa colombiana"
+commands: []
+scripts: []
+dependencies: []
+schema: ./schema.json

@@ -1,0 +1,347 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { execFile, spawnSync } from "node:child_process";
+
+const RAG_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const REPO = path.resolve(RAG_DIR, "..", "..");
+const hayGit = spawnSync("git", ["--version"]).status === 0;
+
+// Fecha local, como la calcula ritual.mjs (toISOString es UTC: de noche en Colombia ya es mañana).
+function hoyLocal() {
+    const d = new Date();
+    const pad = n => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// Workspace temporal con el layout instalado: R.A.G/ (el ritual y sus libs), .claude/proyecto.md,
+// V.A.U.L.T/Hubs/_proyecto.md y un repo MiRepo/ con .git/ (basta el directorio).
+function workspace() {
+    const ws = fs.mkdtempSync(path.join(os.tmpdir(), "ritual-"));
+    fs.mkdirSync(path.join(ws, "R.A.G"));
+    for (const f of ["ritual.mjs", "rag-lib.mjs", "proyectos-lib.mjs", "indices-lib.mjs", "rituales-lib.mjs"]) {
+        fs.copyFileSync(path.join(RAG_DIR, f), path.join(ws, "R.A.G", f));
+    }
+    fs.mkdirSync(path.join(ws, ".claude"));
+    fs.copyFileSync(path.join(REPO, "templates", "rules", "proyecto.md"), path.join(ws, ".claude", "proyecto.md"));
+    fs.mkdirSync(path.join(ws, "V.A.U.L.T", "Hubs"), { recursive: true });
+    fs.copyFileSync(path.join(REPO, "templates", "vault", "Hubs", "_proyecto.md"), path.join(ws, "V.A.U.L.T", "Hubs", "_proyecto.md"));
+    fs.mkdirSync(path.join(ws, "MiRepo", ".git"), { recursive: true });
+    return { ws, limpiar: () => fs.rmSync(ws, { recursive: true, force: true }) };
+}
+
+// Ejecuta el ritual copiado. RAG_ROOT se quita del entorno: nunca debe apuntar al workspace real.
+function ritual(ws, args, env = {}, cwd = ws) {
+    return new Promise(resolve => {
+        const base = { ...process.env };
+        delete base.RAG_ROOT;
+        execFile(process.execPath, [path.join(ws, "R.A.G", "ritual.mjs"), ...args],
+            { cwd, env: { ...base, ...env }, encoding: "utf8", timeout: 60_000 },
+            (err, stdout, stderr) => resolve({ status: err ? (typeof err.code === "number" ? err.code : 1) : 0, out: `${stdout}${stderr}` }));
+    });
+}
+
+const leer = (...p) => fs.readFileSync(path.join(...p), "utf8");
+
+// Vault con las plantillas de los rituales, los hubs que enlazan y Pendientes.md de fábrica.
+function vaultCompleto(ws) {
+    const V = p => path.join(ws, "V.A.U.L.T", p);
+    for (const d of ["Plantillas", "Hubs", "Superpowers/Sesiones", "Superpowers/Specs", "Superpowers/Planes", "Bitacoras", "Codigo"]) {
+        fs.mkdirSync(V(d), { recursive: true });
+    }
+    for (const f of ["sesion.md", "bitacora.md", "cierre.md"]) {
+        fs.copyFileSync(path.join(REPO, "templates", "vault", "Plantillas", f), V(`Plantillas/${f}`));
+    }
+    for (const h of ["Superpowers-Sesiones", "Superpowers-Specs", "Superpowers-Planes", "Bitacoras", "Codigo"]) {
+        fs.writeFileSync(V(`Hubs/${h}.md`), `---\ntags: [hub]\n---\n\n# ${h}\n\n## Notas\n-\n\nRelacionado: [[Bienvenida]]\n`);
+    }
+    fs.copyFileSync(path.join(REPO, "templates", "vault", "Hubs", "Pendientes.md"), V("Hubs/Pendientes.md"));
+}
+
+// Repo git de verdad (sustituye el .git/ vacío de workspace()) con un primer commit.
+function repoGit(ws, nombre = "MiRepo") {
+    const repo = path.join(ws, nombre);
+    fs.rmSync(path.join(repo, ".git"), { recursive: true, force: true });
+    fs.mkdirSync(path.join(repo, "docs", "superpowers", "specs"), { recursive: true });
+    fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+    const git = args => spawnSync("git", args, { cwd: repo, encoding: "utf8" });
+    git(["init", "-q"]);
+    git(["config", "user.email", "prueba@example.com"]);
+    git(["config", "user.name", "Prueba"]);
+    fs.writeFileSync(path.join(repo, "src", "motor.cs"), "// v1\n");
+    git(["add", "-A"]);
+    git(["commit", "-qm", "primer commit"]);
+    return { repo, git };
+}
+
+// La ficha del proyecto declara que publica sus specs en el repo.
+function docsEnRepo(ws, nombre = "MiRepo") {
+    const ficha = path.join(ws, ".claude", "proyectos", `${nombre}.md`);
+    fs.writeFileSync(ficha, leer(ficha).replace("docs_en_repo: false", "docs_en_repo: true"));
+}
+
+test("init-proyecto: contexto en .claude/proyectos, índice, hub y .gitignore; nada dentro del repo", async () => {
+    const { ws, limpiar } = workspace();
+    try {
+        const r = await ritual(ws, ["init-proyecto", path.join(ws, "MiRepo"), "--descripcion", "API de catálogos", "--sin-indexar"]);
+        assert.equal(r.status, 0, r.out);
+        const ctx = leer(ws, ".claude", "proyectos", "MiRepo.md");
+        assert.ok(!ctx.includes("{{"), "sin marcadores");
+        assert.match(ctx, /^---\r?\nproyecto: MiRepo\r?\nruta: MiRepo\r?\ndescripcion: API de catálogos\r?\ninicializado: \d{4}-\d{2}-\d{2}\r?\ndocs_en_repo: false\r?\n---/);
+        assert.match(ctx, /## Estructura/);
+        assert.ok(ctx.includes(`(\`${path.join(ws, "MiRepo").replace(/\\/g, "/")}\`)`), "ruta absoluta con /");
+        assert.match(leer(ws, ".claude", "proyectos", "_indice.md"), /^- \*\*MiRepo\*\* — `MiRepo` — API de catálogos @MiRepo\.md$/m);
+        assert.ok(fs.existsSync(path.join(ws, "V.A.U.L.T", "Hubs", "MiRepo.md")));
+        assert.equal(leer(ws, "MiRepo", ".gitignore"),
+            "# CLAUDEMAX: el contexto de Claude vive en el workspace, no en el repo\n/CLAUDE.md\n/CLAUDE.local.md\n/.claude/\n");
+        assert.ok(!fs.existsSync(path.join(ws, "MiRepo", ".claude")), "nada de .claude/ dentro del repo");
+        assert.match(r.out, /--sin-indexar/);
+    } finally { limpiar(); }
+});
+
+test("init-proyecto: segundo proyecto con espacios, índice con dos, idempotente y respeta lo editado", async () => {
+    const { ws, limpiar } = workspace();
+    try {
+        await ritual(ws, ["init-proyecto", path.join(ws, "MiRepo"), "--sin-indexar"]);
+        const ctxPath = path.join(ws, ".claude", "proyectos", "MiRepo.md");
+        fs.appendFileSync(ctxPath, "\nEDITADO A MANO\n");
+        const giAntes = leer(ws, "MiRepo", ".gitignore");
+        fs.mkdirSync(path.join(ws, "Herramientas", "Otro Repo"), { recursive: true });
+        const r = await ritual(ws, ["init-proyecto", path.join(ws, "Herramientas", "Otro Repo"), "--descripcion", "x", "--sin-indexar"]);
+        assert.equal(r.status, 0, r.out);
+        const r2 = await ritual(ws, ["init-proyecto", path.join(ws, "MiRepo"), "--sin-indexar"]);
+        assert.match(r2.out, /ya existe — se respeta/);
+        assert.match(leer(ctxPath), /EDITADO A MANO/);
+        assert.equal(leer(ws, "MiRepo", ".gitignore"), giAntes, "gitignore idempotente");
+        const indice = leer(ws, ".claude", "proyectos", "_indice.md");
+        assert.match(indice, /^- \*\*MiRepo\*\* — `MiRepo` — \(sin descripción\) @MiRepo\.md$/m);
+        assert.match(indice, /^- \*\*Otro Repo\*\* — `Herramientas\/Otro Repo` — x @Otro-Repo\.md$/m);
+        assert.ok(!fs.existsSync(path.join(ws, "Herramientas", "Otro Repo", ".gitignore")), "sin .git no se crea .gitignore");
+        assert.ok(fs.existsSync(path.join(ws, "V.A.U.L.T", "Hubs", "Otro Repo.md")));
+    } finally { limpiar(); }
+});
+
+test("init-proyecto: --sin-gitignore, aviso del diseño anterior, slug en uso por otro proyecto y ruta ausente", async () => {
+    const { ws, limpiar } = workspace();
+    try {
+        const viejo = path.join(ws, "MiRepo", ".claude", "CLAUDEMAX.md");
+        fs.mkdirSync(path.dirname(viejo), { recursive: true });
+        fs.writeFileSync(viejo, "# Reglas de CLAUDEMAX — MiRepo\n\nEste proyecto hereda…\n");
+        const r = await ritual(ws, ["init-proyecto", path.join(ws, "MiRepo"), "--sin-gitignore", "--sin-indexar"]);
+        assert.equal(r.status, 0, r.out);
+        assert.ok(!fs.existsSync(path.join(ws, "MiRepo", ".gitignore")));
+        assert.match(r.out, /diseño anterior/);
+        assert.ok(fs.existsSync(viejo), "no borra nada");
+        fs.mkdirSync(path.join(ws, "Mi Repo"));
+        await ritual(ws, ["init-proyecto", path.join(ws, "Mi Repo"), "--sin-indexar"]);
+        fs.mkdirSync(path.join(ws, "otro"));
+        const r2 = await ritual(ws, ["init-proyecto", path.join(ws, "otro"), "--proyecto", "Mi-Repo", "--sin-indexar"]);
+        assert.match(r2.out, /es de "Mi Repo"/);
+        assert.match(leer(ws, ".claude", "proyectos", "Mi-Repo.md"), /^---\r?\nproyecto: Mi Repo\r?\n/);
+        assert.equal((await ritual(ws, ["init-proyecto"])).status, 1);
+    } finally { limpiar(); }
+});
+
+test("init-proyecto sin --sin-indexar y sin binarios: avisa cómo instalar ambos y sale 0", async () => {
+    const { ws, limpiar } = workspace();
+    const vacio = fs.mkdtempSync(path.join(os.tmpdir(), "sin-path-"));
+    try {
+        const r = await ritual(ws, ["init-proyecto", path.join(ws, "MiRepo")], { PATH: vacio, Path: vacio });
+        assert.equal(r.status, 0, r.out);
+        assert.match(r.out, /install\.sh --only codebase-memory/);
+        assert.match(r.out, /install\.sh --only graphify/);
+    } finally {
+        limpiar();
+        fs.rmSync(vacio, { recursive: true, force: true });
+    }
+});
+
+test("fin-sesion: nota desde la plantilla con commit, enlazada en su hub y con los specs del ciclo; la siguiente solo lista lo nuevo",
+    { skip: !hayGit && "sin git" }, async () => {
+        const { ws, limpiar } = workspace();
+        try {
+            vaultCompleto(ws);
+            const { repo, git } = repoGit(ws);
+            await ritual(ws, ["init-proyecto", repo, "--sin-indexar"]);
+            docsEnRepo(ws);
+            fs.writeFileSync(path.join(repo, "docs", "superpowers", "specs", "2026-09-20-x-design.md"), "# Spec\n");
+            git(["add", "-A"]);
+            git(["commit", "-qm", "spec del ciclo"]);
+            const head = git(["rev-parse", "HEAD"]).stdout.trim();
+            const r = await ritual(ws, ["fin-sesion"], {}, repo);
+            assert.equal(r.status, 0, r.out);
+            const dir = path.join(ws, "V.A.U.L.T", "Superpowers", "Sesiones");
+            const [nota] = fs.readdirSync(dir);
+            const texto = leer(dir, nota);
+            assert.match(texto, /^---\nproyecto: MiRepo\n/);
+            assert.ok(texto.includes(`commit: ${head}`), texto);
+            assert.match(texto, /# Sesión — \d{4}-\d{2}-\d{2} · MiRepo/);
+            assert.match(texto, /## Qué se hizo de verdad/);
+            assert.match(texto, /- Spec: `MiRepo\/docs\/superpowers\/specs\/2026-09-20-x-design\.md`/, "del repo, en backticks");
+            assert.ok(leer(ws, "V.A.U.L.T", "Hubs", "Superpowers-Sesiones.md").includes(`[[${nota.replace(".md", "")}]]`), "enlazada en su hub");
+            assert.match(r.out, /escribe/i);
+            // segunda sesión tras otro spec: solo el nuevo
+            fs.writeFileSync(path.join(repo, "docs", "superpowers", "specs", "2026-09-21-y-design.md"), "# Otro\n");
+            git(["add", "-A"]);
+            git(["commit", "-qm", "otro spec"]);
+            const r2 = await ritual(ws, ["fin-sesion", "--resumen", "hecho", "--siguiente", "lo otro"], {}, repo);
+            assert.equal(r2.status, 0, r2.out);
+            const segunda = fs.readdirSync(dir).filter(f => f !== nota).map(f => leer(dir, f))[0];
+            assert.match(segunda, /2026-09-21-y-design/);
+            assert.ok(!segunda.includes("2026-09-20-x-design"), "el spec del ciclo anterior ya no cuenta");
+            assert.match(segunda, /## Qué se hizo de verdad\nhecho\n/);
+            assert.match(segunda, /## Qué sigue\nlo otro\n/);
+        } finally { limpiar(); }
+    });
+
+test("fin-sesion sin repo git: crea el esqueleto, lo enlaza y avisa", async () => {
+    const { ws, limpiar } = workspace();
+    try {
+        vaultCompleto(ws);
+        const suelto = path.join(ws, "suelto");
+        fs.mkdirSync(suelto);
+        const r = await ritual(ws, ["fin-sesion", "--proyecto", "Suelto"], {}, suelto);
+        assert.equal(r.status, 0, r.out);
+        assert.match(r.out, /no hay repo git/);
+        const dir = path.join(ws, "V.A.U.L.T", "Superpowers", "Sesiones");
+        const texto = leer(dir, fs.readdirSync(dir)[0]);
+        assert.match(texto, /^---\nproyecto: Suelto\n/);
+        assert.match(texto, /^commit:\s*$/m);
+        assert.equal((await ritual(ws, ["fin-sesion", "--vault", path.join(ws, "no-existe")], {}, suelto)).status, 1,
+            "sin vault es el único error que aborta");
+    } finally { limpiar(); }
+});
+
+test("fin-dia: bitácora desde la plantilla, enlazada, con las sesiones de hoy y sin duplicarlas",
+    { skip: !hayGit && "sin git" }, async () => {
+        const { ws, limpiar } = workspace();
+        try {
+            vaultCompleto(ws);
+            const { repo } = repoGit(ws);
+            await ritual(ws, ["fin-sesion"], {}, repo);
+            const r = await ritual(ws, ["fin-dia", "--resumen", "día corto"], {}, repo);
+            assert.equal(r.status, 0, r.out);
+            const hoy = hoyLocal();
+            const bit = leer(ws, "V.A.U.L.T", "Bitacoras", `${hoy}.md`);
+            assert.match(bit, /^---\ntags: \[bitacora\]\nfecha: \d{4}-\d{2}-\d{2}\n---/);
+            assert.match(bit, /## Sesiones de hoy\n- \[\[.+\]\] — Sesión/);
+            assert.match(bit, /## Objetivos del día/, "es la plantilla, no un esqueleto");
+            assert.match(bit, /## \d{2}:\d{2}\n\ndía corto\n/);
+            assert.ok(leer(ws, "V.A.U.L.T", "Hubs", "Bitacoras.md").includes(`[[${hoy}]]`), "enlazada en su hub");
+            assert.match(r.out, /Objetivos.*Próximo paso/s);
+            await ritual(ws, ["fin-sesion"], {}, repo);
+            const otra = await ritual(ws, ["fin-dia"], {}, repo);
+            assert.equal(otra.status, 0, otra.out);
+            const bit2 = leer(ws, "V.A.U.L.T", "Bitacoras", `${hoy}.md`);
+            assert.equal(bit2.match(/^- \[\[\d{4}-\d{2}-\d{2}-\d{4}/gm).length, 2, "dos sesiones, sin duplicar");
+            assert.equal(bit2.match(/día corto/g).length, 1, "la entrada anterior se conserva una vez");
+        } finally { limpiar(); }
+    });
+
+test("fin-dia: bitácora de una plantilla anterior sin la sección la añade antes de Próximo paso", async () => {
+    const { ws, limpiar } = workspace();
+    try {
+        vaultCompleto(ws);
+        const hoy = hoyLocal();
+        fs.writeFileSync(path.join(ws, "V.A.U.L.T", "Bitacoras", `${hoy}.md`),
+            `---\ntags: [bitacora]\nfecha: ${hoy}\n---\n\n# Bitácora\n\n## Bloqueos\n-\n\n## Próximo paso (primera tarea de mañana)\n-\n`);
+        fs.writeFileSync(path.join(ws, "V.A.U.L.T", "Superpowers", "Sesiones", `${hoy}-0900-X.md`), "---\nproyecto: X\n---\n\n# Sesión X\n");
+        const r = await ritual(ws, ["fin-dia"]);
+        assert.equal(r.status, 0, r.out);
+        const esperado = `## Bloqueos\n-\n\n## Sesiones de hoy\n- [[${hoy}-0900-X]] — Sesión X\n\n## Próximo paso`;
+        assert.ok(leer(ws, "V.A.U.L.T", "Bitacoras", `${hoy}.md`).includes(esperado), leer(ws, "V.A.U.L.T", "Bitacoras", `${hoy}.md`));
+    } finally { limpiar(); }
+});
+
+test("fin-ciclo (preparar): crea la nota de cierre sin commit, la enlaza y lista notas afectadas, huérfanas y avisos de Pendientes",
+    { skip: !hayGit && "sin git" }, async () => {
+        const { ws, limpiar } = workspace();
+        try {
+            vaultCompleto(ws);
+            const { repo, git } = repoGit(ws);
+            git(["checkout", "-qb", "feat/motor-nuevo"]);
+            await ritual(ws, ["init-proyecto", repo, "--sin-indexar"]);
+            // una nota de Codigo/ que describe el archivo que va a cambiar (y es huérfana nueva)
+            fs.writeFileSync(path.join(ws, "V.A.U.L.T", "Codigo", "Motor.md"),
+                "---\nproyecto: MiRepo\nfuentes:\n  - MiRepo/src/**\n---\n\n# Motor\n\nprosa vieja\n");
+            fs.writeFileSync(path.join(repo, "src", "motor.cs"), "// v2\n");
+            git(["add", "-A"]);
+            git(["commit", "-qm", "cambia el motor"]);
+            // un pendiente sin fecha: aviso que la preparación debe listar
+            const pend = path.join(ws, "V.A.U.L.T", "Hubs", "Pendientes.md");
+            fs.writeFileSync(pend, leer(pend).replace("## Abierto", "## Abierto\n- revisar algo sin fecha"));
+            const r = await ritual(ws, ["fin-ciclo"], {}, repo);
+            assert.equal(r.status, 0, r.out);
+            const dir = path.join(ws, "V.A.U.L.T", "Superpowers", "Sesiones");
+            const nota = fs.readdirSync(dir).find(f => f.includes("-cierre-"));
+            assert.match(nota, /^\d{4}-\d{2}-\d{2}-cierre-feat-motor-nuevo\.md$/, "el ciclo sale de la rama");
+            const texto = leer(dir, nota);
+            assert.match(texto, /tags: \[sesion, cierre-ciclo\]/);
+            assert.match(texto, /^ciclo: feat\/motor-nuevo$/m);
+            assert.match(texto, /^desde: [0-9a-f]{40}$/m);
+            assert.match(texto, /^commit:\s*$/m, "el commit se graba al cerrar, no ahora");
+            assert.ok(leer(ws, "V.A.U.L.T", "Hubs", "Superpowers-Sesiones.md").includes(`[[${nota.replace(".md", "")}]]`));
+            assert.match(r.out, /Codigo\/Motor\.md/);
+            assert.match(r.out, /MiRepo\/src\/motor\.cs/);
+            assert.match(r.out, /Codigo\/Motor\.md → Hubs\/Codigo\.md/, "huérfana nueva y su hub");
+            assert.match(r.out, /sin-fecha — - revisar algo sin fecha/);
+            assert.match(r.out, /fin-ciclo --cerrar --si/);
+            // una segunda preparación respeta la nota abierta
+            const r2 = await ritual(ws, ["fin-ciclo"], {}, repo);
+            assert.match(r2.out, /nota de cierre abierta/);
+            assert.equal(fs.readdirSync(dir).filter(f => f.includes("-cierre-")).length, 1);
+        } finally { limpiar(); }
+    });
+
+test("fin-ciclo --cerrar: sin --si no toca nada; con --si enlaza, rota Pendientes, copia el spec y graba el commit",
+    { skip: !hayGit && "sin git" }, async () => {
+        const { ws, limpiar } = workspace();
+        try {
+            vaultCompleto(ws);
+            const { repo, git } = repoGit(ws);
+            await ritual(ws, ["init-proyecto", repo, "--sin-indexar"]);
+            docsEnRepo(ws);
+            fs.writeFileSync(path.join(repo, "docs", "superpowers", "specs", "2026-09-20-x-design.md"), "---\nfecha: 2026-09-20\n---\n\n# Spec\n");
+            git(["add", "-A"]);
+            git(["commit", "-qm", "spec"]);
+            // una huérfana nueva y un Pendientes con algo cerrado en ciclos anteriores y algo de este ciclo
+            fs.writeFileSync(path.join(ws, "V.A.U.L.T", "Codigo", "Motor.md"), "---\nproyecto: MiRepo\nfuentes:\n  - MiRepo/src/**\n---\n\n# Motor\n");
+            const pend = path.join(ws, "V.A.U.L.T", "Hubs", "Pendientes.md");
+            fs.writeFileSync(pend, leer(pend).replace("## Cerrado recientemente",
+                `## Cerrado recientemente\n- (2020-01-01 → 2020-02-01) algo antiquísimo — [[x]]\n- (2020-01-01 → ${hoyLocal()}) lo de este ciclo — [[y]]`));
+            const prep = await ritual(ws, ["fin-ciclo"], {}, repo);
+            assert.equal(prep.status, 0, prep.out);
+            const antes = leer(pend);
+            const seco = await ritual(ws, ["fin-ciclo", "--cerrar", "--sin-indexar"], {}, repo);
+            assert.equal(seco.status, 0, seco.out);
+            assert.equal(leer(pend), antes, "sin --si no cambia nada");
+            assert.match(seco.out, /--si/);
+            assert.match(seco.out, /Codigo\/Motor\.md/);
+            const r = await ritual(ws, ["fin-ciclo", "--cerrar", "--si", "--sin-indexar"], {}, repo);
+            assert.equal(r.status, 0, r.out);
+            const despues = leer(pend);
+            assert.ok(!despues.includes("algo antiquísimo"), "rota lo cerrado en ciclos anteriores");
+            assert.ok(despues.includes("lo de este ciclo"), "lo del ciclo se queda en el índice");
+            assert.match(leer(ws, "V.A.U.L.T", "Hubs", "Codigo.md"), /\[\[Motor\]\] — Motor/);
+            const copia = leer(ws, "V.A.U.L.T", "Superpowers", "Specs", "2026-09-20-x-design.md");
+            assert.match(copia, /^espejo_de: MiRepo\/docs\/superpowers\/specs\/2026-09-20-x-design\.md$/m);
+            assert.match(leer(ws, "V.A.U.L.T", "Hubs", "Superpowers-Specs.md"), /\[\[2026-09-20-x-design\]\]/);
+            const dir = path.join(ws, "V.A.U.L.T", "Superpowers", "Sesiones");
+            const nota = leer(dir, fs.readdirSync(dir).find(f => f.includes("-cierre-")));
+            assert.ok(nota.includes(`commit: ${git(["rev-parse", "HEAD"]).stdout.trim()}`), nota);
+            assert.match(nota, /- Spec: \[\[2026-09-20-x-design\]\]/);
+            assert.match(nota, /## Cerrado en este ciclo\n- \(2020-01-01 → \d{4}-\d{2}-\d{2}\) lo de este ciclo/);
+            assert.match(nota, /## Archivado de Pendientes\n- \(2020-01-01 → 2020-02-01\) algo antiquísimo/);
+            assert.match(r.out, /rag\.mjs/, "avisa de que no encontró rag.mjs para salud y status");
+            const otra = await ritual(ws, ["fin-ciclo", "--cerrar", "--si", "--sin-indexar"], {}, repo);
+            assert.equal(otra.status, 1, "sin nota de cierre abierta, sale 1");
+            assert.match(otra.out, /corre primero/);
+            // el siguiente ciclo arranca en el commit grabado: el spec ya no es del ciclo
+            const prep2 = await ritual(ws, ["fin-ciclo", "--ciclo", "siguiente"], {}, repo);
+            assert.equal(prep2.status, 0, prep2.out);
+            assert.ok(!/4\. Specs y planes/.test(prep2.out), "nada que copiar en un ciclo sin specs nuevos");
+        } finally { limpiar(); }
+    });

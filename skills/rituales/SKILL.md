@@ -11,34 +11,44 @@ a `rag.mjs`, en `R.A.G/ritual.mjs` una vez instalado — mismo `.env`, misma con
 del vault). El repo es la fuente de verdad: ningún ritual manual se dispara solo — el usuario
 lo pide explícitamente o le pide al modelo que lo invoque.
 
-## Semántica de las categorías del vault (para escribir notas)
+## Dónde escribe cada ritual (la carpeta da la colección)
 
-Cada ritual que escribe una nota lo hace en la carpeta y con la `categoria` que le
-corresponde según esta tabla — es lo que hay que tener presente al clasificar cualquier nota
-nueva, no solo las que escriben los rituales (ver `V.A.U.L.T/README.md` y el `README.md` de
-cada carpeta para el detalle completo con ejemplos):
+La colección y la autoridad de una nota las da su carpeta, no el frontmatter (ver
+`Hubs/Bienvenida.md` del vault y la regla 9 de `CLAUDEMAX.md`). Los rituales escriben aquí:
 
-| Carpeta | `categoria` | Significado |
-|---|---|---|
-| `00-Inbox/` | `personal` (tag `personal/sesion`) | Lo último que se habló en cada sesión de Claude Code: continuidad entre sesiones (qué se hizo, en qué punto se quedó, qué sigue). Lo escribe `fin-sesion`. |
-| `Journal/` | `personal` (tag `personal/bitacora`) | Bitácoras: registro cronológico del trabajo diario. Lo escribe `fin-dia`. |
-| `Aprendizaje/` | `aprendizaje` | Errores cometidos y su lección (postmortems: qué falló, por qué, cómo evitarlo). NO son apuntes de tecnologías ni tutoriales. |
-| `Investigacion/` | `investigacion` | Lo que se pregunta e investiga para decidir algo: estilos de diseño, comparativas de herramientas, papers, PDFs parseados, transcripciones. |
-| `Organizacion/` | `organizacion` | Parte legal y conceptual de la organización: miembros y roles, estatutos, contratos, marca, procesos internos, clientes. |
-| `Codigo/` | `codigo` | Repos, arquitectura, snippets, grafos de Graphify. |
-| `Proyectos/` | `proyectos` | Planes, decisiones, sprints, specs. |
+| Ritual | Carpeta | `coleccion` | Además |
+|---|---|---|---|
+| `init-proyecto` | `<RAG_ROOT>/.claude/proyectos/<slug>.md` + `Hubs/<Proyecto>.md` | `hubs` (el hub) | regenera `proyectos/_indice.md`; `.gitignore` del repo; indexa codebase-memory y graphify; enlaza el hub en `Bienvenida` (Negocio) |
+| `fin-sesion` | `Superpowers/Sesiones/YYYY-MM-DD-HHMM-<proyecto>.md` | `sesiones` | la enlaza en `Hubs/Superpowers-Sesiones.md`; graba `commit` |
+| `fin-dia` | `Bitacoras/YYYY-MM-DD.md` | `bitacoras` | la enlaza en `Hubs/Bitacoras.md`; lista las sesiones del día |
+| `fin-ciclo` | `Superpowers/Sesiones/YYYY-MM-DD-cierre-<ciclo>.md` | `sesiones` | rota `Hubs/Pendientes.md`; enlaza huérfanas; copia specs (`docs_en_repo`); los tres índices |
+
+**Reparto del trabajo:** el script hace toda la mecánica —la nota sale de `Plantillas/`, con su
+frontmatter, enlazada en su hub, con el rango git del ciclo y la lista de qué revisar—; el modelo
+escribe solo la prosa, que es lo único que no se puede automatizar. Ningún ritual reindexa salvo
+`fin-ciclo --cerrar --si`: el hook de arranque de sesión hace el ingest incremental y muestra
+`rag.mjs salud --resumen` (caducas, huérfanas, enlaces rotos, avisos de `Pendientes.md`).
+
+**Rango del ciclo:** desde el `commit:` de la última nota de sesión o de cierre del proyecto (el
+que exista con fecha más reciente) hasta HEAD, más lo que aún no está commiteado. Sin notas
+previas: la base de la rama con `main`/`master`, o el primer commit si se trabaja sobre `main`.
+`--desde <ref>` lo sobrescribe.
 
 ## 1. Inicio de sesión (automático, vía hook)
 
-- **Cuándo:** en cada arranque de una sesión de Claude Code (evento `SessionStart`), sin que
-  nadie lo pida.
+- **Cuándo:** en cada arranque de una sesión de Claude Code (evento `SessionStart`, solo en
+  `startup` — no al reanudar), sin que nadie lo pida.
 - **Qué lo dispara:** el hook `hooks/session-start.mjs`, registrado por el componente `rules`
-  del instalador.
-- **Qué hace:** detecta el proyecto actual, resume el grafo de Graphify
-  (`.ua/knowledge-graph.json`) si existe, y consulta el RAG
+  del instalador con timeout de 90 s.
+- **Qué hace:** si el repo actual no tiene `.claude/proyectos/<nombre>.md` en el workspace,
+  avisa con el comando `init-proyecto` exacto (§2); reindexa el RAG de forma incremental (`rag.mjs ingest --silencioso`, tope
+  60 s) y resume la salud del vault (`rag.mjs salud --resumen`: caducas, a revisar, huérfanas,
+  enlaces rotos y avisos de formato de `Hubs/Pendientes.md`); luego detecta el proyecto actual, resume el grafo de Graphify
+  (`graphify-out/graph.json`) si existe, y consulta el RAG
   (`rag.mjs query "<proyecto>" --proyecto <proyecto> --topk 3`) si la base responde. Emite
   todo como un único bloque de contexto con cabecera explícita.
-- **Qué NO hace:** no bloquea ni retrasa el arranque de la sesión más de ~5s, no falla si
+- **Qué NO hace:** no bloquea el arranque — el reindex tiene tope de 60 s y el resto ~5 s; un
+  corte deja el índice consistente (el ingest es atómico por archivo) y lo avisa. No falla si
   Docker está apagado (se omite en silencio — es un caso normal), y nunca vuelca el grafo
   completo: solo conteos, tipos/capas principales y el top de nodos más conectados.
 - **Escape:** `CLAUDEMAX_SESSION_CONTEXT=0`.
@@ -46,21 +56,38 @@ cada carpeta para el detalle completo con ejemplos):
 
 ## 2. Init de proyecto (manual)
 
-- **Cuándo:** al arrancar un repo/proyecto nuevo dentro del workspace CLAUDEMAX, o cuando el
-  usuario dice "nuevo proyecto" / "init project".
+- **Cuándo:** al empezar a trabajar en un repo del workspace que todavía no tiene
+  `.claude/proyectos/<nombre>.md` (el hook de arranque lo avisa: "Sin contexto de proyecto…"), o
+  cuando el usuario dice "nuevo proyecto" / "init project".
 - **Comando:**
   ```bash
-  node R.A.G/ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto] [--vault ruta]
+  node R.A.G/ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto] [--sin-indexar] [--sin-gitignore] [--vault ruta]
   ```
-- **Qué hace:** crea `<ruta>/.claude/`; copia `templates/rules/proyecto.md` a
-  `<ruta>/.claude/CLAUDEMAX.md` sustituyendo los marcadores (`{{PROYECTO}}`, `{{FECHA}}`,
-  `{{VAULT}}`, `{{RAG}}`, `{{DESCRIPCION}}`); crea (o completa) `<ruta>/.claude/CLAUDE.md` con
-  la línea `@CLAUDEMAX.md`; crea `V.A.U.L.T/Proyectos/<nombre>/00-indice.md` con el
-  frontmatter de taxonomía (`categoria: proyectos`, `proyecto: <nombre>`, `fecha`, `tags`).
-- **Qué NO hace:** nunca sobrescribe un archivo existente — si `.claude/CLAUDEMAX.md`,
-  `.claude/CLAUDE.md` o `00-indice.md` ya están, los respeta e informa por consola. Si no
-  encuentra la plantilla `proyecto.md`, avisa claramente y continúa igual con el resto de
-  pasos (no falla).
+- **Qué hace, en orden:**
+  1. crea `<RAG_ROOT>/.claude/proyectos/<slug>.md` desde la plantilla `proyecto.md`: frontmatter
+     `proyecto/ruta/descripcion/inicializado` y cinco secciones vacías con su guía en comentarios.
+     `<slug>` es el nombre sin espacios ni tildes (`Otro Repo` → `Otro-Repo.md`);
+  2. regenera `proyectos/_indice.md`, que `CLAUDEMAX.md` importa: el contexto de todos los
+     proyectos se carga en cualquier sesión del workspace sin nada dentro de los repos;
+  3. crea el hub `V.A.U.L.T/Hubs/<nombre>.md` desde `Hubs/_proyecto.md`;
+  4. si `<ruta>` es un repo git, añade `/CLAUDE.md`, `/CLAUDE.local.md` y `/.claude/` a su
+     `.gitignore` (salvo `--sin-gitignore`);
+  5. si encuentra `<ruta>/.claude/CLAUDEMAX.md` del diseño anterior, avisa de que hay que migrarlo
+     a mano — no borra nada;
+  6. indexa el repo con codebase-memory (`index_repository`, modo `moderate`) y extrae su grafo
+     con `graphify extract <ruta> --code-only` (salvo `--sin-indexar`; si falta un binario, dice
+     cómo instalarlo y sigue).
+- **Qué NO hace:** nunca sobrescribe `proyectos/<slug>.md` ni el hub si ya existen; nunca escribe
+  dentro del repo salvo el `.gitignore`; no escribe la prosa — eso es el paso siguiente.
+- **Después — guion para el modelo**, en una sesión abierta en el repo. Rellena
+  `proyectos/<slug>.md` verificando contra el grafo, nunca de memoria:
+  1. **Estructura:** `get_architecture` de codebase-memory y `query_graph` / `get_neighbors` de
+     graphify → carpetas de primer nivel, capas y quién depende de quién.
+  2. **Comandos:** léelos de los archivos reales (`*.sln`/`*.csproj`, `package.json`,
+     `pyproject.toml`, `Makefile`) y pruébalos si es barato.
+  3. **Estado**, **Trampas que ya costaron tiempo** y **Convenciones** se quedan vacías hasta que
+     haya algo real que escribir, con su fecha. No inventes.
+  4. Tope ~150 líneas: lo largo va al vault (`Codigo/` con `fuentes:`) y se enlaza.
 
 ## 3. Fin de sesión (manual, ritual menor)
 
@@ -68,24 +95,24 @@ cada carpeta para el detalle completo con ejemplos):
   retome el hilo sin perder contexto. Dispara con "fin de sesión", "cerramos la sesión",
   "end of session", "retomar el hilo", "dónde quedamos". **No confundir con `fin-dia`**: este
   ritual es por sesión (puede haber varias al día), `fin-dia` es la bitácora del día completo.
-  Úsalo cuando la conversación actual está por terminar, no cuando termina la jornada.
-- **Comando:**
+- **Comando** (desde el repo en el que se trabajó):
   ```bash
-  node R.A.G/ritual.mjs fin-sesion [--resumen "texto"] [--proyecto nombre] [--siguiente "texto"] [--vault ruta]
+  node R.A.G/ritual.mjs fin-sesion [--proyecto nombre] [--resumen "texto"] [--siguiente "texto"] [--desde ref] [--vault ruta]
   ```
-- **Qué hace:** escribe una nota nueva en
-  `V.A.U.L.T/00-Inbox/YYYY-MM-DD-HHMM-<proyecto>.md` (frontmatter `categoria: personal`,
-  tag `personal/sesion`, `proyecto` detectado o el pasado por `--proyecto`). El cuerpo lleva
-  un título con el proyecto y la hora, una sección "Qué se hizo" con `--resumen`, y una
-  sección "Siguiente paso" con `--siguiente` si se pasa. El proyecto se detecta igual que
-  `hooks/session-start.mjs`: nombre de la carpeta raíz del repo git
-  (`git rev-parse --show-toplevel`), con fallback al cwd si no hay repo. Si dos ejecuciones
-  caen en el mismo minuto, no se pisan: la segunda nota gana el sufijo `-2.md`, `-3.md`...
-- **Sin `--resumen`:** no falla — escribe la nota con una plantilla vacía (sección "Qué se
-  hizo" con un marcador para completar a mano) y lo dice explícitamente por consola.
-- **Qué NO hace — a propósito:** no reindexa el RAG ni reconstruye Graphify (misma razón que
-  `fin-dia`: es barato y se puede llamar en cada cierre de sesión). Termina recordando que el
-  contenido se indexará en el próximo `rag.mjs ingest`.
+- **Qué hace el script:**
+  1. crea `V.A.U.L.T/Superpowers/Sesiones/YYYY-MM-DD-HHMM-<proyecto>.md` desde
+     `Plantillas/sesion.md` (si dos caen en el mismo minuto, la segunda gana `-2.md`), con
+     `proyecto`, `fecha` y `commit` = HEAD del repo (vacío sin repo);
+  2. rellena **Documentos del ciclo** con los specs y planes del rango: los del vault como
+     wikilink; los del repo (solo con `docs_en_repo: true`) como ruta entre backticks;
+  3. la enlaza en `Hubs/Superpowers-Sesiones.md`;
+  4. `--resumen` / `--siguiente`, si vienen, van a "Qué se hizo de verdad" / "Qué sigue".
+- **Después — lo que escribe el modelo** en esa nota: **Qué se hizo de verdad** (el recorrido real,
+  con los desvíos y los errores: lo que la spec y el plan no cuentan) y **Qué sigue** (lo primero
+  que hará la próxima sesión). `--resumen` queda como atajo: una línea por terminal no sustituye
+  a la prosa.
+- **Qué NO hace:** no reindexa el RAG ni los grafos (es barato a propósito; lo hace el arranque de
+  la próxima sesión). Sin repo git crea la nota igual, sin rango ni documentos, y lo avisa.
 
 ## 4. Fin de día (manual, ritual menor)
 
@@ -96,35 +123,64 @@ cada carpeta para el detalle completo con ejemplos):
   ```bash
   node R.A.G/ritual.mjs fin-dia [--resumen "texto"] [--vault ruta]
   ```
-- **Qué hace:** escribe o añade en `V.A.U.L.T/Journal/YYYY-MM-DD.md` (frontmatter
-  `categoria: personal`, tag `personal/bitacora`, `proyecto: journal`). Si el archivo del día
-  ya existe, **añade** una nueva entrada encabezada con la hora (`## HH:MM`) en vez de
-  sobrescribir — puede llamarse varias veces el mismo día y cada llamada suma una entrada.
-- **Qué NO hace — a propósito:** no reindexa el RAG ni reconstruye Graphify. Es la diferencia
-  deliberada con `fin-ciclo`: un ritual que se ejecuta a diario no debe pagar el coste de un
-  reindexado completo. Termina recordando que el contenido se indexará en el próximo
-  `rag.mjs ingest`.
+- **Qué hace el script:** si falta, crea `V.A.U.L.T/Bitacoras/YYYY-MM-DD.md` desde
+  `Plantillas/bitacora.md` y la enlaza en `Hubs/Bitacoras.md`; reconstruye su sección **Sesiones
+  de hoy** con un wikilink por cada nota de `Superpowers/Sesiones/` del día (sin duplicar: se
+  puede llamar varias veces); `--resumen` añade una entrada `## HH:MM` al final.
+- **Después — lo que escribe el modelo:** Objetivos, Decisiones (con su porqué), Hallazgos,
+  Bloqueos y Próximo paso.
+- **Qué NO hace:** no mira git ni índices, y no reindexa: es la diferencia deliberada con
+  `fin-ciclo`.
 
-## 5. Fin de ciclo (manual, ritual mayor — exige confirmación)
+## 5. Fin de ciclo (manual, ritual mayor — en dos fases)
 
-- **Cuándo:** el usuario dice "cierre de ciclo", "fin de sprint" o equivalente, al cerrar un
-  sprint o ciclo de trabajo completo.
-- **Comando:**
-  ```bash
-  node R.A.G/ritual.mjs fin-ciclo [--ciclo nombre] [--proyecto nombre] [--si] [--vault ruta]
-  ```
-- **Qué hace sin `--si`:** solo imprime el plan detallado de lo que haría (nota de cierre a
-  escribir, reindexado a ejecutar, recordatorios pendientes) y sale con éxito **sin tocar
-  nada ni conectarse a la base de datos**.
-- **Qué hace con `--si`:** escribe la nota de cierre en
-  `V.A.U.L.T/Proyectos/<proyecto>/ciclos/<ciclo>.md`; ejecuta `rag.mjs reindex` (respeta
-  `EMBED_BACKEND` del `.env` compartido; si hay credenciales de Kaggle configuradas y el
-  vault tiene muchas notas, sugiere `--backend kaggle` para acelerar — no lo fuerza); recuerda
-  ejecutar `graphify extract .` en los repos activos para regenerar sus grafos de Graphify; e
-  imprime un resumen final de documentos indexados por categoría.
-- **Qué NO hace:** nunca reindexa sin confirmación explícita — es el único de los cinco
-  rituales que exige `--si`, porque reindexa toda la base. Si la base de datos no responde al
-  pedir el resumen final, avisa y omite solo esa parte; el resto del ritual ya se ejecutó.
+- **Cuándo:** el usuario dice "cierre de ciclo", "fin de sprint" o equivalente, al terminar un
+  ciclo de trabajo (una rama, un sub-proyecto). Un `fin-ciclo` por repo.
+- **Por qué dos fases:** la prosa tiene que existir antes de indexar; si no, el RAG indexa una nota
+  de cierre vacía y notas de `Codigo/` desactualizadas.
+
+**Fase 1 — preparar** (no toca nada fuera del vault y no pide confirmación):
+
+```bash
+node R.A.G/ritual.mjs fin-ciclo [--ciclo nombre] [--proyecto nombre] [--desde ref] [--vault ruta]
+```
+
+Crea `Superpowers/Sesiones/YYYY-MM-DD-cierre-<ciclo>.md` desde `Plantillas/cierre.md` (`<ciclo>` =
+`--ciclo` o la rama actual) con `desde` = commit de inicio del ciclo y `commit` vacío —una nota de
+cierre con `commit` vacío es un ciclo **abierto**; si ya hay una, se respeta—, la enlaza en su hub
+e imprime la lista de tareas:
+
+1. notas con `fuentes:` que casan con archivos del ciclo, con hasta 5 archivos cada una;
+2. huérfanas nuevas y el hub al que irán;
+3. avisos de formato de `Hubs/Pendientes.md`, línea por línea;
+4. con `docs_en_repo: true`, los specs y planes del repo que se copiarán al vault.
+
+**Entre fases — guion de prosa para el modelo**, en este orden:
+
+1. Por cada nota de la lista 1: **reléela contra el grafo** (codebase-memory `get_code_snippet` /
+   `trace_path`, graphify `query_graph`) y reescribe lo que ya no es cierto. Nunca copies prosa
+   vieja. Anótala en la sección **Notas de Codigo/ revisadas** de la nota de cierre.
+2. Pon al día `Hubs/Pendientes.md` en su formato de una línea: lo terminado baja a «Cerrado
+   recientemente» como `- (origen → cierre) qué se cerró — [[nota]]`; lo nuevo entra en «Abierto»
+   como `- (YYYY-MM-DD) qué falta — qué desbloquea — [[nota]]`, ordenado por qué desbloquea antes.
+   Corrige los avisos de la lista 3 (un párrafo bloquea la rotación).
+3. Escribe **Qué se hizo de verdad** (el recorrido con sus desvíos y errores) y **Qué sigue**.
+
+**Fase 2 — cerrar:**
+
+```bash
+node R.A.G/ritual.mjs fin-ciclo --cerrar        # imprime lo que haría; no toca nada
+node R.A.G/ritual.mjs fin-ciclo --cerrar --si [--sin-indexar]
+```
+
+Con `--si`, en orden: enlaza las huérfanas nuevas en su hub; rota `Pendientes.md` (lo cerrado en
+este ciclo se copia a **Cerrado en este ciclo** de la nota; lo de ciclos anteriores sale del
+índice, y lo que no esté ya en ninguna nota de cierre va a **Archivado de Pendientes**: nada se
+pierde); copia specs y planes al vault (`docs_en_repo`) con `espejo_de:` y `fuentes:` al original;
+regenera **los tres índices juntos** —codebase-memory, graphify y `rag.mjs ingest` incremental—;
+corre `rag.mjs salud` y `rag.mjs status`; y graba `commit` = HEAD en la nota, que cierra el ciclo.
+Un índice que falla es un aviso con el comando para reintentar, nunca aborta. Sin nota de cierre
+abierta, sale con 1 y pide correr primero la fase 1.
 
 ---
 
