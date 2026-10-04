@@ -62,7 +62,9 @@ bitacoras** — gana la autoridad, no la fecha.
 rotos. El arranque de cada sesión muestra el resumen.
 
 ## El ritual de cierre
-Al terminar una sesión larga o un ciclo: nota en [[Superpowers-Sesiones]]; actualizar solo las
-notas de [[Codigo]] que el ciclo dejó caducas (releyendo el código, no la prosa vieja); una línea
-en el hub de cada carpeta donde nació algo; actualizar [[Pendientes]]; y regenerar los índices
+Al terminar una sesión o un ciclo, `ritual.mjs` hace la mecánica y Claude escribe la prosa.
+`fin-ciclo` crea la nota en [[Superpowers-Sesiones]] y lista las notas de [[Codigo]] cuyas
+`fuentes:` cambiaron, las huérfanas nuevas y los avisos de [[Pendientes]]. Tras releer esas notas
+contra el código (no la prosa vieja), poner al día Pendientes y escribir el cierre,
+`fin-ciclo --cerrar --si` enlaza cada nota en su hub, rota Pendientes y regenera los tres índices
 juntos. La skill `rituales` tiene los comandos.
