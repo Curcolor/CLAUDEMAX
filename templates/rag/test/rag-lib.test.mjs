@@ -11,6 +11,7 @@ import {
     chunkMarkdown, walkVault, indiceDeNotas, resolverNombreNota,
     resolverFuentes, firmaDe,
     analizarHubs, leerDocumento, formatearResultado, AVISOS_AUTORIDAD, toVec,
+    analizarPendientes,
 } from "../rag-lib.mjs";
 
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
@@ -259,4 +260,41 @@ test("mcp-server: arranca y responde a tools/list con las tres tools", async () 
     const nombres = salida.split("\n").filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } })
         .filter(m => m && m.id === 2).flatMap(m => m.result.tools.map(t => t.name));
     assert.deepEqual(nombres.sort(), ["rag_leer", "rag_query", "rag_status"]);
+});
+
+test("analizarPendientes: clasifica abiertos y cerrados y avisa de párrafo, fecha, largo, enlace y antigüedad", () => {
+    const texto = [
+        "---", "tags: [hub]", "---", "",
+        "# Pendientes", "",
+        "Texto de cabecera que no se analiza.", "",
+        "## Abierto", "### CLAUDEMAX",
+        "<!-- comentario -->",
+        "- (2026-09-01) terminar el sub-proyecto 5 — desbloquea el 6 — [[2026-09-13-rituales-design]]",
+        "- (2026-06-01) migrar Pendientes del setup viejo — [[Bienvenida]]",
+        "- sin fecha de origen — [[Bienvenida]]",
+        `- (2026-09-10) ${"x".repeat(320)}`,
+        "  continuación con sangría",
+        "",
+        "## Cerrado recientemente",
+        "- (2026-09-01 → 2026-09-13) contexto fuera del repo — [[2026-09-13-cierre-reglas]]",
+        "- (2026-09-02 -> 2026-09-14) grafo en vivo — [[2026-09-14-cierre-grafo]]",
+        "- (2026-09-05) sin fecha de cierre — [[x]]",
+        "- (2026-09-06 → 2026-09-15) cerrado sin enlace al detalle",
+        "", "Relacionado: [[Bienvenida]]", "",
+    ].join("\n");
+    const r = analizarPendientes(texto, "2026-09-20");
+    assert.equal(r.abiertos.length, 3);
+    assert.equal(r.cerrados.length, 3);
+    assert.deepEqual(r.cerrados[0], { linea: 19, origen: "2026-09-01", cierre: "2026-09-13", proyecto: "", texto: r.cerrados[0].texto });
+    const tipos = t => r.avisos.filter(a => a.tipo === t).map(a => a.linea);
+    assert.deepEqual(tipos("parrafo"), [16]);          // la continuación con sangría; "Relacionado:" cierra la sección
+    assert.deepEqual(tipos("sin-fecha"), [14, 21]);
+    assert.deepEqual(tipos("larga"), [15]);
+    assert.deepEqual(tipos("sin-enlace"), [22]);
+    assert.deepEqual(tipos("antiguo"), [13]);          // origen de más de 60 días
+    assert.equal(r.abiertos[0].proyecto, "CLAUDEMAX");
+    // CRLF y ausencia de secciones
+    assert.equal(analizarPendientes(texto.replace(/\n/g, "\r\n"), "2026-09-20").avisos.length, r.avisos.length);
+    assert.deepEqual(analizarPendientes("# Pendientes\n\nsin secciones\n", "2026-09-20"),
+        { abiertos: [], cerrados: [], avisos: [] });
 });

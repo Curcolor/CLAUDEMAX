@@ -365,3 +365,47 @@ export function formatearResultado(fila) {
 }
 
 export function toVec(v) { return `[${v.join(",")}]`; }
+
+// --- Pendientes (spec rituales §3.2) -------------------------------------------------------
+// Hubs/Pendientes.md es el índice único de lo abierto. Su formato se comprueba porque en el setup
+// de trabajo del autor creció a 187 KB de secciones narrativas y dejó de servir: un pendiente es
+// UNA línea "- (YYYY-MM-DD) …" y lo cerrado lleva "(origen → cierre)".
+
+const RE_ABIERTO = /^-\s*\((\d{4}-\d{2}-\d{2})\)\s*(.*)$/;
+const RE_CERRADO = /^-\s*\((\d{4}-\d{2}-\d{2})\s*(?:→|->)\s*(\d{4}-\d{2}-\d{2})\)\s*(.*)$/;
+const MAX_PENDIENTE = 300;
+const DIAS_ANTIGUO = 60;
+
+const diasEntre = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000);
+
+// { abiertos, cerrados, avisos: [{ linea, tipo, texto }] }. `hoy` es "YYYY-MM-DD" (inyectable).
+// El pie "Relacionado: [[…]]" de los hubs cierra la sección: no es un pendiente.
+export function analizarPendientes(texto, hoy = new Date().toISOString().slice(0, 10)) {
+    const lineas = String(texto ?? "").split(/\r?\n/);
+    const abiertos = [], cerrados = [], avisos = [];
+    let seccion = null, proyecto = "";
+    lineas.forEach((cruda, i) => {
+        const linea = i + 1;
+        const l = cruda.trim();
+        if (/^##\s+Abierto\b/i.test(l)) { seccion = "abierto"; proyecto = ""; return; }
+        if (/^##\s+Cerrado\b/i.test(l)) { seccion = "cerrado"; proyecto = ""; return; }
+        if (/^##\s/.test(l) || /^Relacionado:/i.test(l)) { seccion = null; return; }
+        if (!seccion) return;
+        if (!l || /^<!--/.test(l) || /^-+$/.test(l)) return;
+        if (/^###\s/.test(l)) { proyecto = l.replace(/^###\s+/, "").trim(); return; }
+        if (!l.startsWith("-")) { avisos.push({ linea, tipo: "parrafo", texto: l }); return; }
+        if (l.length > MAX_PENDIENTE) avisos.push({ linea, tipo: "larga", texto: l.slice(0, 80) });
+        if (seccion === "abierto") {
+            const m = l.match(RE_ABIERTO);
+            if (!m) { avisos.push({ linea, tipo: "sin-fecha", texto: l.slice(0, 80) }); return; }
+            abiertos.push({ linea, origen: m[1], proyecto, texto: m[2] });
+            if (diasEntre(m[1], hoy) > DIAS_ANTIGUO) avisos.push({ linea, tipo: "antiguo", texto: l.slice(0, 80) });
+            return;
+        }
+        const m = l.match(RE_CERRADO);
+        if (!m) { avisos.push({ linea, tipo: "sin-fecha", texto: l.slice(0, 80) }); return; }
+        cerrados.push({ linea, origen: m[1], cierre: m[2], proyecto, texto: m[3] });
+        if (!/\[\[[^\]]+\]\]/.test(l)) avisos.push({ linea, tipo: "sin-enlace", texto: l.slice(0, 80) });
+    });
+    return { abiertos, cerrados, avisos };
+}
