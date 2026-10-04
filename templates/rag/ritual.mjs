@@ -1,17 +1,18 @@
 #!/usr/bin/env node
 // Rituales manuales de ciclo de vida de CLAUDEMAX. Vive junto a rag.mjs (mismo .env, misma
-// convención de ruta del vault) porque reutiliza su configuración y, en fin-ciclo, su acceso
-// a la base de datos. Documentado por la skill skills/rituales.
+// convención de ruta del vault). Documentado por la skill skills/rituales; diseño de los rituales
+// de cierre en docs/superpowers/specs/2026-09-13-rituales-design.md.
 //
 //   node ritual.mjs                                                       ayuda
 //   node ritual.mjs init-proyecto <ruta> [--proyecto n] [--descripcion t] [--sin-indexar] [--sin-gitignore] [--vault r]
-//   node ritual.mjs fin-sesion [--resumen "texto"] [--proyecto n] [--siguiente "texto"] [--vault r]
-//   node ritual.mjs fin-dia [--resumen "texto"] [--vault ruta]
-//   node ritual.mjs fin-ciclo [--ciclo nombre] [--proyecto nombre] [--si] [--vault ruta]
+//   node ritual.mjs fin-sesion [--proyecto n] [--resumen t] [--siguiente t] [--desde ref] [--vault r]
+//   node ritual.mjs fin-dia [--resumen t] [--vault r]
+//   node ritual.mjs fin-ciclo [--ciclo n] [--proyecto n] [--desde ref] [--vault r]       preparar
+//   node ritual.mjs fin-ciclo --cerrar [--si] [--proyecto n] [--sin-indexar] [--vault r]  cerrar
 //
-// `pg` se importa dinámicamente y SOLO dentro de fin-ciclo con --si (para el resumen final
-// por categoría) — init-proyecto, fin-sesion y fin-dia nunca tocan la base de datos, así que
-// funcionan con Docker apagado.
+// El script hace la mecánica (rituales-lib.mjs) y deja la prosa al modelo. Ninguno toca la base de
+// datos directamente: fin-ciclo --cerrar llama a `rag.mjs ingest`, `salud` y `status`, así que
+// todo lo demás funciona con Docker apagado.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -405,118 +406,217 @@ function cmdFinDia(opts) {
     console.log("ritual: rellena Objetivos, Decisiones, Hallazgos, Bloqueos y Próximo paso. fin-dia no reindexa el RAG.");
 }
 
-// --- fin-ciclo (ritual mayor, con confirmación) --------------------------------------------
+// --- fin-ciclo (ritual mayor, en dos fases) -------------------------------------------------
+// Preparar crea la nota de cierre y lista qué revisar; el modelo escribe la prosa y pone al día
+// esas notas y Pendientes.md; `--cerrar --si` enlaza, rota, copia, regenera los tres índices y
+// graba el commit. La prosa tiene que existir antes de indexar (spec §1.3).
 
-const UMBRAL_MUCHOS_DOCUMENTOS = 150;
-
-function contarNotas(dir) {
-    let n = 0;
-    let entries;
-    try {
-        entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-        return 0;
-    }
-    for (const e of entries) {
-        if (e.name.startsWith(".")) continue;
-        const p = path.join(dir, e.name);
-        if (e.isDirectory()) n += contarNotas(p);
-        else if (e.name.endsWith(".md")) n++;
-    }
-    return n;
+function ramaActual(exec) {
+    const r = exec ? exec(["rev-parse", "--abbrev-ref", "HEAD"]) : null;
+    return r && r !== "HEAD" ? r : null;
 }
 
-function imprimirPlanFinCiclo(ciclo, proyecto, vaultDir) {
-    const backend = process.env.EMBED_BACKEND || "ollama";
-    console.log("ritual: fin-ciclo — plan (nada se ha tocado todavía; añade --si para ejecutarlo):");
-    console.log(`  1. Escribir la nota de cierre en ${path.join(vaultDir, "Superpowers", "Sesiones", "cierre-" + ciclo + ".md")}`);
-    console.log(`  2. Ejecutar rag.mjs reindex sobre ${vaultDir} (backend actual: ${backend}) y rag.mjs salud`);
-    console.log("  3. Recordar ejecutar 'graphify extract .' en los repos activos");
-    console.log("  4. Imprimir un resumen final de documentos indexados por colección y estado");
-    console.log("ritual: no se conectó a la base de datos ni se modificó ningún archivo.");
+// La nota de cierre abierta del proyecto: la más reciente `*-cierre-*` con `commit` vacío.
+function cierreAbierto(ctx, notas) {
+    return notas
+        .filter(n => n.rel.startsWith("Superpowers/Sesiones/") && esCierre(n.rel))
+        .filter(n => n.meta.proyecto === ctx.proyecto && !n.meta.commit)
+        .sort((a, b) => a.rel.localeCompare(b.rel))
+        .pop() || null;
 }
 
-async function cmdFinCiclo(opts) {
-    const vaultDir = resolveVault(opts.vault);
-    const proyecto = opts.proyecto || path.basename(process.cwd());
-    const ciclo = opts.ciclo || `ciclo-${hoyISO()}`;
+// Huérfanas nuevas del ciclo con un hub al que ir (§2.5); las demás solo se cuentan.
+function huerfanasDelCiclo(vaultDir, notas, fechaDesde) {
+    const { huerfanas } = lib.analizarHubs(vaultDir, notas.map(n => ({ rel: n.rel, abs: n.abs })));
+    const mtime = new Map(notas.map(n => [n.rel, n.mtime]));
+    const nuevas = huerfanas.filter(rel => rit.hubDeNota(rel) && (!fechaDesde || (mtime.get(rel) || "") >= fechaDesde));
+    return { nuevas, resto: huerfanas.length - nuevas.length };
+}
+
+// Specs y planes del repo que --cerrar copia al vault (§2.7), y qué pasa con cada destino:
+// "nueva", "actualiza" (ya era una copia) o "a-mano" (nota escrita a mano con ese nombre: no se toca).
+function planCopias(ctx, rango) {
+    if (!ctx.docsEnRepo || !rango.fechaDesde) return [];
+    const r = rit.specsYPlanesDelCiclo({ docsEnRepo: true, repoRel: ctx.repoRel, archivos: rango.archivos, proyecto: ctx.proyecto });
+    return [...r.specsRepo.map(o => [o, "Specs"]), ...r.planesRepo.map(o => [o, "Planes"])]
+        .filter(([origen]) => fs.existsSync(path.resolve(ctx.ragRoot, origen)))
+        .map(([origen, sub]) => {
+            const destinoRel = `Superpowers/${sub}/${path.basename(origen)}`;
+            const abs = path.join(ctx.vaultDir, destinoRel);
+            const estado = !fs.existsSync(abs) ? "nueva" : rit.esCopia(fs.readFileSync(abs, "utf8")) ? "actualiza" : "a-mano";
+            return { origen, destinoRel, estado };
+        });
+}
+
+const lineaCopia = c => (c.estado === "a-mano"
+    ? `${c.destinoRel} ya existe y no es una copia: no se toca`
+    : `${c.origen} → ${c.destinoRel}${c.estado === "actualiza" ? " (actualiza la copia)" : ""}`);
+
+function cmdFinCicloPreparar(opts) {
+    const ctx = contexto(opts);
+    const fecha = hoyISO();
+    const notas = leerNotasVault(ctx.vaultDir);
+    if (opts.si) console.warn("ritual: aviso — fin-ciclo ya no ejecuta con --si a secas: ahora prepara la nota de cierre; para cerrar, fin-ciclo --cerrar --si.");
+    if (!ctx.repo) console.warn("ritual: aviso — no hay repo git aquí: la nota de cierre se crea sin rango, notas afectadas ni copias.");
+    const abierta = cierreAbierto(ctx, notas);
+    const rango = rangoDe(ctx, notas, { soloCierres: true, desde: opts.desde || abierta?.meta.desde || undefined });
+    let notaRel;
+    if (abierta) {
+        notaRel = abierta.rel;
+        console.log(`ritual: ya hay una nota de cierre abierta: ${notaRel} — se respeta.`);
+    } else {
+        const ciclo = String(opts.ciclo || ramaActual(ctx.exec) || "ciclo");
+        const dir = path.join(ctx.vaultDir, "Superpowers", "Sesiones");
+        fs.mkdirSync(dir, { recursive: true });
+        const archivo = rutaLibre(dir, `${fecha}-cierre-${proy.slugProyecto(ciclo)}`);
+        // `desde` se guarda como sha: un "HEAD~3" se movería con los commits siguientes
+        const desde = rango.desde ? ctx.exec(["rev-parse", rango.desde]) || rango.desde : "";
+        fs.writeFileSync(archivo, rit.esqueletoNota(localizarPlantilla(ctx.vaultDir, "cierre.md"), {
+            fecha,
+            frontmatter: { proyecto: ctx.proyecto, fecha, ciclo, desde, commit: "" },
+            secciones: { "Documentos del ciclo": documentosDelCiclo(ctx, notas, rango, { wikilinks: true }) || "-" },
+        }), "utf8");
+        notaRel = path.relative(ctx.vaultDir, archivo).replace(/\\/g, "/");
+        console.log(`ritual: creada la nota de cierre ${archivo}`);
+        enlazarNota(ctx.vaultDir, notaRel);
+    }
+    imprimirTareas(ctx, notas, rango, notaRel);
+}
+
+// Lista de tareas de la preparación (§1.3), en el orden en que conviene hacerlas.
+function imprimirTareas(ctx, notas, rango, notaRel) {
+    const n = rango.archivos.length;
+    const resumen = rango.desde ? `desde ${rango.desde.slice(0, 10)}, ${n} archivo${n === 1 ? "" : "s"} en el ciclo` : "sin rango git";
+    console.log(`\nritual: fin-ciclo — qué revisar antes de cerrar (${ctx.proyecto}, ${resumen}):`);
+
+    const afectadas = rit.notasAfectadas(notas.map(x => ({ rel: x.rel, fuentes: x.meta.fuentes || [] })), rango.archivos);
+    console.log(`\n  1. Notas cuyas fuentes cambiaron${afectadas.length ? " — reléelas contra el grafo antes de editarlas:" : ": ninguna."}`);
+    for (const a of afectadas) {
+        console.log(`     - ${a.rel}`);
+        for (const f of a.archivos) console.log(`         ${f}`);
+        if (a.total > a.archivos.length) console.log(`         (y ${a.total - a.archivos.length} más)`);
+    }
+
+    const h = huerfanasDelCiclo(ctx.vaultDir, notas, rango.fechaDesde);
+    console.log(`\n  2. Huérfanas nuevas${h.nuevas.length ? " — --cerrar las enlaza en su hub:" : ": ninguna."}`);
+    for (const rel of h.nuevas) console.log(`     - ${rel} → ${rit.hubDeNota(rel)}`);
+    if (h.resto) console.log(`     (y ${h.resto} huérfana${h.resto === 1 ? "" : "s"} anterior${h.resto === 1 ? "" : "es"} al ciclo o sin hub: rag.mjs salud las lista)`);
+
+    const pendPath = path.join(ctx.vaultDir, "Hubs", "Pendientes.md");
+    const avisos = fs.existsSync(pendPath) ? lib.analizarPendientes(fs.readFileSync(pendPath, "utf8"), hoyISO()).avisos : [];
+    console.log(`\n  3. Hubs/Pendientes.md${avisos.length ? " — corrige el formato antes de cerrar (antiguo es solo informativo):" : ": sin avisos."}`);
+    for (const a of avisos) console.log(`     - línea ${a.linea}: ${a.tipo} — ${a.texto}`);
+
+    const copias = planCopias(ctx, rango);
+    if (copias.length) {
+        console.log("\n  4. Specs y planes del repo que --cerrar copiará al vault (docs_en_repo):");
+        for (const c of copias) console.log(`     - ${lineaCopia(c)}`);
+    }
+
+    console.log(`\nritual: escribe la prosa de ${notaRel} (Qué se hizo de verdad, Notas de Codigo/ revisadas, Qué sigue), pon al día esas notas y Hubs/Pendientes.md (lo cerrado baja a «Cerrado recientemente» con su fecha de cierre); después: node ritual.mjs fin-ciclo --cerrar --si`);
+}
+
+// Ejecuta `node rag.mjs <args>` con la salida en vivo. Un fallo es un aviso con el comando exacto.
+function correrRag(args) {
+    const ragScript = path.join(HERE, "rag.mjs");
+    const comando = `node ${ragScript} ${args.join(" ")}`;
+    if (!fs.existsSync(ragScript)) {
+        console.warn(`ritual: aviso — no se encontró ${ragScript}; se omite \`rag.mjs ${args[0]}\`.`);
+        return false;
+    }
+    const res = spawnSync(process.execPath, [ragScript, ...args], { stdio: "inherit" });
+    if (res.error || res.status !== 0) {
+        console.warn(`ritual: aviso — \`rag.mjs ${args[0]}\` no terminó bien (¿Docker/Postgres activo?). Reintenta con: ${comando}`);
+        return false;
+    }
+    return true;
+}
+
+function cmdFinCicloCerrar(opts) {
+    const ctx = contexto(opts);
+    const notas = leerNotasVault(ctx.vaultDir);
+    const nota = cierreAbierto(ctx, notas);
+    if (!nota) {
+        console.error(`ritual: no hay una nota de cierre abierta de "${ctx.proyecto}" — corre primero: node ritual.mjs fin-ciclo`);
+        process.exitCode = 1;
+        return;
+    }
+    const rango = rangoDe(ctx, notas, { soloCierres: true, desde: opts.desde || nota.meta.desde || undefined });
+    const huerfanas = huerfanasDelCiclo(ctx.vaultDir, notas, rango.fechaDesde).nuevas;
+    const pendPath = path.join(ctx.vaultDir, "Hubs", "Pendientes.md");
+    const pendTexto = fs.existsSync(pendPath) ? fs.readFileSync(pendPath, "utf8") : null;
+    // una línea de Pendientes ya está archivada si alguna nota de cierre del proyecto la contiene
+    const textosCierre = notas.filter(x => esCierre(x.rel) && x.meta.proyecto === ctx.proyecto).map(x => fs.readFileSync(x.abs, "utf8"));
+    const yaArchivado = linea => textosCierre.some(t => t.includes(linea));
+    const rot = pendTexto === null ? null
+        : rit.rotarPendientes(pendTexto, { proyecto: ctx.proyecto, fechaDesde: rango.fechaDesde, yaArchivado });
+    const copias = planCopias(ctx, rango);
+    const indexar = !opts["sin-indexar"];
+    const head = ctx.repo ? ctx.exec(["rev-parse", "HEAD"]) || "" : "";
 
     if (!opts.si) {
-        imprimirPlanFinCiclo(ciclo, proyecto, vaultDir);
-        process.exitCode = 0;
+        console.log(`ritual: fin-ciclo --cerrar — plan para ${nota.rel} (nada se ha tocado; añade --si para ejecutarlo):`);
+        for (const rel of huerfanas) console.log(`  - enlazar ${rel} en ${rit.hubDeNota(rel)}`);
+        if (!rot) console.log("  - no hay Hubs/Pendientes.md: nada que rotar");
+        else if (rot.bloqueado) console.log(`  - Hubs/Pendientes.md tiene párrafos en las líneas ${rot.lineas.join(", ")}: no se rotará`);
+        else if (rot.texto !== pendTexto.replace(/\r\n/g, "\n") || rot.cerradosCiclo.length) {
+            console.log(`  - rotar Hubs/Pendientes.md: ${rot.cerradosCiclo.length} cerrado(s) en este ciclo a la nota; lo de ciclos anteriores sale del índice (${rot.archivar.length} sin archivar se guardan en la nota)`);
+        }
+        for (const c of copias) console.log(`  - copiar ${lineaCopia(c)}`);
+        console.log(indexar ? "  - regenerar los tres índices: codebase-memory, graphify y rag.mjs ingest" : "  - --sin-indexar: no se regeneran los índices");
+        console.log("  - rag.mjs salud y rag.mjs status");
+        console.log(`  - grabar commit: ${head || "sin-git"} en la nota (cierra el ciclo)`);
         return;
     }
 
-    // --- Ejecución confirmada ---------------------------------------------------------
-    const fecha = hoyISO();
-    const sesionesDir = path.join(vaultDir, "Superpowers", "Sesiones");
-    fs.mkdirSync(sesionesDir, { recursive: true });
-    const notaPath = path.join(sesionesDir, `cierre-${ciclo}.md`);
-    if (fs.existsSync(notaPath)) {
-        console.log(`ritual: ${notaPath} ya existe — se respeta, no se sobrescribe la nota de cierre.`);
+    // 1. Huérfanas nuevas → su hub
+    for (const rel of huerfanas) enlazarNota(ctx.vaultDir, rel);
+
+    // 2. Pendientes.md: rotar y llevar lo cerrado a la nota de cierre
+    let textoNota = fs.readFileSync(nota.abs, "utf8");
+    if (rot?.bloqueado) {
+        console.warn(`ritual: aviso — Hubs/Pendientes.md tiene párrafos en las líneas ${rot.lineas.join(", ")}: no se rota. Pásalos al formato de una línea; el próximo cierre lo rotará.`);
+    } else if (rot) {
+        if (rot.texto !== pendTexto) fs.writeFileSync(pendPath, rot.texto, "utf8");
+        textoNota = ponerSeccion(textoNota, "Cerrado en este ciclo", rot.cerradosCiclo.join("\n") || "-", "Qué sigue");
+        if (rot.archivar.length) textoNota = ponerSeccion(textoNota, "Archivado de Pendientes", rot.archivar.join("\n"), "Qué sigue");
+        fs.writeFileSync(nota.abs, textoNota, "utf8");
+        console.log(`ritual: Hubs/Pendientes.md rotado — ${rot.cerradosCiclo.length} cerrado(s) del ciclo en la nota${rot.archivar.length ? `, ${rot.archivar.length} archivado(s)` : ""}.`);
+    }
+
+    // 3. Copias de specs y planes (docs_en_repo)
+    for (const c of copias) {
+        if (c.estado === "a-mano") { console.warn(`ritual: aviso — ${lineaCopia(c)}.`); continue; }
+        const destino = path.join(ctx.vaultDir, c.destinoRel);
+        fs.mkdirSync(path.dirname(destino), { recursive: true });
+        fs.writeFileSync(destino, rit.copiaDeSpec(fs.readFileSync(path.resolve(ctx.ragRoot, c.origen), "utf8"),
+            { proyecto: ctx.proyecto, fuente: c.origen }), "utf8");
+        console.log(`ritual: copiado ${lineaCopia(c)}`);
+        enlazarNota(ctx.vaultDir, c.destinoRel);
+    }
+
+    // 4. Los tres índices juntos: se desincronizan a la vez y se arreglan a la vez
+    if (!indexar) {
+        console.log("ritual: --sin-indexar — no se regeneran codebase-memory, graphify ni el RAG.");
     } else {
-        const nota = [
-            "---",
-            `proyecto: ${proyecto}`,
-            "tags: [sesion, cierre-ciclo]",
-            `fecha: ${fecha}`,
-            "---",
-            "",
-            `# Cierre de ciclo — ${ciclo}`,
-            "",
-            `Ciclo cerrado el ${fecha} para el proyecto **${proyecto}**.`,
-            "",
-        ].join("\n");
-        fs.writeFileSync(notaPath, nota, "utf8");
-        console.log(`ritual: creada la nota de cierre ${notaPath}`);
-    }
-
-    // Sugerencia (no automática) de backend kaggle si hay credenciales y muchas notas.
-    const backendActual = (process.env.EMBED_BACKEND || "ollama").trim().toLowerCase();
-    const kaggleConfigurado = Boolean(process.env.KAGGLE_USERNAME && process.env.KAGGLE_KEY);
-    const totalDocs = contarNotas(vaultDir);
-    if (kaggleConfigurado && backendActual !== "kaggle" && totalDocs > UMBRAL_MUCHOS_DOCUMENTOS) {
-        console.log(`ritual: sugerencia — hay ${totalDocs} notas en el vault y hay credenciales de Kaggle configuradas; considera "rag.mjs reindex --backend kaggle" para acelerar el reindexado.`);
-    }
-
-    // Reindexado — respeta EMBED_BACKEND del .env compartido (no se fuerza ningún backend).
-    console.log(`ritual: ejecutando rag.mjs reindex sobre ${vaultDir}...`);
-    const ragScript = path.join(HERE, "rag.mjs");
-    if (!fs.existsSync(ragScript)) {
-        console.warn(`ritual: aviso — no se encontró ${ragScript}; se omite el reindexado. Ejecútalo manualmente cuando esté disponible.`);
-    } else {
-        const res = spawnSync(process.execPath, [ragScript, "reindex", vaultDir], { stdio: "inherit" });
-        if (res.error || res.status !== 0) {
-            console.warn("ritual: aviso — el reindexado no terminó bien (¿está Docker/Postgres activo?). Revisa el mensaje de rag.mjs de arriba y reintenta manualmente con: node rag.mjs reindex");
-        } else {
-            console.log("ritual: reindexado completo.");
+        if (ctx.repo) {
+            console.log(`ritual: indexando ${ctx.repo} con codebase-memory...`);
+            const cbm = indexarCodebaseMemory(ctx.repo);
+            console.log(cbm.ok ? "ritual: índice de codebase-memory listo." : `ritual: aviso — ${cbm.aviso}`);
+            console.log(`ritual: extrayendo el grafo de graphify en ${path.join(ctx.repo, "graphify-out")}...`);
+            const gfy = extraerGraphify(ctx.repo);
+            console.log(gfy.ok ? "ritual: grafo de graphify listo." : `ritual: aviso — ${gfy.aviso}`);
         }
-        const res2 = spawnSync(process.execPath, [ragScript, "salud", vaultDir], { stdio: "inherit" });
-        if (res2.error) console.warn("ritual: aviso — no se pudo ejecutar rag.mjs salud.");
+        if (correrRag(["ingest", ctx.vaultDir])) console.log("ritual: RAG al día (ingest incremental).");
     }
 
-    console.log("ritual: recuerda ejecutar 'graphify extract .' en cada repo activo para regenerar sus grafos de Graphify.");
+    // 5. Estado final
+    correrRag(["salud", ctx.vaultDir]);
+    correrRag(["status"]);
 
-    // Resumen final por categoría (best-effort): si la BD no responde, se avisa y se omite
-    // solo esta parte — el resto del ritual ya se ejecutó.
-    try {
-        const { default: pg } = await import("pg");
-        const PG_URL = process.env.PG_URL || "postgres://rag:rag@localhost:5433/rag";
-        const client = new pg.Client({ connectionString: PG_URL });
-        await client.connect();
-        try {
-            const { rows } = await client.query(
-                "SELECT coleccion, estado, count(*)::int AS c FROM documentos GROUP BY 1, 2 ORDER BY 1, 2");
-            console.log("ritual: resumen final — documentos indexados por colección y estado:");
-            for (const r of rows) console.log(`  ${r.coleccion} · ${r.estado}: ${r.c}`);
-        } finally {
-            await client.end();
-        }
-    } catch (e) {
-        console.warn(`ritual: aviso — no se pudo generar el resumen final (la base de datos no respondió: ${e.message}). El resto del ritual ya se ejecutó.`);
-    }
-
-    console.log(`ritual: fin-ciclo completo para "${proyecto}" / "${ciclo}".`);
+    // 6. El commit va lo último: marca el ciclo como cerrado aunque un índice haya fallado
+    fs.writeFileSync(nota.abs, rit.grabarCommit(fs.readFileSync(nota.abs, "utf8"), head || "sin-git"), "utf8");
+    console.log(`ritual: ciclo cerrado — ${nota.rel} (commit ${head ? head.slice(0, 10) : "sin-git"}).`);
 }
 
 // --- Ayuda y despacho -----------------------------------------------------------------------
@@ -526,10 +626,13 @@ function imprimirAyuda() {
 
 Uso:
   ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto] [--sin-indexar] [--sin-gitignore] [--vault ruta]
-  ritual.mjs fin-sesion [--resumen "texto"] [--proyecto nombre] [--siguiente "texto"] [--vault ruta]
+  ritual.mjs fin-sesion [--proyecto nombre] [--resumen "texto"] [--siguiente "texto"] [--desde ref] [--vault ruta]
   ritual.mjs fin-dia [--resumen "texto"] [--vault ruta]
-  ritual.mjs fin-ciclo [--ciclo nombre] [--proyecto nombre] [--si] [--vault ruta]
+  ritual.mjs fin-ciclo [--ciclo nombre] [--proyecto nombre] [--desde ref] [--vault ruta]          preparar
+  ritual.mjs fin-ciclo --cerrar [--si] [--proyecto nombre] [--sin-indexar] [--vault ruta]       cerrar
 
+El script hace la mecánica (nota desde la plantilla, enlace en su hub, rango git del ciclo,
+notas afectadas, rotación de Pendientes.md, los tres índices); la prosa la escribe el modelo.
 Ver skills/rituales para cuándo se dispara cada uno y qué hace (y qué NO hace).`);
 }
 
@@ -539,7 +642,7 @@ function parseArgs(rest) {
     const positional = [];
     for (let i = 0; i < rest.length; i++) {
         const a = rest[i];
-        if (a === "--si") { opts.si = true; continue; }
+        if (a === "--si" || a === "--cerrar") { opts[a.slice(2)] = true; continue; }
         if (a === "--sin-indexar" || a === "--sin-gitignore") { opts[a.slice(2)] = true; continue; }
         if (valueFlags.includes(a)) { opts[a.slice(2)] = rest[++i]; continue; }
         if (a.startsWith("--")) continue; // flag desconocido: se ignora
@@ -562,7 +665,8 @@ try {
     } else if (cmd === "fin-dia") {
         cmdFinDia(opts);
     } else if (cmd === "fin-ciclo") {
-        await cmdFinCiclo(opts);
+        if (opts.cerrar) cmdFinCicloCerrar(opts);
+        else cmdFinCicloPreparar(opts);
     } else {
         console.error(`ritual: subcomando desconocido "${cmd}"`);
         imprimirAyuda();

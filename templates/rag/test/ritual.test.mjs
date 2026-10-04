@@ -255,3 +255,93 @@ test("fin-dia: bitácora de una plantilla anterior sin la sección la añade ant
         assert.ok(leer(ws, "V.A.U.L.T", "Bitacoras", `${hoy}.md`).includes(esperado), leer(ws, "V.A.U.L.T", "Bitacoras", `${hoy}.md`));
     } finally { limpiar(); }
 });
+
+test("fin-ciclo (preparar): crea la nota de cierre sin commit, la enlaza y lista notas afectadas, huérfanas y avisos de Pendientes",
+    { skip: !hayGit && "sin git" }, async () => {
+        const { ws, limpiar } = workspace();
+        try {
+            vaultCompleto(ws);
+            const { repo, git } = repoGit(ws);
+            git(["checkout", "-qb", "feat/motor-nuevo"]);
+            await ritual(ws, ["init-proyecto", repo, "--sin-indexar"]);
+            // una nota de Codigo/ que describe el archivo que va a cambiar (y es huérfana nueva)
+            fs.writeFileSync(path.join(ws, "V.A.U.L.T", "Codigo", "Motor.md"),
+                "---\nproyecto: MiRepo\nfuentes:\n  - MiRepo/src/**\n---\n\n# Motor\n\nprosa vieja\n");
+            fs.writeFileSync(path.join(repo, "src", "motor.cs"), "// v2\n");
+            git(["add", "-A"]);
+            git(["commit", "-qm", "cambia el motor"]);
+            // un pendiente sin fecha: aviso que la preparación debe listar
+            const pend = path.join(ws, "V.A.U.L.T", "Hubs", "Pendientes.md");
+            fs.writeFileSync(pend, leer(pend).replace("## Abierto", "## Abierto\n- revisar algo sin fecha"));
+            const r = await ritual(ws, ["fin-ciclo"], {}, repo);
+            assert.equal(r.status, 0, r.out);
+            const dir = path.join(ws, "V.A.U.L.T", "Superpowers", "Sesiones");
+            const nota = fs.readdirSync(dir).find(f => f.includes("-cierre-"));
+            assert.match(nota, /^\d{4}-\d{2}-\d{2}-cierre-feat-motor-nuevo\.md$/, "el ciclo sale de la rama");
+            const texto = leer(dir, nota);
+            assert.match(texto, /tags: \[sesion, cierre-ciclo\]/);
+            assert.match(texto, /^ciclo: feat\/motor-nuevo$/m);
+            assert.match(texto, /^desde: [0-9a-f]{40}$/m);
+            assert.match(texto, /^commit:\s*$/m, "el commit se graba al cerrar, no ahora");
+            assert.ok(leer(ws, "V.A.U.L.T", "Hubs", "Superpowers-Sesiones.md").includes(`[[${nota.replace(".md", "")}]]`));
+            assert.match(r.out, /Codigo\/Motor\.md/);
+            assert.match(r.out, /MiRepo\/src\/motor\.cs/);
+            assert.match(r.out, /Codigo\/Motor\.md → Hubs\/Codigo\.md/, "huérfana nueva y su hub");
+            assert.match(r.out, /sin-fecha — - revisar algo sin fecha/);
+            assert.match(r.out, /fin-ciclo --cerrar --si/);
+            // una segunda preparación respeta la nota abierta
+            const r2 = await ritual(ws, ["fin-ciclo"], {}, repo);
+            assert.match(r2.out, /nota de cierre abierta/);
+            assert.equal(fs.readdirSync(dir).filter(f => f.includes("-cierre-")).length, 1);
+        } finally { limpiar(); }
+    });
+
+test("fin-ciclo --cerrar: sin --si no toca nada; con --si enlaza, rota Pendientes, copia el spec y graba el commit",
+    { skip: !hayGit && "sin git" }, async () => {
+        const { ws, limpiar } = workspace();
+        try {
+            vaultCompleto(ws);
+            const { repo, git } = repoGit(ws);
+            await ritual(ws, ["init-proyecto", repo, "--sin-indexar"]);
+            docsEnRepo(ws);
+            fs.writeFileSync(path.join(repo, "docs", "superpowers", "specs", "2026-09-20-x-design.md"), "---\nfecha: 2026-09-20\n---\n\n# Spec\n");
+            git(["add", "-A"]);
+            git(["commit", "-qm", "spec"]);
+            // una huérfana nueva y un Pendientes con algo cerrado en ciclos anteriores y algo de este ciclo
+            fs.writeFileSync(path.join(ws, "V.A.U.L.T", "Codigo", "Motor.md"), "---\nproyecto: MiRepo\nfuentes:\n  - MiRepo/src/**\n---\n\n# Motor\n");
+            const pend = path.join(ws, "V.A.U.L.T", "Hubs", "Pendientes.md");
+            fs.writeFileSync(pend, leer(pend).replace("## Cerrado recientemente",
+                `## Cerrado recientemente\n- (2020-01-01 → 2020-02-01) algo antiquísimo — [[x]]\n- (2020-01-01 → ${hoyLocal()}) lo de este ciclo — [[y]]`));
+            const prep = await ritual(ws, ["fin-ciclo"], {}, repo);
+            assert.equal(prep.status, 0, prep.out);
+            const antes = leer(pend);
+            const seco = await ritual(ws, ["fin-ciclo", "--cerrar", "--sin-indexar"], {}, repo);
+            assert.equal(seco.status, 0, seco.out);
+            assert.equal(leer(pend), antes, "sin --si no cambia nada");
+            assert.match(seco.out, /--si/);
+            assert.match(seco.out, /Codigo\/Motor\.md/);
+            const r = await ritual(ws, ["fin-ciclo", "--cerrar", "--si", "--sin-indexar"], {}, repo);
+            assert.equal(r.status, 0, r.out);
+            const despues = leer(pend);
+            assert.ok(!despues.includes("algo antiquísimo"), "rota lo cerrado en ciclos anteriores");
+            assert.ok(despues.includes("lo de este ciclo"), "lo del ciclo se queda en el índice");
+            assert.match(leer(ws, "V.A.U.L.T", "Hubs", "Codigo.md"), /\[\[Motor\]\] — Motor/);
+            const copia = leer(ws, "V.A.U.L.T", "Superpowers", "Specs", "2026-09-20-x-design.md");
+            assert.match(copia, /^espejo_de: MiRepo\/docs\/superpowers\/specs\/2026-09-20-x-design\.md$/m);
+            assert.match(leer(ws, "V.A.U.L.T", "Hubs", "Superpowers-Specs.md"), /\[\[2026-09-20-x-design\]\]/);
+            const dir = path.join(ws, "V.A.U.L.T", "Superpowers", "Sesiones");
+            const nota = leer(dir, fs.readdirSync(dir).find(f => f.includes("-cierre-")));
+            assert.ok(nota.includes(`commit: ${git(["rev-parse", "HEAD"]).stdout.trim()}`), nota);
+            assert.match(nota, /- Spec: \[\[2026-09-20-x-design\]\]/);
+            assert.match(nota, /## Cerrado en este ciclo\n- \(2020-01-01 → \d{4}-\d{2}-\d{2}\) lo de este ciclo/);
+            assert.match(nota, /## Archivado de Pendientes\n- \(2020-01-01 → 2020-02-01\) algo antiquísimo/);
+            assert.match(r.out, /rag\.mjs/, "avisa de que no encontró rag.mjs para salud y status");
+            const otra = await ritual(ws, ["fin-ciclo", "--cerrar", "--si", "--sin-indexar"], {}, repo);
+            assert.equal(otra.status, 1, "sin nota de cierre abierta, sale 1");
+            assert.match(otra.out, /corre primero/);
+            // el siguiente ciclo arranca en el commit grabado: el spec ya no es del ciclo
+            const prep2 = await ritual(ws, ["fin-ciclo", "--ciclo", "siguiente"], {}, repo);
+            assert.equal(prep2.status, 0, prep2.out);
+            assert.ok(!/4\. Specs y planes/.test(prep2.out), "nada que copiar en un ciclo sin specs nuevos");
+        } finally { limpiar(); }
+    });
