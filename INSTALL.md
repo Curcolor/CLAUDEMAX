@@ -99,16 +99,17 @@ CLAUDEMAX/
     │   ├── Hubs/                # Bienvenida, Pendientes, un hub por carpeta, _proyecto.md (plantilla por proyecto)
     │   ├── 00-Inbox/, Bitacoras/, Decisiones/, Conocimiento/, Aprendizaje/, Entrevistas/, Revisiones/,
     │   │   Codigo/, Procesos/, Formales/, Superpowers/{Specs,Planes,Tareas,Sesiones}/
-    │   └── Plantillas/          # nota.md, bitacora.md, sesion.md, hub.md (fuera del índice)
+    │   └── Plantillas/          # nota.md, bitacora.md, sesion.md, cierre.md, hub.md (fuera del índice)
     ├── rag/                     # semilla del stack R.A.G (se copia a <RAG_ROOT>/R.A.G)
     │   ├── docker-compose.yml   # pgvector/pgvector:pg17, puerto 5433
     │   ├── schema.sql           # tablas documentos (vigencia) y chunks + migración + hnsw
     │   ├── .env.example, package.json, .gitignore
     │   ├── rag.mjs              # CLI: init/ingest/query/reindex/status/salud
     │   ├── rag-lib.mjs          # funciones puras (clasificación, frontmatter, troceado, firma, salud) — probadas en test/
-    │   ├── ritual.mjs           # rituales manuales: init-proyecto / fin-sesion / fin-dia / fin-ciclo (se instala junto a rag.mjs)
-    │   ├── proyectos-lib.mjs    # funciones puras del contexto por proyecto (slug, índice, .gitignore)
+    │   ├── ritual.mjs           # rituales manuales: init-proyecto / fin-sesion / fin-dia / fin-ciclo (preparar y --cerrar)
+    │   ├── proyectos-lib.mjs    # funciones puras del contexto por proyecto (slug, índice, .gitignore, docs_en_repo)
     │   ├── indices-lib.mjs      # resolver y lanzar codebase-memory index_repository y graphify extract
+    │   ├── rituales-lib.mjs     # funciones puras de los cierres: rango git del ciclo, hubs, Pendientes, copias de specs
     │   ├── kaggle-embed.mjs     # backend de embeddings por lotes vía Kaggle (importado dinámicamente)
     │   ├── kaggle/              # plantillas del kernel que corre en Kaggle
     │   │   ├── kernel-metadata.json   # enable_gpu/enable_internet, dataset_sources
@@ -121,7 +122,7 @@ CLAUDEMAX/
     │   └── test/                # node --test
     ├── recordatorios/           # semilla de <RAG_ROOT>/.claude/recordatorios/ (se copian solo si faltan)
     │   ├── _plantilla.md        # frontmatter comentado campo a campo
-    │   ├── orden-herramientas.md, contexto-fuera-del-repo.md, tocar-produccion.md, editar-vault.md, estandares-dotnet.md, pruebas-dotnet.md
+    │   ├── orden-herramientas.md, contexto-fuera-del-repo.md, tocar-produccion.md, editar-vault.md, specs-en-vault.md, estandares-dotnet.md, pruebas-dotnet.md
     │   └── ejemplos/maestrasuite/   # los cuatro originales del setup de trabajo, íntegros, activo: false
     └── rules/                   # semilla de las reglas operativas (se copia a <RAG_ROOT>/.claude/)
         ├── CLAUDEMAX.md         # las 10 reglas; termina importando proyectos/_indice.md — se sobrescribe en cada instalación

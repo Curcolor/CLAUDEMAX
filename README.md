@@ -264,7 +264,7 @@ reinstala — editar `<RAG_ROOT>/.claude/CLAUDEMAX.md` a mano se pierde en la si
 | 6 | **Dónde vive el contexto:** todo en `<RAG_ROOT>/.claude/` (reglas, `proyectos/<nombre>.md`, recordatorios) o en el vault; ningún repo lleva `CLAUDE.md`, `CLAUDE.local.md` ni `.claude/`. Ver [Contexto por proyecto](#contexto-por-proyecto). | Recordatorio `contexto-fuera-del-repo` + `.gitignore` que escribe `init-proyecto` + aviso de `session-start.mjs`. |
 | 7 | **Tres memorias con rol:** memoria nativa = gotchas cortos; vault + RAG = narrativa y decisiones; grafo = estructura. Lo generado se queda en su herramienta; lo narrado va al vault. Context7 permitido para documentación de librerías. | Convención — sin hook. |
 | 8 | **Orden de herramientas de contexto:** `rag` → `graphify` → `codebase-memory` → grep (último recurso, solo literales). La prosa se verifica contra el grafo; codebase-memory se reindexa antes de concluir "no existe". | Recordatorio `orden-herramientas`. |
-| 9 | **Taxonomía y vigencia:** la carpeta da la colección; toda nota se enlaza desde su hub; `fuentes:` si describe código, `reemplaza:` si sustituye a otra (ver `Plantillas/nota.md`). | Convención + `rag.mjs salud` (informa, no bloquea) + recordatorio `editar-vault`. |
+| 9 | **Taxonomía y vigencia:** la carpeta da la colección; toda nota se enlaza desde su hub; `fuentes:` si describe código, `reemplaza:` si sustituye a otra (ver `Plantillas/nota.md`). Specs y planes van al vault (`Superpowers/{Specs,Planes}/`) salvo que el proyecto declare `docs_en_repo: true`. | Convención + `rag.mjs salud` (informa, no bloquea) + recordatorios `editar-vault` y `specs-en-vault`. |
 | 10 | **Recordatorios justo a tiempo:** una regla que se olvidó dos veces se convierte en un recordatorio en `.claude/recordatorios/`. | `hooks/recordar.mjs` (inyecta, no bloquea). |
 
 Cinco hooks Node sin dependencias hacen cumplir las reglas 3, 4, 5 y 10 de forma determinista (y
@@ -327,8 +327,9 @@ De fábrica (se instalan si no existen; edítalos, son tuyos): `orden-herramient
 graphify → codebase-memory → grep, al usar Grep o un buscador en Bash/PowerShell),
 `tocar-produccion` (gcloud, aws, kubectl apply, terraform apply, docker push, `--prod`…),
 `contexto-fuera-del-repo` (regla 6 al escribir un `CLAUDE.md` o `.claude/` dentro de un repo),
-`editar-vault` (regla 9 al escribir bajo `V.A.U.L.T/`), `estandares-dotnet` (al editar `.cs`/
-`.xaml`) y `pruebas-dotnet` (al correr `dotnet test`). En `ejemplos/maestrasuite/` van los
+`editar-vault` (regla 9 al escribir bajo `V.A.U.L.T/`), `specs-en-vault` (al escribir en
+`docs/superpowers/` de un repo: ¿el proyecto declara `docs_en_repo`?), `estandares-dotnet` (al
+editar `.cs`/`.xaml`) y `pruebas-dotnet` (al correr `dotnet test`). En `ejemplos/maestrasuite/` van los
 cuatro originales del setup de trabajo del autor, íntegros e inactivos, como referencia de cómo
 se escribe uno nacido de un fallo real. Los recordatorios rotos se anotan en
 `~/.claude/state/recordar.log`, nunca se le muestran al modelo.
@@ -361,7 +362,7 @@ La skill `rituales` los documenta para que el modelo sepa cuándo invocarlos.
 | **Init de proyecto** | Repo del workspace sin `.claude/proyectos/<nombre>.md` (el arranque lo avisa). | `node R.A.G/ritual.mjs init-proyecto <ruta> [--proyecto nombre] [--descripcion texto] [--sin-indexar]` |
 | **Fin de sesión** (menor) | Al cerrar una sesión de trabajo, para que la siguiente retome el hilo. | `node R.A.G/ritual.mjs fin-sesion [--resumen "texto"] [--siguiente "texto"]` |
 | **Fin de día** (menor) | "Terminamos por hoy", al cerrar la jornada completa. | `node R.A.G/ritual.mjs fin-dia [--resumen "texto"]` |
-| **Fin de ciclo** (mayor) | "Cierre de ciclo" / "fin de sprint". | `node R.A.G/ritual.mjs fin-ciclo [--ciclo nombre] [--proyecto nombre] --si` |
+| **Fin de ciclo** (mayor, dos fases) | "Cierre de ciclo" / "fin de sprint". | `node R.A.G/ritual.mjs fin-ciclo [--ciclo nombre]` y, escrita la prosa, `node R.A.G/ritual.mjs fin-ciclo --cerrar --si` |
 
 `init-proyecto` escribe el contexto del proyecto **fuera del repo**, en
 `<RAG_ROOT>/.claude/proyectos/<nombre>.md` (esqueleto de `templates/rules/proyecto.md`); regenera
@@ -370,21 +371,29 @@ La skill `rituales` los documenta para que el modelo sepa cuándo invocarlos.
 graphify (`--sin-indexar` lo salta). Nunca sobrescribe nada que ya exista. La prosa la rellena el
 modelo después consultando el grafo (skill `rituales`). Ver [Contexto por proyecto](#contexto-por-proyecto).
 
-La diferencia clave entre los tres rituales manuales de cierre:
+En los tres rituales de cierre **el script hace la mecánica y Claude escribe la prosa**: la nota
+sale de `V.A.U.L.T/Plantillas/` con su frontmatter, enlazada en su hub y con el rango git del ciclo
+(desde el `commit:` del último cierre hasta HEAD); el modelo escribe lo único que no se puede
+automatizar —qué pasó de verdad, con sus desvíos y errores—. La diferencia entre ellos:
 
-- **`fin-sesion`** escribe en `V.A.U.L.T/Superpowers/Sesiones/` (colección `sesiones`):
-  continuidad entre sesiones de Claude Code — qué se hizo y qué sigue. Úsalo al cerrar *una
-  sesión* de trabajo, no el día completo.
-- **`fin-dia`** es barato: solo añade una entrada horaria a `V.A.U.L.T/Bitacoras/YYYY-MM-DD.md`
-  (colección `bitacoras`). Deliberadamente **no** reindexa el RAG ni regenera grafos de Graphify
-  — puedes llamarlo varias veces al día sin coste. Igual que `fin-sesion`, el arranque de la
-  próxima sesión lo reindexa.
-- **`fin-ciclo`** es caro y exige confirmación: sin `--si` solo imprime el plan y no toca nada
-  ni se conecta a la base de datos. Con `--si` escribe la nota de cierre en
-  `Superpowers/Sesiones/cierre-<ciclo>.md`, ejecuta `rag.mjs reindex` (respetando
-  `EMBED_BACKEND`, sugiriendo `--backend kaggle` si hay credenciales y muchas notas) y
-  `rag.mjs salud`, recuerda regenerar los grafos con `graphify extract .`, e imprime documentos
-  indexados por colección y estado de vigencia.
+- **`fin-sesion`** crea una nota en `V.A.U.L.T/Superpowers/Sesiones/` (colección `sesiones`) con
+  `commit:` = HEAD y los specs y planes del rango: continuidad entre sesiones de Claude Code. Úsalo
+  al cerrar *una sesión* de trabajo, no el día completo.
+- **`fin-dia`** crea o completa `V.A.U.L.T/Bitacoras/YYYY-MM-DD.md` (colección `bitacoras`) y lista
+  en ella las sesiones del día. No mira git ni reindexa: puedes llamarlo varias veces al día.
+- **`fin-ciclo`** va en dos fases, porque la prosa tiene que existir antes de indexar. La primera
+  crea la nota de cierre e imprime qué revisar: las notas de `Codigo/` cuyas `fuentes:` cambiaron
+  en el ciclo, las huérfanas nuevas y los avisos de `Hubs/Pendientes.md`. Claude relee esas notas
+  contra el grafo, pone al día `Pendientes.md` y escribe el cierre. La segunda, `--cerrar --si`,
+  enlaza las huérfanas, **rota `Pendientes.md`** (lo cerrado en el ciclo pasa a la nota; lo de
+  ciclos anteriores sale del índice sin perderse), copia los specs del repo al vault si el
+  proyecto declara `docs_en_repo: true`, regenera **los tres índices juntos** (codebase-memory,
+  graphify y `rag.mjs ingest`), corre `salud` y `status`, y graba el `commit:` que cierra el ciclo.
+
+`Hubs/Pendientes.md` es el índice único de lo abierto, con un formato que `rag.mjs salud`
+comprueba: un pendiente es **una línea** `- (YYYY-MM-DD) qué falta — qué desbloquea — [[nota]]`, y
+lo cerrado lleva `(origen → cierre)`. El porqué vive en la nota enlazada; un párrafo narrativo es un
+aviso y bloquea la rotación.
 
 ## Formato Skills 2.0
 

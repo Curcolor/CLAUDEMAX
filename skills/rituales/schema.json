@@ -32,7 +32,19 @@
         },
         "ciclo": {
           "type": "string",
-          "description": "Nombre del ciclo/sprint que se cierra — usado por fin-ciclo"
+          "description": "Nombre del ciclo/sprint que se cierra (por defecto, la rama actual) — usado por fin-ciclo al preparar"
+        },
+        "cerrar": {
+          "type": "boolean",
+          "description": "fin-ciclo: segunda fase — enlaza, rota Pendientes.md, copia specs, indexa y graba el commit"
+        },
+        "si": {
+          "type": "boolean",
+          "description": "fin-ciclo --cerrar: ejecutar de verdad; sin él solo imprime lo que haría"
+        },
+        "desde": {
+          "type": "string",
+          "description": "Ref git de inicio del ciclo; sobrescribe la detección — usado por fin-sesion y fin-ciclo"
         }
       },
       "required": ["ritual"],
