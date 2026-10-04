@@ -1,9 +1,10 @@
 // Funciones puras de los rituales de cierre (spec 2026-09-13-rituales-design.md): esqueletos de
 // nota, enlazado en hubs, cruce de `fuentes:` con los archivos del ciclo, rango git, rotación de
-// Pendientes.md y copias de specs. Sin red; git entra como `exec(args, cwd)` inyectable para que
-// las pruebas no necesiten un repo. Se instala junto a rag.mjs en R.A.G/.
+// Pendientes.md y copias de specs. Sin red; git entra como `exec(args)` inyectable para que las
+// pruebas no necesiten un repo. Se instala junto a rag.mjs en R.A.G/ (importa rag-lib.mjs).
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { analizarPendientes } from "./rag-lib.mjs";
 
 const sinComentarios = texto => String(texto).replace(/<!--[\s\S]*?-->/g, "");
 
@@ -206,4 +207,80 @@ export function specsYPlanesDelCiclo({ docsEnRepo, repoRel, archivos = [], notas
             .filter(n => !fechaDesde || String(n.fecha || "") >= fechaDesde)
             .map(n => n.rel),
     };
+}
+
+// --- Pendientes -----------------------------------------------------------------------------
+
+// Localiza [inicio, fin) de las líneas de la sección "## Cerrado recientemente" que pertenecen al
+// proyecto: su "### <proyecto>" si lo hay, o toda la sección si no existen subsecciones. La sección
+// termina en el siguiente "## " o en el pie "Relacionado:" del hub.
+function zonaCerrado(lineas, proyecto) {
+    const iSec = lineas.findIndex(l => /^##\s+Cerrado\b/i.test(l.trim()));
+    if (iSec < 0) return null;
+    let fin = iSec + 1;
+    while (fin < lineas.length && !/^##\s/.test(lineas[fin].trim()) && !/^Relacionado:/i.test(lineas[fin].trim())) fin++;
+    const subs = [];
+    for (let i = iSec + 1; i < fin; i++) if (/^###\s/.test(lineas[i].trim())) subs.push(i);
+    if (!subs.length) return { inicio: iSec + 1, fin };
+    const i = subs.find(j => lineas[j].trim().replace(/^###\s+/, "") === proyecto);
+    if (i === undefined) return null;
+    const siguiente = subs.find(j => j > i);
+    return { inicio: i + 1, fin: siguiente === undefined ? fin : siguiente };
+}
+
+// Rotación del cierre de ciclo: lo cerrado en este ciclo (cierre >= fechaDesde) se queda y se
+// devuelve en `cerradosCiclo` para copiarlo a la nota de cierre; lo de ciclos anteriores sale del
+// índice, y lo que no esté ya en ninguna nota de cierre (`yaArchivado`) se devuelve en `archivar`
+// para no perderlo. Si la zona tiene párrafos narrativos no toca nada: `bloqueado` + sus líneas.
+// { texto, cerradosCiclo, archivar, bloqueado, lineas }
+export function rotarPendientes(texto, { proyecto, fechaDesde, yaArchivado = () => true }) {
+    const original = String(texto);
+    const lineas = original.split(/\r?\n/);
+    const zona = zonaCerrado(lineas, proyecto);
+    if (!zona) return { texto: original, cerradosCiclo: [], archivar: [], bloqueado: false, lineas: [] };
+    const parrafos = analizarPendientes(original).avisos
+        .filter(a => a.tipo === "parrafo" && a.linea > zona.inicio && a.linea <= zona.fin)
+        .map(a => a.linea);
+    if (parrafos.length) return { texto: original, cerradosCiclo: [], archivar: [], bloqueado: true, lineas: parrafos };
+
+    const cerradosCiclo = [], archivar = [], conservadas = [];
+    for (let i = zona.inicio; i < zona.fin; i++) {
+        const l = lineas[i];
+        const m = l.trim().match(/^-\s*\((\d{4}-\d{2}-\d{2})\s*(?:→|->)\s*(\d{4}-\d{2}-\d{2})\)/);
+        if (!m) { conservadas.push(l); continue; }
+        if (!fechaDesde || m[2] >= fechaDesde) { cerradosCiclo.push(l.trim()); conservadas.push(l); continue; }
+        if (!yaArchivado(l.trim())) archivar.push(l.trim());
+    }
+    const utiles = conservadas.filter(l => l.trim() && l.trim() !== "-");
+    const cuerpo = utiles.length ? [...utiles, ""] : ["-", ""];
+    lineas.splice(zona.inicio, zona.fin - zona.inicio, ...cuerpo);
+    return { texto: lineas.join("\n"), cerradosCiclo, archivar, bloqueado: false, lineas: [] };
+}
+
+// --- Copias de specs y planes ---------------------------------------------------------------
+
+// Una copia lleva `espejo_de:` en su frontmatter (no basta con que aparezca en el cuerpo: un spec
+// puede mostrar un frontmatter de ejemplo).
+export function esCopia(texto) {
+    const m = String(texto).replace(/\r\n/g, "\n").match(/^---\n([\s\S]*?)\n---\n/);
+    return !!m && /^espejo_de:\s*\S/m.test(m[1]);
+}
+
+// Copia para el vault: frontmatter propio (proyecto, fuentes, espejo_de) + aviso de origen.
+export function copiaDeSpec(texto, { proyecto, fuente }) {
+    const t = String(texto).replace(/\r\n/g, "\n");
+    if (esCopia(t)) return t;
+    const m = t.match(/^---\n([\s\S]*?)\n---\n/);
+    // conserva el resto del frontmatter; de las claves propias de la copia se salta también su lista
+    const previas = [];
+    let saltando = false;
+    for (const l of m ? m[1].split("\n") : []) {
+        if (/^\s/.test(l) && l.trim()) { if (!saltando) previas.push(l); continue; }
+        saltando = /^(proyecto|fuentes|espejo_de):/.test(l);
+        if (!saltando) previas.push(l);
+    }
+    const cuerpo = m ? t.slice(m[0].length).replace(/^\n+/, "") : t.replace(/^\n+/, "");
+    const cabecera = ["---", `proyecto: ${proyecto}`, "fuentes:", `  - ${fuente}`, `espejo_de: ${fuente}`,
+        ...previas, "---", "", `> Copia de \`${fuente}\` generada por fin-ciclo — edita el original.`, ""];
+    return `${cabecera.join("\n")}\n${cuerpo}`;
 }

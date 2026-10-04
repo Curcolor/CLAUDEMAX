@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import {
     casaGlob, hubDeNota, enlazarEnHub, esqueletoNota, grabarCommit, notasAfectadas,
     gitReal, detectarRepo, ultimaNotaConCommit, rangoDelCiclo, specsYPlanesDelCiclo,
+    rotarPendientes, copiaDeSpec, esCopia,
 } from "../rituales-lib.mjs";
 
 const hayGit = spawnSync("git", ["--version"]).status === 0;
@@ -190,4 +191,78 @@ test("specsYPlanesDelCiclo: del repo solo con docs_en_repo; del vault por proyec
     assert.deepEqual(r.vault, ["Superpowers/Planes/nueva.md"]);
     assert.deepEqual(specsYPlanesDelCiclo({ docsEnRepo: false, repoRel: "MiRepo",
         archivos: ["MiRepo/docs/superpowers/specs/x.md"], notasVault: [], proyecto: "X", fechaDesde: "2026-01-01" }).specsRepo, []);
+});
+
+const PENDIENTES = [
+    "# Pendientes", "",
+    "## Abierto", "### CLAUDEMAX",
+    "- (2026-09-01) queda el sub-proyecto 6 — [[x]]", "",
+    "## Cerrado recientemente",
+    "### CLAUDEMAX",
+    "- (2026-09-01 → 2026-09-20) rituales de cierre — [[2026-09-20-cierre-rituales]]",
+    "- (2026-08-01 → 2026-09-01) contexto fuera del repo — [[2026-09-13-cierre-reglas]]",
+    "- (2026-07-01 → 2026-08-01) vault v2 — [[nota-perdida]]",
+    "### OtroProyecto",
+    "- (2026-05-01 → 2026-06-01) algo de otro — [[y]]", "",
+    "Relacionado: [[Bienvenida]]", "",
+].join("\n");
+
+test("rotarPendientes: copia lo del ciclo, saca lo anterior, archiva lo que no esté en ninguna nota de cierre y no toca otros proyectos", () => {
+    const r = rotarPendientes(PENDIENTES, {
+        proyecto: "CLAUDEMAX",
+        fechaDesde: "2026-09-13",
+        yaArchivado: linea => linea.includes("contexto fuera del repo"),
+    });
+    assert.equal(r.bloqueado, false);
+    assert.equal(r.cerradosCiclo.length, 1);
+    assert.match(r.cerradosCiclo[0], /rituales de cierre/);
+    assert.equal(r.archivar.length, 1);
+    assert.match(r.archivar[0], /vault v2/);
+    assert.match(r.texto, /rituales de cierre/);
+    assert.ok(!r.texto.includes("contexto fuera del repo"), "lo de ciclos anteriores sale del índice");
+    assert.ok(!r.texto.includes("vault v2"));
+    assert.match(r.texto, /### OtroProyecto\n- \(2026-05-01 → 2026-06-01\) algo de otro/, "otro proyecto intacto");
+    assert.match(r.texto, /## Abierto\n### CLAUDEMAX\n- \(2026-09-01\)/, "Abierto no se toca");
+    // idempotente
+    assert.equal(rotarPendientes(r.texto, { proyecto: "CLAUDEMAX", fechaDesde: "2026-09-13", yaArchivado: () => true }).texto, r.texto);
+    // la última subsección termina en el pie "Relacionado:", que se conserva con su línea en blanco
+    const otro = rotarPendientes(PENDIENTES, { proyecto: "OtroProyecto", fechaDesde: "2026-09-13", yaArchivado: () => true });
+    assert.match(otro.texto, /### OtroProyecto\n-\n\nRelacionado: \[\[Bienvenida\]\]\n$/);
+    // proyecto sin subsección propia cuando las hay: no se toca nada
+    assert.equal(rotarPendientes(PENDIENTES, { proyecto: "Nadie", fechaDesde: "2026-09-13" }).texto, PENDIENTES);
+});
+
+test("rotarPendientes: sin subsecciones rota toda la sección; con párrafo se bloquea y no cambia nada", () => {
+    const plano = ["## Abierto", "-", "", "## Cerrado recientemente",
+        "- (2026-08-01 → 2026-09-01) algo viejo — [[z]]", ""].join("\n");
+    const r = rotarPendientes(plano, { proyecto: "CLAUDEMAX", fechaDesde: "2026-09-13", yaArchivado: () => true });
+    assert.equal(r.cerradosCiclo.length, 0);
+    assert.ok(!r.texto.includes("algo viejo"));
+    assert.match(r.texto, /## Cerrado recientemente\n-\n/, "la sección vacía conserva un guion");
+    const conParrafo = ["## Cerrado recientemente", "Aquí alguien se puso a contar una historia.",
+        "- (2026-08-01 → 2026-09-01) algo — [[z]]", ""].join("\n");
+    const b = rotarPendientes(conParrafo, { proyecto: "CLAUDEMAX", fechaDesde: "2026-09-13", yaArchivado: () => true });
+    assert.equal(b.bloqueado, true);
+    assert.equal(b.texto, conParrafo);
+    assert.deepEqual(b.lineas, [2]);
+});
+
+test("copiaDeSpec y esCopia: frontmatter propio, aviso de origen y detección", () => {
+    const original = "---\nfecha: 2026-09-20\n---\n\n# Spec\n\ncuerpo\n";
+    const copia = copiaDeSpec(original, { proyecto: "CLAUDEMAX", fuente: "Herramientas/CLAUDEMAX/docs/superpowers/specs/x.md" });
+    assert.match(copia, /^---\nproyecto: CLAUDEMAX\nfuentes:\n  - Herramientas\/CLAUDEMAX\/docs\/superpowers\/specs\/x\.md\nespejo_de: Herramientas\/CLAUDEMAX\/docs\/superpowers\/specs\/x\.md\nfecha: 2026-09-20\n---\n/);
+    assert.match(copia, /> Copia de `Herramientas\/CLAUDEMAX\/docs\/superpowers\/specs\/x\.md` generada por fin-ciclo — edita el original\./);
+    assert.match(copia, /# Spec\n\ncuerpo/);
+    assert.equal(esCopia(copia), true);
+    assert.equal(esCopia(original), false);
+    // sobre una copia previa no duplica el aviso ni el frontmatter
+    assert.equal(copiaDeSpec(copia, { proyecto: "CLAUDEMAX", fuente: "Herramientas/CLAUDEMAX/docs/superpowers/specs/x.md" }), copia);
+    // un spec que muestra un frontmatter de ejemplo en su cuerpo no es una copia
+    assert.equal(esCopia("---\nfecha: 2026-09-20\n---\n\n```yaml\nespejo_de: algo\n```\n"), false);
+    // conserva las listas de otras claves y sustituye las de fuentes
+    const conListas = "---\ntags:\n  - spec\n  - rituales\nfuentes:\n  - viejo/x.md\nfecha: 2026-09-20\n---\n\n# S\n";
+    assert.match(copiaDeSpec(conListas, { proyecto: "P", fuente: "R/s.md" }),
+        /^---\nproyecto: P\nfuentes:\n  - R\/s\.md\nespejo_de: R\/s\.md\ntags:\n  - spec\n  - rituales\nfecha: 2026-09-20\n---\n/);
+    // sin frontmatter y con CRLF
+    assert.match(copiaDeSpec("# Plan\r\n\r\ntexto\r\n", { proyecto: "P", fuente: "R/p.md" }), /^---\nproyecto: P\n[\s\S]*---\n\n> Copia de `R\/p\.md`[^\n]*\n\n# Plan\n\ntexto\n$/);
 });
