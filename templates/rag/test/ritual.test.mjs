@@ -45,7 +45,7 @@ test("init-proyecto: contexto en .claude/proyectos, índice, hub y .gitignore; n
         assert.equal(r.status, 0, r.out);
         const ctx = leer(ws, ".claude", "proyectos", "MiRepo.md");
         assert.ok(!ctx.includes("{{"), "sin marcadores");
-        assert.match(ctx, /^---\r?\nproyecto: MiRepo\r?\nruta: MiRepo\r?\ndescripcion: API de catálogos\r?\ninicializado: \d{4}-\d{2}-\d{2}\r?\n---/);
+        assert.match(ctx, /^---\r?\nproyecto: MiRepo\r?\nruta: MiRepo\r?\ndescripcion: API de catálogos\r?\ninicializado: \d{4}-\d{2}-\d{2}\r?\ndocs_en_repo: false\r?\n---/);
         assert.match(ctx, /## Estructura/);
         assert.ok(ctx.includes(`(\`${path.join(ws, "MiRepo").replace(/\\/g, "/")}\`)`), "ruta absoluta con /");
         assert.match(leer(ws, ".claude", "proyectos", "_indice.md"), /^- \*\*MiRepo\*\* — `MiRepo` — API de catálogos @MiRepo\.md$/m);

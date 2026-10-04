@@ -38,8 +38,10 @@ test("sustituirMarcadores y marcadoresSinSustituir", () => {
 
 test("leerProyecto: frontmatter con CRLF; sin frontmatter → legible=false con valores por defecto", () => {
     const p = leerProyecto("---\r\nproyecto: Otro Repo\r\nruta: Herramientas/otro\r\ndescripcion: API de catálogos\r\ninicializado: 2026-09-13\r\n---\r\n# x\r\n", "Otro-Repo.md");
-    assert.deepEqual(p, { archivo: "Otro-Repo.md", nombre: "Otro Repo", ruta: "Herramientas/otro", descripcion: "API de catálogos", legible: true });
-    assert.deepEqual(leerProyecto("# a mano\n", "suelto.md"), { archivo: "suelto.md", nombre: "suelto", ruta: "?", descripcion: "(sin descripción)", legible: false });
+    assert.deepEqual(p, { archivo: "Otro-Repo.md", nombre: "Otro Repo", ruta: "Herramientas/otro", descripcion: "API de catálogos", legible: true, docsEnRepo: false });
+    assert.deepEqual(leerProyecto("# a mano\n", "suelto.md"), { archivo: "suelto.md", nombre: "suelto", ruta: "?", descripcion: "(sin descripción)", legible: false, docsEnRepo: false });
+    assert.equal(leerProyecto("---\nproyecto: X\nruta: X\ndocs_en_repo: true\n---\n", "X.md").docsEnRepo, true);
+    assert.equal(leerProyecto("---\nproyecto: X\nruta: X\ndocs_en_repo: false\n---\n", "X.md").docsEnRepo, false);
 });
 
 test("generarIndice: cabecera + una línea por proyecto ordenada por nombre, import relativo al índice", () => {
@@ -53,6 +55,8 @@ test("generarIndice: cabecera + una línea por proyecto ordenada por nombre, imp
         "- **zeta** — `zeta` — (sin descripción) @zeta.md",
     ]);
     assert.equal(generarIndice([]), CABECERA_INDICE);
+    assert.match(generarIndice([{ archivo: "X.md", nombre: "X", ruta: "X", descripcion: "d", docsEnRepo: true }]),
+        /^- \*\*X\*\* — `X` \(docs en repo\) — d @X\.md$/m);
 });
 
 test("completarGitignore: vacío, sin salto final, idempotente, equivalentes sin ancla cuentan", () => {
@@ -76,7 +80,8 @@ test("esClaudemaxViejo: cabecera de init-proyecto v1 con o sin comentario HTML",
 test("templates/rules/proyecto.md v2: frontmatter, cinco secciones, marcadores conocidos; ya no resume las reglas", () => {
     const tpl = fs.readFileSync(path.join(REPO, "templates", "rules", "proyecto.md"), "utf8").replace(/\r\n/g, "\n");
     const { meta } = parseFrontmatter(tpl);
-    assert.deepEqual(Object.keys(meta).sort(), ["descripcion", "inicializado", "proyecto", "ruta"]);
+    assert.deepEqual(Object.keys(meta).sort(), ["descripcion", "docs_en_repo", "inicializado", "proyecto", "ruta"]);
+    assert.equal(meta.docs_en_repo, "false", "explícito: los specs van al vault salvo que el proyecto diga lo contrario");
     for (const s of ["## Estructura", "## Comandos", "## Estado", "## Trampas que ya costaron tiempo", "## Convenciones"]) {
         assert.ok(tpl.includes(`\n${s}\n`), s);
     }

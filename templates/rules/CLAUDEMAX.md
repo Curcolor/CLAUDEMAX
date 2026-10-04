@@ -136,6 +136,10 @@ confiar; con `⚠ REEMPLAZADA`, lee la nota que la reemplaza. Regla de conflicto
 decisiones > docs_formales/specs > entrevistas > conocimiento/aprendizaje/codigo > planes >
 bitacoras — gana la autoridad, no la fecha.
 
+Specs y planes van a `V.A.U.L.T/Superpowers/{Specs,Planes}/` —son contexto de Claude (regla 6)—,
+salvo que el proyecto declare `docs_en_repo: true` en su `proyectos/<n>.md`; entonces viven en
+`docs/superpowers/` del repo y `fin-ciclo --cerrar` los copia al vault.
+
 ## 10. Recordatorios justo a tiempo
 
 Las reglas que se olvidan a mitad de una tarea larga no se arreglan repitiéndolas aquí: se

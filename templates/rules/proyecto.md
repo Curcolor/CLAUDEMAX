@@ -3,10 +3,13 @@ proyecto: {{PROYECTO}}
 ruta: {{RUTA}}
 descripcion: {{DESCRIPCION}}
 inicializado: {{FECHA}}
+docs_en_repo: false
 ---
 <!--
     Contexto de {{PROYECTO}} para Claude Code. Lo creó `ritual.mjs init-proyecto` desde
     templates/rules/proyecto.md y desde ese momento es TUYO: la reinstalación no lo toca.
+    docs_en_repo: `true` si este repo publica sus specs y planes en `docs/superpowers/`; entonces
+    `fin-ciclo --cerrar` los copia al vault. Con `false` van directamente a V.A.U.L.T/Superpowers/.
     Lo carga toda sesión del workspace vía .claude/CLAUDEMAX.md → proyectos/_indice.md.
     Rellena las secciones consultando el grafo (codebase-memory get_architecture, graphify
     query_graph), nunca de memoria; deja vacía la que no tenga nada real todavía. Tope ~150

@@ -35,6 +35,7 @@ export function marcadoresSinSustituir(texto) {
 }
 
 // Entrada del índice a partir del texto de proyectos/<archivo>. legible = tiene `proyecto:`.
+// docsEnRepo = el repo publica sus specs y planes en docs/superpowers/ (fin-ciclo los copia al vault).
 export function leerProyecto(texto, archivo) {
     const { meta } = parseFrontmatter(String(texto ?? ""));
     return {
@@ -43,6 +44,7 @@ export function leerProyecto(texto, archivo) {
         ruta: meta.ruta || "?",
         descripcion: meta.descripcion || "(sin descripción)",
         legible: Boolean(meta.proyecto),
+        docsEnRepo: String(meta.docs_en_repo ?? "").trim().toLowerCase() === "true",
     };
 }
 
@@ -58,7 +60,7 @@ export const CABECERA_INDICE = [
 export function generarIndice(proyectos) {
     const lineas = [...proyectos]
         .sort((a, b) => a.nombre.localeCompare(b.nombre))
-        .map(p => `- **${p.nombre}** — \`${p.ruta}\` — ${p.descripcion} @${p.archivo}`);
+        .map(p => `- **${p.nombre}** — \`${p.ruta}\`${p.docsEnRepo ? " (docs en repo)" : ""} — ${p.descripcion} @${p.archivo}`);
     return lineas.length ? `${CABECERA_INDICE}\n${lineas.join("\n")}\n` : CABECERA_INDICE;
 }
 

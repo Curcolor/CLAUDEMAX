@@ -242,9 +242,9 @@ test("hook: sin coincidencia, stdin vacío, JSON roto y CLAUDEMAX_RECORDAR=0 →
 const TPL = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "templates", "recordatorios");
 
 test("templates/recordatorios: archivos exactos, los de fábrica válidos y activos, los ejemplos válidos e inactivos, sin 'Maestra' en los genéricos", () => {
-    assert.deepEqual(fs.readdirSync(TPL).sort(), ["_plantilla.md", "contexto-fuera-del-repo.md", "editar-vault.md", "ejemplos", "estandares-dotnet.md", "orden-herramientas.md", "pruebas-dotnet.md", "tocar-produccion.md"]);
+    assert.deepEqual(fs.readdirSync(TPL).sort(), ["_plantilla.md", "contexto-fuera-del-repo.md", "editar-vault.md", "ejemplos", "estandares-dotnet.md", "orden-herramientas.md", "pruebas-dotnet.md", "specs-en-vault.md", "tocar-produccion.md"]);
     assert.deepEqual(fs.readdirSync(path.join(TPL, "ejemplos", "maestrasuite")).sort(), ["despliegue.md", "estandares-maestrasuite.md", "orden-busqueda.md", "rojos-suite-api.md"]);
-    for (const f of ["contexto-fuera-del-repo.md", "editar-vault.md", "estandares-dotnet.md", "orden-herramientas.md", "pruebas-dotnet.md", "tocar-produccion.md"]) {
+    for (const f of ["contexto-fuera-del-repo.md", "editar-vault.md", "estandares-dotnet.md", "orden-herramientas.md", "pruebas-dotnet.md", "specs-en-vault.md", "tocar-produccion.md"]) {
         const texto = fs.readFileSync(path.join(TPL, f), "utf8");
         const r = parseRecordatorio(texto, f);
         assert.equal(r.ok, true, `${f}: ${r.motivo}`);
@@ -277,6 +277,8 @@ test("de fábrica: disparan con los eventos que deben", async () => {
         [{ tool_name: "Write", tool_input: { file_path: "C:\\w\\MiRepo\\CLAUDE.md" } }, /CONTEXTO FUERA DEL REPO/],
         [{ tool_name: "Edit", tool_input: { file_path: "C:/w/MiRepo/.claude/CLAUDE.md" } }, /CONTEXTO FUERA DEL REPO/],
         [{ tool_name: "Edit", tool_input: { file_path: "C:\\w\\V.A.U.L.T\\Decisiones\\x.md" } }, /NOTA DEL VAULT \(regla 9\)/],
+        [{ tool_name: "Write", tool_input: { file_path: "C:/w/MiRepo/docs/superpowers/specs/x-design.md" } }, /SPECS Y PLANES/],
+        [{ tool_name: "Write", tool_input: { file_path: "C:\\w\\MiRepo\\docs\\superpowers\\plans\\x.md" } }, /SPECS Y PLANES/],
     ];
     for (const [evento, re] of casos) {
         const r = await correrHook({ ...evento, cwd: TPL }, env);
@@ -289,6 +291,7 @@ test("de fábrica: disparan con los eventos que deben", async () => {
         { tool_name: "Edit", tool_input: { file_path: "C:/w/.claude/proyectos/MiRepo.md" } },
         { tool_name: "Write", tool_input: { file_path: "C:/Users/u/.claude/projects/p/memory/x.md" } },
         { tool_name: "Edit", tool_input: { file_path: "C:/w/MiRepo/.claude/settings.local.json" } },
+        { tool_name: "Write", tool_input: { file_path: "C:/w/MiRepo/docs/otra.md" } },
     ]) {
         const r = await correrHook({ ...evento, cwd: TPL }, env);
         assert.equal(r.stdout, "", JSON.stringify(evento));
