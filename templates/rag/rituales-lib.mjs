@@ -177,8 +177,14 @@ export function rangoDelCiclo({ repo, ragRoot, desde, notas = [], exec = gitReal
         if (ultima) ref = ultima.commit;
         else if (notas.some(n => n.commit)) aviso = "el commit del último cierre ya no existe (¿rebase?); se usa la base de la rama";
     }
-    if (!ref) ref = exec(["merge-base", "HEAD", "main"]) || exec(["merge-base", "HEAD", "master"])
-        || (exec(["rev-list", "--max-parents=0", "HEAD"]) || "").split("\n")[0].trim() || null;
+    if (!ref) {
+        // la base de la rama solo sirve si no es el propio HEAD (trabajando sobre main el rango
+        // quedaría vacío): entonces el primer ciclo va desde el primer commit
+        const head = exec(["rev-parse", "HEAD"]);
+        const base = rama => { const b = exec(["merge-base", "HEAD", rama]); return b && b !== head ? b : null; };
+        ref = base("main") || base("master")
+            || (exec(["rev-list", "--max-parents=0", "HEAD"]) || "").split("\n")[0].trim() || null;
+    }
     if (!ref) return { desde: null, fechaDesde: null, archivos: [], aviso: aviso || "sin historia git" };
     const diff = exec(["diff", "--name-only", `${ref}..HEAD`]) || "";
     const porcelain = exec(["status", "--porcelain"]) || "";
@@ -251,8 +257,10 @@ export function rotarPendientes(texto, { proyecto, fechaDesde, yaArchivado = () 
         if (!fechaDesde || m[2] >= fechaDesde) { cerradosCiclo.push(l.trim()); conservadas.push(l); continue; }
         if (!yaArchivado(l.trim())) archivar.push(l.trim());
     }
+    // la zona vacía (o con solo el comentario de la plantilla) conserva un "-" para seguir escribiendo
     const utiles = conservadas.filter(l => l.trim() && l.trim() !== "-");
-    const cuerpo = utiles.length ? [...utiles, ""] : ["-", ""];
+    const hayPendientes = sinComentarios(utiles.join("\n")).split("\n").some(l => /^-\s*\S/.test(l.trim()));
+    const cuerpo = hayPendientes ? [...utiles, ""] : [...utiles, "-", ""];
     lineas.splice(zona.inicio, zona.fin - zona.inicio, ...cuerpo);
     return { texto: lineas.join("\n"), cerradosCiclo, archivar, bloqueado: false, lineas: [] };
 }

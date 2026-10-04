@@ -141,6 +141,11 @@ test("rangoDelCiclo: --desde manda; sin candidatos usa merge-base main, luego ma
     const raiz = rangoDelCiclo({ repo: "/w/MiRepo", ragRoot: "/w", notas: [],
         exec: gitFalso({ ...base, "rev-list --max-parents=0 HEAD": "r00t\notr4", "diff --name-only": "", "status --porcelain": "" }) });
     assert.equal(raiz.desde, "r00t", "con varias raíces se queda con la primera");
+    // trabajando sobre main, la base de la rama es HEAD (rango vacío): primer ciclo = desde la raíz
+    const enMain = rangoDelCiclo({ repo: "/w/MiRepo", ragRoot: "/w", notas: [],
+        exec: gitFalso({ ...base, "rev-parse HEAD": "h3ad", "merge-base HEAD main": "h3ad",
+            "rev-list --max-parents=0 HEAD": "r00t", "diff --name-only": "", "status --porcelain": "" }) });
+    assert.equal(enMain.desde, "r00t");
     // candidato que ya no existe → cae a merge-base y avisa
     const perdido = rangoDelCiclo({ repo: "/w/MiRepo", ragRoot: "/w", notas: [{ rel: "x.md", commit: "vi3jo" }],
         exec: gitFalso({ ...base, "merge-base HEAD main": "m41n", "diff --name-only": "", "status --porcelain": "" }) });
@@ -239,6 +244,12 @@ test("rotarPendientes: sin subsecciones rota toda la sección; con párrafo se b
     assert.equal(r.cerradosCiclo.length, 0);
     assert.ok(!r.texto.includes("algo viejo"));
     assert.match(r.texto, /## Cerrado recientemente\n-\n/, "la sección vacía conserva un guion");
+    // con el comentario de la plantilla: se conserva el comentario y vuelve el guion
+    const conComentario = ["## Cerrado recientemente", "<!-- formato:", "     - (a → b) x — [[y]] -->",
+        "- (2026-08-01 → 2026-09-01) algo viejo — [[z]]", "", "Relacionado: [[Bienvenida]]", ""].join("\n");
+    const c = rotarPendientes(conComentario, { proyecto: "CLAUDEMAX", fechaDesde: "2026-09-13", yaArchivado: () => true });
+    assert.equal(c.texto, ["## Cerrado recientemente", "<!-- formato:", "     - (a → b) x — [[y]] -->", "-", "",
+        "Relacionado: [[Bienvenida]]", ""].join("\n"));
     const conParrafo = ["## Cerrado recientemente", "Aquí alguien se puso a contar una historia.",
         "- (2026-08-01 → 2026-09-01) algo — [[z]]", ""].join("\n");
     const b = rotarPendientes(conParrafo, { proyecto: "CLAUDEMAX", fechaDesde: "2026-09-13", yaArchivado: () => true });
